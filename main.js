@@ -1,33 +1,60 @@
 /* ======================================
    AdventureWedding
-   Version 0.1.0
+   Version 0.2.0
 ====================================== */
 
 const startButton = document.getElementById("startButton");
 
-startButton.addEventListener("click", () => {
+const dialog = document.createElement("div");
 
-    startButton.innerText = "LOADING...";
+dialog.id = "dialog";
 
-    startButton.disabled = true;
+dialog.innerHTML = `
+<div class="dialogBox">
 
-    setTimeout(() => {
+<h2>欢迎来到《冒険の結婚式》</h2>
 
-        alert(
-`欢迎来到《冒険の結婚式》
+<p>
 
-森 × 乐
+这是森与乐的故事。
 
-第一章将在下一版本开放。
+<br><br>
 
-谢谢你陪伴我们，
-走进这段故事。`
-        );
+第一章：
 
-        startButton.innerText = "PRESS START";
+东京
 
-        startButton.disabled = false;
+<br><br>
 
-    },1000);
+开发进行中……
+
+</p>
+
+<button id="closeDialog">
+
+开始旅程
+
+</button>
+
+</div>
+`;
+
+document.body.appendChild(dialog);
+
+dialog.style.display="none";
+
+startButton.addEventListener("click",()=>{
+
+    dialog.style.display="flex";
+
+});
+
+document.addEventListener("click",(e)=>{
+
+    if(e.target.id==="closeDialog"){
+
+        dialog.style.display="none";
+
+    }
 
 });
