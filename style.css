@@ -1,12 +1,23 @@
+/* ======================================
+   AdventureWedding
+   Version 0.1.0
+====================================== */
+
 *{
     margin:0;
     padding:0;
     box-sizing:border-box;
 }
 
+html,
 body{
 
-    height:100vh;
+    width:100%;
+    height:100%;
+
+}
+
+body{
 
     display:flex;
 
@@ -14,77 +25,150 @@ body{
 
     align-items:center;
 
-    background:linear-gradient(#0d1b2a,#1b263b,#415a77);
+    overflow:hidden;
 
     color:white;
 
+    background:
+    linear-gradient(
+        180deg,
+        #071321 0%,
+        #10273b 55%,
+        #1e3d5a 100%
+    );
+
     font-family:
+
     "PingFang SC",
+
     "Noto Sans SC",
+
+    Arial,
+
     sans-serif;
 
 }
 
-.overlay{
+.screen{
+
+    width:100%;
+
+    max-width:900px;
 
     text-align:center;
+
+    padding:30px;
+
+}
+
+.logo{
+
+    margin-bottom:60px;
 
 }
 
 h1{
 
-    font-size:54px;
+    font-size:58px;
 
-    letter-spacing:4px;
+    font-weight:700;
 
-    margin-bottom:18px;
+    letter-spacing:6px;
+
+    margin-bottom:20px;
 
 }
 
 .subtitle{
 
-    color:#d5d5d5;
+    color:#d6d6d6;
 
-    margin-bottom:30px;
+    font-size:22px;
 
-    font-size:20px;
+    margin-bottom:40px;
 
 }
 
 .names{
 
-    font-size:32px;
+    font-size:36px;
 
-    margin-bottom:45px;
+    letter-spacing:10px;
+
+    margin-bottom:60px;
 
 }
 
-button{
-
-    padding:18px 48px;
-
-    font-size:22px;
+#startButton{
 
     border:none;
 
-    border-radius:10px;
+    background:white;
+
+    color:#222;
+
+    padding:
+
+    18px 56px;
+
+    border-radius:12px;
+
+    font-size:22px;
 
     cursor:pointer;
 
-    transition:.3s;
+    transition:all .3s ease;
 
 }
 
-button:hover{
+#startButton:hover{
 
-    transform:scale(1.05);
+    transform:
+
+    scale(1.05);
 
 }
 
-.footer{
+footer{
 
-    margin-top:60px;
+    margin-top:80px;
 
-    color:#c7c7c7;
+    color:#bfbfbf;
+
+    font-size:18px;
+
+}
+
+@media(max-width:768px){
+
+    h1{
+
+        font-size:42px;
+
+        letter-spacing:2px;
+
+    }
+
+    .subtitle{
+
+        font-size:18px;
+
+    }
+
+    .names{
+
+        font-size:28px;
+
+        letter-spacing:6px;
+
+    }
+
+    #startButton{
+
+        width:100%;
+
+        max-width:320px;
+
+    }
 
 }
