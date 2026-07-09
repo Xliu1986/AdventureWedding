@@ -172,3 +172,56 @@ footer{
     }
 
 }
+/* Dialog */
+
+#dialog{
+
+    position:fixed;
+
+    left:0;
+
+    top:0;
+
+    width:100%;
+
+    height:100%;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    background:rgba(0,0,0,.6);
+
+}
+
+.dialogBox{
+
+    width:85%;
+
+    max-width:420px;
+
+    background:white;
+
+    color:#222;
+
+    padding:30px;
+
+    border-radius:18px;
+
+    text-align:center;
+
+}
+
+.dialogBox h2{
+
+    margin-bottom:20px;
+
+}
+
+.dialogBox button{
+
+    margin-top:30px;
+
+}
