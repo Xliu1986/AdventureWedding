@@ -1,4 +1,7 @@
-
+/* ======================================
+   AdventureWedding
+   Version 0.1.0
+====================================== */
 
 const startButton = document.getElementById("startButton");
 
