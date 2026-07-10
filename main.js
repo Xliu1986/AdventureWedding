@@ -45,133 +45,69 @@ for(let i=0;i<120;i++){
 
 /* ---------- Sakura ---------- */
 
-const sakura=[];
+const petals = [];
 
-for(let i=0;i<35;i++){
+for (let i = 0; i < 60; i++) {
 
-    sakura.push({
+    petals.push({
 
-        x:Math.random()*w,
+        x: Math.random() * w,
 
-        y:Math.random()*h,
+        y: Math.random() * h,
 
-        size:4+Math.random()*5,
+        size: 8 + Math.random() * 8,
 
-        speed:0.4+Math.random()*0.8,
+        speed: 0.5 + Math.random() * 1.2,
 
-        drift:-0.5+Math.random()
+        swing: Math.random() * Math.PI * 2,
 
-    });
+        rotate: Math.random() * Math.PI,
 
-}
-
-
-
-function drawSky(){
-
-    ctx.fillStyle="#071321";
-
-    ctx.fillRect(0,0,w,h);
-
-}
-
-
-
-function drawStars(){
-
-    stars.forEach(star=>{
-
-        star.a+=star.speed;
-
-        let alpha=(Math.sin(star.a)+1)/2;
-
-        ctx.beginPath();
-
-        ctx.arc(star.x,star.y,star.r,0,Math.PI*2);
-
-        ctx.fillStyle=`rgba(255,255,255,${alpha})`;
-
-        ctx.fill();
+        rotateSpeed: 0.01 + Math.random() * 0.02
 
     });
 
 }
 
+function drawPetals() {
 
+    petals.forEach(p => {
 
-function drawPetals(){
+        p.y += p.speed;
 
-    sakura.forEach(p=>{
+        p.swing += 0.02;
+
+        p.rotate += p.rotateSpeed;
+
+        p.x += Math.sin(p.swing) * 0.6;
+
+        if (p.y > h + 30) {
+
+            p.y = -30;
+
+            p.x = Math.random() * w;
+
+        }
 
         ctx.save();
 
-        ctx.translate(p.x,p.y);
+        ctx.translate(p.x, p.y);
 
-        ctx.rotate(p.y*0.01);
+        ctx.rotate(p.rotate);
 
-        ctx.fillStyle="#ffd9e6";
+        ctx.fillStyle = "#ffd7ea";
 
         ctx.beginPath();
 
-        ctx.ellipse(
-
-            0,
-
-            0,
-
-            p.size,
-
-            p.size*0.6,
-
-            0,
-
-            0,
-
-            Math.PI*2
-
-        );
+        ctx.ellipse(0, 0, p.size, p.size * 0.6, 0, 0, Math.PI * 2);
 
         ctx.fill();
 
         ctx.restore();
 
-        p.y+=p.speed;
-
-        p.x+=p.drift;
-
-        if(p.y>h+20){
-
-            p.y=-20;
-
-            p.x=Math.random()*w;
-
-        }
-
-        if(p.x<-20){
-
-            p.x=w+20;
-
-        }
-
-        if(p.x>w+20){
-
-            p.x=-20;
-
-        }
-
     });
 
 }
-
-
-
-function animate(){
-
-    drawSky();
-
-    drawStars();
-
-    drawPetals();
 
     requestAnimationFrame(animate);
 
