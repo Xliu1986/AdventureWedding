@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.5.1
+   Version 0.5.2
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -258,6 +258,39 @@ const directionByKey = {
     ArrowRight: "right"
 };
 
+const TILE_SIZE = 64;
+
+const Tile = {
+    ROAD: 0,
+    GRASS: 1,
+    SIDEWALK: 2,
+    BUILDING: 3,
+    TREE: 4
+};
+
+const tokyoMap = [
+    [3, 3, 3, 3, 3, 3, 3, 3, 2, 0, 0, 2, 3, 3, 3, 3, 3, 3, 3, 3],
+    [3, 4, 3, 3, 1, 4, 3, 3, 2, 0, 0, 2, 3, 3, 4, 3, 1, 3, 4, 3],
+    [3, 3, 1, 4, 3, 3, 4, 1, 2, 0, 0, 2, 3, 1, 3, 4, 3, 3, 1, 3],
+    [2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+    [3, 1, 4, 3, 3, 4, 1, 3, 2, 0, 0, 2, 3, 3, 4, 1, 3, 4, 3, 3],
+    [3, 3, 1, 4, 3, 3, 4, 1, 2, 0, 0, 2, 1, 4, 3, 3, 1, 3, 4, 3],
+    [3, 4, 3, 1, 4, 3, 3, 4, 2, 0, 0, 2, 3, 1, 4, 3, 3, 4, 1, 3],
+    [2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+    [3, 3, 4, 1, 3, 4, 3, 1, 2, 0, 0, 2, 3, 4, 1, 3, 3, 1, 4, 3]
+];
+
+const tileColors = {
+    [Tile.ROAD]: "#3d3d43",
+    [Tile.GRASS]: "#54764e",
+    [Tile.SIDEWALK]: "#9b9a96",
+    [Tile.BUILDING]: "#665d64",
+    [Tile.TREE]: "#2e6748"
+};
+
 function spawnPlayer() {
 
     player.x = (gameCanvas.width - player.width) / 2;
@@ -268,29 +301,24 @@ function spawnPlayer() {
 
 function drawGame() {
 
-    gameCtx.fillStyle = "#252525";
+    gameCtx.fillStyle = tileColors[Tile.ROAD];
     gameCtx.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
 
-    gameCtx.strokeStyle = "#383838";
-    gameCtx.lineWidth = 1;
+    tokyoMap.forEach((row, rowIndex) => {
 
-    for (let x = 0; x <= gameCanvas.width; x += 64) {
+        row.forEach((tile, columnIndex) => {
 
-        gameCtx.beginPath();
-        gameCtx.moveTo(x, 0);
-        gameCtx.lineTo(x, gameCanvas.height);
-        gameCtx.stroke();
+            gameCtx.fillStyle = tileColors[tile];
+            gameCtx.fillRect(
+                columnIndex * TILE_SIZE,
+                rowIndex * TILE_SIZE,
+                TILE_SIZE,
+                TILE_SIZE
+            );
 
-    }
+        });
 
-    for (let y = 0; y <= gameCanvas.height; y += 64) {
-
-        gameCtx.beginPath();
-        gameCtx.moveTo(0, y);
-        gameCtx.lineTo(gameCanvas.width, y);
-        gameCtx.stroke();
-
-    }
+    });
 
     gameCtx.fillStyle = "#ffffff";
     gameCtx.fillRect(player.x, player.y, player.width, player.height);
