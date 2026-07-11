@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.5.2
+   Version 0.5.3
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -291,6 +291,28 @@ const tileColors = {
     [Tile.TREE]: "#2e6748"
 };
 
+function isBlockedTile(x, y) {
+
+    const column = Math.floor(x / TILE_SIZE);
+    const row = Math.floor(y / TILE_SIZE);
+    const tile = tokyoMap[row]?.[column];
+
+    return tile === Tile.BUILDING || tile === Tile.TREE;
+
+}
+
+function canMoveTo(x, y) {
+
+    const right = x + player.width - 1;
+    const bottom = y + player.height - 1;
+
+    return !isBlockedTile(x, y)
+        && !isBlockedTile(right, y)
+        && !isBlockedTile(x, bottom)
+        && !isBlockedTile(right, bottom);
+
+}
+
 function spawnPlayer() {
 
     player.x = (gameCanvas.width - player.width) / 2;
@@ -347,11 +369,21 @@ function updatePlayer(deltaTime) {
     const isSprinting = pressedKeys.has("ShiftLeft") || pressedKeys.has("ShiftRight");
     const movementSpeed = player.speed * (isSprinting ? player.sprintMultiplier : 1);
 
-    player.x += horizontal * movementSpeed * deltaTime;
-    player.y += vertical * movementSpeed * deltaTime;
+    const destinationX = Math.max(
+        0,
+        Math.min(player.x + horizontal * movementSpeed * deltaTime, gameCanvas.width - player.width)
+    );
+    const destinationY = Math.max(
+        0,
+        Math.min(player.y + vertical * movementSpeed * deltaTime, gameCanvas.height - player.height)
+    );
 
-    player.x = Math.max(0, Math.min(player.x, gameCanvas.width - player.width));
-    player.y = Math.max(0, Math.min(player.y, gameCanvas.height - player.height));
+    if (canMoveTo(destinationX, destinationY)) {
+
+        player.x = destinationX;
+        player.y = destinationY;
+
+    }
 
 }
 
