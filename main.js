@@ -265,6 +265,8 @@ const dialog = document.getElementById("dialog");
 
 const titleScreen = document.getElementById("titleScreen");
 
+const gameDialogue = document.getElementById("gameDialogue");
+
 let gameStarted = false;
 
 const player = {
@@ -280,6 +282,45 @@ const player = {
 
 const playerSprite = new Image();
 playerSprite.src = "assets/player-mori-sprite-sheet-32x48.png?v=2";
+
+const le = {
+    x: 1950,
+    y: 820,
+    width: 24,
+    height: 24,
+    direction: "down",
+    moving: false,
+    animationTime: 0,
+    visible: true
+};
+
+const leSprite = new Image();
+leSprite.src = "assets/player-le-sprite-sheet-32x48.png?v=1";
+
+const DEBUG_COLLISIONS = false;
+
+const collisionRects = [
+    { x: 920, y: 0, width: 920, height: 440 },
+    { x: 1980, y: 0, width: 560, height: 420 },
+    { x: 0, y: 860, width: 1460, height: 520 },
+    { x: 0, y: 0, width: 650, height: 580 },
+    { x: 1650, y: 760, width: 150, height: 860 },
+    { x: 2200, y: 760, width: 150, height: 860 },
+    { x: 0, y: 1800, width: 1130, height: 444 },
+    { x: 1640, y: 1800, width: 1164, height: 444 }
+];
+
+const walkableZones = [
+    { x: 700, y: 420, width: 1160, height: 420 },
+    { x: 1740, y: 420, width: 560, height: 1220 },
+    { x: 0, y: 1380, width: 1540, height: 360 },
+    { x: 1130, y: 1800, width: 510, height: 444 }
+];
+
+const meetingState = {
+    triggered: false,
+    dialogueOpen: false
+};
 
 const TOKYO_WORLD_PROMPT = "Warm 16-bit top-down Tokyo spring neighborhood: Tokyo Station entrance at the top center, park and pond at upper left, shrine at upper right, shopping street on the left, sakura avenue on the right, road and crosswalk below, and a river with wooden bridges along the bottom. Use dense handcrafted pixel-art detail, clear walkable stone paths, no labels, no UI, and no NPCs.";
 const STORY_MAP_SCALE = 2;
@@ -513,6 +554,83 @@ function canMoveTo(x, y) {
 
 }
 
+function rectanglesOverlap(first, second) {
+
+    return first.x < second.x + second.width
+        && first.x + first.width > second.x
+        && first.y < second.y + second.height
+        && first.y + first.height > second.y;
+
+}
+
+function canMoveOnOfficialMap(x, y) {
+
+    const destination = { x, y, width: player.width, height: player.height };
+
+    return !collisionRects.some(rect => rectanglesOverlap(destination, rect));
+
+}
+
+function faceToward(actor, target) {
+
+    const horizontal = target.x - actor.x;
+    const vertical = target.y - actor.y;
+
+    if (Math.abs(horizontal) > Math.abs(vertical)) {
+
+        actor.direction = horizontal >= 0 ? "right" : "left";
+
+    } else {
+
+        actor.direction = vertical >= 0 ? "down" : "up";
+
+    }
+
+}
+
+function openMeetingDialogue() {
+
+    meetingState.triggered = true;
+    meetingState.dialogueOpen = true;
+    pressedKeys.clear();
+    player.moving = false;
+    faceToward(player, le);
+    faceToward(le, player);
+    gameDialogue.classList.remove("hidden");
+
+}
+
+function closeMeetingDialogue() {
+
+    if (!meetingState.dialogueOpen) return;
+
+    meetingState.dialogueOpen = false;
+    gameDialogue.classList.add("hidden");
+
+}
+
+function checkFirstMeeting() {
+
+    if (meetingState.triggered || cameraIntro.active) return;
+
+    const distance = Math.hypot(player.x - le.x, player.y - le.y);
+
+    if (distance <= 100) openMeetingDialogue();
+
+}
+
+function drawCollisionDebug() {
+
+    if (!DEBUG_COLLISIONS) return;
+
+    gameCtx.fillStyle = "rgba(232, 74, 74, 0.28)";
+    collisionRects.forEach(rect => gameCtx.fillRect(rect.x, rect.y, rect.width, rect.height));
+
+    gameCtx.fillStyle = "rgba(91, 196, 117, 0.2)";
+    walkableZones.forEach(zone => gameCtx.fillRect(zone.x, zone.y, zone.width, zone.height));
+
+}
+
 function spawnPlayer() {
 
     player.x = 1940;
@@ -557,7 +675,7 @@ function updateCamera(deltaTime) {
     const targetY = Math.max(0, Math.min(player.y + player.height / 2 - gameCanvas.height / 2, maxY));
     const followAmount = 1 - Math.pow(1 - camera.smoothing, deltaTime * 60);
 
-    if (cameraIntro.active) {
+    if (cameraIntro.active || meetingState.dialogueOpen) {
 
         cameraIntro.elapsed += deltaTime;
 
@@ -985,6 +1103,32 @@ function drawPlayer() {
 
 }
 
+function drawLe() {
+
+    if (!le.visible) return;
+
+    const directionRows = { down: 0, up: 1, left: 2, right: 3 };
+    const frame = le.moving ? Math.floor(le.animationTime / 0.14) % 4 : 0;
+    const row = directionRows[le.direction];
+
+    if (leSprite.complete && leSprite.naturalWidth) {
+
+        gameCtx.drawImage(
+            leSprite,
+            frame * 32,
+            row * 48,
+            32,
+            48,
+            le.x + (le.width - PLAYER_RENDER_WIDTH) / 2,
+            le.y + le.height - PLAYER_RENDER_HEIGHT,
+            PLAYER_RENDER_WIDTH,
+            PLAYER_RENDER_HEIGHT
+        );
+
+    }
+
+}
+
 function drawGame() {
 
     gameCtx.fillStyle = "#91ad6d";
@@ -1019,7 +1163,9 @@ function drawGame() {
 
     }
 
+    drawCollisionDebug();
     drawWorldAtmosphere();
+    drawLe();
     drawPlayer();
 
     gameCtx.restore();
@@ -1054,19 +1200,21 @@ function updatePlayer(deltaTime) {
 
     const isSprinting = pressedKeys.has("ShiftLeft") || pressedKeys.has("ShiftRight");
     const movementSpeed = player.speed * (isSprinting ? player.sprintMultiplier : 1);
-    const avenueMaxX = SAKURA_AVENUE_BOUNDS.x + SAKURA_AVENUE_BOUNDS.width - player.width;
-    const avenueMaxY = SAKURA_AVENUE_BOUNDS.y + SAKURA_AVENUE_BOUNDS.height - player.height;
 
     const destinationX = Math.max(
-        SAKURA_AVENUE_BOUNDS.x,
-        Math.min(player.x + horizontal * movementSpeed * deltaTime, avenueMaxX)
+        0,
+        Math.min(player.x + horizontal * movementSpeed * deltaTime, getWorldWidth() - player.width)
     );
     const destinationY = Math.max(
-        SAKURA_AVENUE_BOUNDS.y,
-        Math.min(player.y + vertical * movementSpeed * deltaTime, avenueMaxY)
+        0,
+        Math.min(player.y + vertical * movementSpeed * deltaTime, getWorldHeight() - player.height)
     );
 
-    if (exteriorMap.complete || canMoveTo(destinationX, destinationY)) {
+    const canMove = exteriorMap.complete && exteriorMap.naturalWidth
+        ? canMoveOnOfficialMap(destinationX, destinationY)
+        : canMoveTo(destinationX, destinationY);
+
+    if (canMove) {
 
         player.x = destinationX;
         player.y = destinationY;
@@ -1083,6 +1231,7 @@ function gameLoop(timestamp) {
     previousGameTime = timestamp;
 
     updatePlayer(deltaTime);
+    checkFirstMeeting();
     updateWorldAtmosphere(deltaTime);
 
     if (player.moving) playerAnimationTime += deltaTime;
@@ -1111,6 +1260,14 @@ startButton.addEventListener("click",()=>{
 
 window.addEventListener("keydown", event => {
 
+    if (meetingState.dialogueOpen && (event.code === "Enter" || event.code === "Space")) {
+
+        event.preventDefault();
+        closeMeetingDialogue();
+        return;
+
+    }
+
     if (!gameStarted) return;
 
     if (["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "ShiftLeft", "ShiftRight"].includes(event.code)) {
@@ -1127,6 +1284,8 @@ window.addEventListener("keydown", event => {
     }
 
 });
+
+gameDialogue.addEventListener("click", closeMeetingDialogue);
 
 window.addEventListener("keyup", event => {
 
