@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.5.0
+   Version 0.5.1
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -238,10 +238,23 @@ const player = {
     size: 24,
     x: 0,
     y: 0,
-    speed: 240
+    speed: 240,
+    sprintMultiplier: 1.8,
+    direction: "Down"
 };
 
 const pressedKeys = new Set();
+
+const directionByKey = {
+    KeyW: "Up",
+    ArrowUp: "Up",
+    KeyS: "Down",
+    ArrowDown: "Down",
+    KeyA: "Left",
+    ArrowLeft: "Left",
+    KeyD: "Right",
+    ArrowRight: "Right"
+};
 
 function spawnPlayer() {
 
@@ -298,8 +311,14 @@ function updatePlayer(deltaTime) {
 
     }
 
-    player.x += horizontal * player.speed * deltaTime;
-    player.y += vertical * player.speed * deltaTime;
+    const isSprinting = pressedKeys.has("ShiftLeft") || pressedKeys.has("ShiftRight");
+    const movementSpeed = player.speed * (isSprinting ? player.sprintMultiplier : 1);
+
+    player.x += horizontal * movementSpeed * deltaTime;
+    player.y += vertical * movementSpeed * deltaTime;
+
+    player.x = Math.max(0, Math.min(player.x, gameCanvas.width - player.size));
+    player.y = Math.max(0, Math.min(player.y, gameCanvas.height - player.size));
 
 }
 
@@ -335,10 +354,16 @@ window.addEventListener("keydown", event => {
 
     if (!gameStarted) return;
 
-    if (["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.code)) {
+    if (["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "ShiftLeft", "ShiftRight"].includes(event.code)) {
 
         event.preventDefault();
         pressedKeys.add(event.code);
+
+        if (directionByKey[event.code]) {
+
+            player.direction = directionByKey[event.code];
+
+        }
 
     }
 
