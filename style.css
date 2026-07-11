@@ -1,25 +1,7 @@
-#background{
-
-    position:fixed;
-
-    inset:0;
-
-    z-index:0;
-
-    pointer-events:none;
-
-}
-}
-
-body{
-
-    overflow:hidden;
-
-}
-/* ======================================
+/* =======================================
    AdventureWedding
-   Version 0.1.0
-====================================== */
+   Version 0.3
+======================================= */
 
 *{
     margin:0;
@@ -32,62 +14,69 @@ body{
 
     width:100%;
     height:100%;
+    overflow:hidden;
 
 }
 
 body{
 
+    background:#06111d;
+    color:white;
+
+    font-family:
+        "PingFang SC",
+        "Noto Sans SC",
+        sans-serif;
+
+}
+
+/* ================= Canvas ================= */
+
+#background{
+
+    position:fixed;
+
+    inset:0;
+
+    width:100%;
+    height:100%;
+
+    z-index:0;
+
+    display:block;
+
+}
+
+/* ================= UI ================= */
+
+.screen{
+
+    position:relative;
+
+    z-index:10;
+
+    width:100%;
+    height:100%;
+
     display:flex;
+
+    flex-direction:column;
 
     justify-content:center;
 
     align-items:center;
 
-    overflow:hidden;
-
-    color:white;
-
-    background:
-    linear-gradient(
-        180deg,
-        #071321 0%,
-        #10273b 55%,
-        #1e3d5a 100%
-    );
-
-    font-family:
-
-    "PingFang SC",
-
-    "Noto Sans SC",
-
-    Arial,
-
-    sans-serif;
-
-}
-
-.screen{
-
-    width:100%;
-
-    max-width:900px;
-
     text-align:center;
 
-    padding:30px;
+    padding:24px;
 
 }
 
-.logo{
+/* ================= Title ================= */
 
-    margin-bottom:60px;
+.title h1{
 
-}
-
-h1{
-
-    font-size:58px;
+    font-size:60px;
 
     font-weight:700;
 
@@ -99,9 +88,9 @@ h1{
 
 .subtitle{
 
-    color:#d6d6d6;
-
     font-size:22px;
+
+    color:#d9d9d9;
 
     margin-bottom:40px;
 
@@ -113,96 +102,69 @@ h1{
 
     letter-spacing:10px;
 
-    margin-bottom:60px;
+    margin-bottom:70px;
 
 }
 
+/* ================= Button ================= */
+
 #startButton{
 
-    border:none;
+    font-family:'Press Start 2P', cursive;
 
-    background:white;
+    font-size:18px;
+
+    padding:18px 48px;
+
+    background:#ffffff;
 
     color:#222;
 
-    padding:
+    border:none;
 
-    18px 56px;
-
-    border-radius:12px;
-
-    font-size:22px;
+    border-radius:14px;
 
     cursor:pointer;
 
-    transition:all .3s ease;
+    transition:.25s;
+
+    animation:breathe 2s ease infinite;
 
 }
 
 #startButton:hover{
 
-    transform:
-
-    scale(1.05);
+    transform:scale(1.06);
 
 }
 
-footer{
+/* ================= Footer ================= */
 
-    margin-top:80px;
+.version{
 
-    color:#bfbfbf;
+    margin-top:50px;
 
-    font-size:18px;
+    font-size:11px;
 
-}
+    color:#cccccc;
 
-@media(max-width:768px){
-
-    h1{
-
-        font-size:42px;
-
-        letter-spacing:2px;
-
-    }
-
-    .subtitle{
-
-        font-size:18px;
-
-    }
-
-    .names{
-
-        font-size:28px;
-
-        letter-spacing:6px;
-
-    }
-
-    #startButton{
-
-        width:100%;
-
-        max-width:320px;
-
-    }
+    font-family:'Press Start 2P', cursive;
 
 }
-/* Dialog */
+
+/* ================= Dialog ================= */
+
+.hidden{
+
+    display:none;
+
+}
 
 #dialog{
 
     position:fixed;
 
-    left:0;
-
-    top:0;
-
-    width:100%;
-
-    height:100%;
+    inset:0;
 
     display:flex;
 
@@ -210,23 +172,25 @@ footer{
 
     align-items:center;
 
-    background:rgba(0,0,0,.6);
+    background:rgba(0,0,0,.65);
+
+    z-index:99;
 
 }
 
 .dialogBox{
 
-    width:85%;
+    width:340px;
 
-    max-width:420px;
+    max-width:90%;
 
     background:white;
 
     color:#222;
 
-    padding:30px;
-
     border-radius:18px;
+
+    padding:32px;
 
     text-align:center;
 
@@ -238,40 +202,27 @@ footer{
 
 }
 
-.dialogBox button{
+.dialogBox p{
 
-    margin-top:30px;
-
-}
-body{
-
-    animation:fadeIn 1s ease;
+    line-height:1.8;
 
 }
 
-@keyframes fadeIn{
+#closeDialog{
 
-    from{
+    margin-top:28px;
 
-        opacity:0;
+    padding:12px 26px;
 
-    }
+    border:none;
 
-    to{
+    border-radius:10px;
 
-        opacity:1;
-
-    }
+    cursor:pointer;
 
 }
 
-#startButton{
-
-    font-family:'Press Start 2P', cursive;
-
-    animation:breathe 2s infinite;
-
-}
+/* ================= Animation ================= */
 
 @keyframes breathe{
 
@@ -295,58 +246,40 @@ body{
 
 }
 
-.version{
+/* ================= Mobile ================= */
 
-    margin-top:40px;
+@media (max-width:768px){
 
-    color:#999;
+    .title h1{
 
-    font-family:'Press Start 2P';
+        font-size:38px;
 
-    font-size:10px;
+        letter-spacing:2px;
 
-}
+    }
 
-#dialog{
+    .subtitle{
 
-    position:fixed;
+        font-size:18px;
 
-    inset:0;
+    }
 
-    display:none;
+    .names{
 
-    justify-content:center;
+        font-size:26px;
 
-    align-items:center;
+        letter-spacing:5px;
 
-    background:rgba(0,0,0,.6);
+    }
 
-}
+    #startButton{
 
-.dialogBox{
+        width:280px;
 
-    width:320px;
+        font-size:14px;
 
-    background:white;
+        padding:18px 0;
 
-    color:#222;
-
-    border-radius:18px;
-
-    padding:30px;
-
-    text-align:center;
-
-}
-
-.dialogBox h2{
-
-    margin-bottom:20px;
-
-}
-
-.dialogBox button{
-
-    margin-top:20px;
+    }
 
 }
