@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.5.3
+   Version 0.6.0
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -291,35 +291,98 @@ const directionByKey = {
 const TILE_SIZE = 64;
 
 const Tile = {
-    ROAD: 0,
+    MAIN_ROAD: 0,
     GRASS: 1,
     SIDEWALK: 2,
     BUILDING: 3,
-    TREE: 4
+    TREE: 4,
+    PARK: 5,
+    SHRINE: 6,
+    CONVENIENCE_STORE: 7,
+    SHOPPING_STREET: 8
 };
 
-const tokyoMap = [
-    [3, 3, 3, 3, 3, 3, 3, 3, 2, 0, 0, 2, 3, 3, 3, 3, 3, 3, 3, 3],
-    [3, 4, 3, 3, 1, 4, 3, 3, 2, 0, 0, 2, 3, 3, 4, 3, 1, 3, 4, 3],
-    [3, 3, 1, 4, 3, 3, 4, 1, 2, 0, 0, 2, 3, 1, 3, 4, 3, 3, 1, 3],
-    [2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-    [3, 1, 4, 3, 3, 4, 1, 3, 2, 0, 0, 2, 3, 3, 4, 1, 3, 4, 3, 3],
-    [3, 3, 1, 4, 3, 3, 4, 1, 2, 0, 0, 2, 1, 4, 3, 3, 1, 3, 4, 3],
-    [3, 4, 3, 1, 4, 3, 3, 4, 2, 0, 0, 2, 3, 1, 4, 3, 3, 4, 1, 3],
-    [2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-    [3, 3, 4, 1, 3, 4, 3, 1, 2, 0, 0, 2, 3, 4, 1, 3, 3, 1, 4, 3]
-];
+const MAP_COLUMNS = 48;
+const MAP_ROWS = 32;
+
+function createTokyoMap() {
+
+    const map = Array.from(
+        { length: MAP_ROWS },
+        () => Array(MAP_COLUMNS).fill(Tile.BUILDING)
+    );
+
+    const fillTiles = (x, y, columns, rows, tile) => {
+
+        for (let row = y; row < y + rows; row++) {
+
+            for (let column = x; column < x + columns; column++) {
+
+                map[row][column] = tile;
+
+            }
+
+        }
+
+    };
+
+    fillTiles(0, 12, MAP_COLUMNS, 2, Tile.SIDEWALK);
+    fillTiles(0, 17, MAP_COLUMNS, 2, Tile.SIDEWALK);
+    fillTiles(20, 0, 2, MAP_ROWS, Tile.SIDEWALK);
+    fillTiles(25, 0, 2, MAP_ROWS, Tile.SIDEWALK);
+    fillTiles(0, 14, MAP_COLUMNS, 3, Tile.MAIN_ROAD);
+    fillTiles(22, 0, 3, MAP_ROWS, Tile.MAIN_ROAD);
+
+    fillTiles(3, 3, 11, 7, Tile.PARK);
+    fillTiles(32, 3, 10, 7, Tile.SHRINE);
+    fillTiles(4, 22, 10, 5, Tile.CONVENIENCE_STORE);
+    fillTiles(30, 22, 13, 5, Tile.SHOPPING_STREET);
+
+    [
+        [4, 4], [7, 5], [11, 4], [5, 8], [12, 8],
+        [16, 4], [18, 7], [28, 5], [29, 9], [44, 4],
+        [16, 23], [18, 27], [28, 23], [45, 26]
+    ].forEach(([column, row]) => {
+
+        map[row][column] = Tile.TREE;
+
+    });
+
+    return map;
+
+}
+
+const tokyoMap = createTokyoMap();
 
 const tileColors = {
-    [Tile.ROAD]: "#3d3d43",
-    [Tile.GRASS]: "#54764e",
-    [Tile.SIDEWALK]: "#9b9a96",
-    [Tile.BUILDING]: "#665d64",
-    [Tile.TREE]: "#2e6748"
+    [Tile.MAIN_ROAD]: "#363942",
+    [Tile.GRASS]: "#557a50",
+    [Tile.SIDEWALK]: "#a8a39b",
+    [Tile.BUILDING]: "#625963",
+    [Tile.TREE]: "#2f6747",
+    [Tile.PARK]: "#6e9b5f",
+    [Tile.SHRINE]: "#99544a",
+    [Tile.CONVENIENCE_STORE]: "#3f7890",
+    [Tile.SHOPPING_STREET]: "#b77c4a"
 };
+
+const camera = {
+    x: 0,
+    y: 0,
+    smoothing: 0.12
+};
+
+function getWorldWidth() {
+
+    return MAP_COLUMNS * TILE_SIZE;
+
+}
+
+function getWorldHeight() {
+
+    return MAP_ROWS * TILE_SIZE;
+
+}
 
 function isBlockedTile(x, y) {
 
@@ -327,7 +390,10 @@ function isBlockedTile(x, y) {
     const row = Math.floor(y / TILE_SIZE);
     const tile = tokyoMap[row]?.[column];
 
-    return tile === Tile.BUILDING || tile === Tile.TREE;
+    return tile === Tile.BUILDING
+        || tile === Tile.TREE
+        || tile === Tile.SHRINE
+        || tile === Tile.CONVENIENCE_STORE;
 
 }
 
@@ -345,16 +411,44 @@ function canMoveTo(x, y) {
 
 function spawnPlayer() {
 
-    player.x = (gameCanvas.width - player.width) / 2;
-    player.y = (gameCanvas.height - player.height) / 2;
+    player.x = (getWorldWidth() - player.width) / 2;
+    player.y = (getWorldHeight() - player.height) / 2;
     player.moving = false;
+
+    centerCameraOnPlayer();
+
+}
+
+function centerCameraOnPlayer() {
+
+    const maxX = Math.max(0, getWorldWidth() - gameCanvas.width);
+    const maxY = Math.max(0, getWorldHeight() - gameCanvas.height);
+
+    camera.x = Math.max(0, Math.min(player.x + player.width / 2 - gameCanvas.width / 2, maxX));
+    camera.y = Math.max(0, Math.min(player.y + player.height / 2 - gameCanvas.height / 2, maxY));
+
+}
+
+function updateCamera(deltaTime) {
+
+    const maxX = Math.max(0, getWorldWidth() - gameCanvas.width);
+    const maxY = Math.max(0, getWorldHeight() - gameCanvas.height);
+    const targetX = Math.max(0, Math.min(player.x + player.width / 2 - gameCanvas.width / 2, maxX));
+    const targetY = Math.max(0, Math.min(player.y + player.height / 2 - gameCanvas.height / 2, maxY));
+    const followAmount = 1 - Math.pow(1 - camera.smoothing, deltaTime * 60);
+
+    camera.x += (targetX - camera.x) * followAmount;
+    camera.y += (targetY - camera.y) * followAmount;
 
 }
 
 function drawGame() {
 
-    gameCtx.fillStyle = tileColors[Tile.ROAD];
+    gameCtx.fillStyle = tileColors[Tile.MAIN_ROAD];
     gameCtx.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
+
+    gameCtx.save();
+    gameCtx.translate(-camera.x, -camera.y);
 
     tokyoMap.forEach((row, rowIndex) => {
 
@@ -374,6 +468,8 @@ function drawGame() {
 
     gameCtx.fillStyle = "#ffffff";
     gameCtx.fillRect(player.x, player.y, player.width, player.height);
+
+    gameCtx.restore();
 
 }
 
@@ -401,11 +497,11 @@ function updatePlayer(deltaTime) {
 
     const destinationX = Math.max(
         0,
-        Math.min(player.x + horizontal * movementSpeed * deltaTime, gameCanvas.width - player.width)
+        Math.min(player.x + horizontal * movementSpeed * deltaTime, getWorldWidth() - player.width)
     );
     const destinationY = Math.max(
         0,
-        Math.min(player.y + vertical * movementSpeed * deltaTime, gameCanvas.height - player.height)
+        Math.min(player.y + vertical * movementSpeed * deltaTime, getWorldHeight() - player.height)
     );
 
     if (canMoveTo(destinationX, destinationY)) {
@@ -425,6 +521,7 @@ function gameLoop(timestamp) {
     previousGameTime = timestamp;
 
     updatePlayer(deltaTime);
+    updateCamera(deltaTime);
     drawGame();
 
     requestAnimationFrame(gameLoop);
