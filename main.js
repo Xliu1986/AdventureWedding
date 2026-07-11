@@ -235,31 +235,34 @@ const titleScreen = document.getElementById("titleScreen");
 let gameStarted = false;
 
 const player = {
-    size: 24,
     x: 0,
     y: 0,
+    width: 24,
+    height: 24,
     speed: 240,
     sprintMultiplier: 1.8,
-    direction: "Down"
+    direction: "down",
+    moving: false
 };
 
 const pressedKeys = new Set();
 
 const directionByKey = {
-    KeyW: "Up",
-    ArrowUp: "Up",
-    KeyS: "Down",
-    ArrowDown: "Down",
-    KeyA: "Left",
-    ArrowLeft: "Left",
-    KeyD: "Right",
-    ArrowRight: "Right"
+    KeyW: "up",
+    ArrowUp: "up",
+    KeyS: "down",
+    ArrowDown: "down",
+    KeyA: "left",
+    ArrowLeft: "left",
+    KeyD: "right",
+    ArrowRight: "right"
 };
 
 function spawnPlayer() {
 
-    player.x = (gameCanvas.width - player.size) / 2;
-    player.y = (gameCanvas.height - player.size) / 2;
+    player.x = (gameCanvas.width - player.width) / 2;
+    player.y = (gameCanvas.height - player.height) / 2;
+    player.moving = false;
 
 }
 
@@ -290,7 +293,7 @@ function drawGame() {
     }
 
     gameCtx.fillStyle = "#ffffff";
-    gameCtx.fillRect(player.x, player.y, player.size, player.size);
+    gameCtx.fillRect(player.x, player.y, player.width, player.height);
 
 }
 
@@ -303,6 +306,8 @@ function updatePlayer(deltaTime) {
     if (pressedKeys.has("KeyD") || pressedKeys.has("ArrowRight")) horizontal += 1;
     if (pressedKeys.has("KeyW") || pressedKeys.has("ArrowUp")) vertical -= 1;
     if (pressedKeys.has("KeyS") || pressedKeys.has("ArrowDown")) vertical += 1;
+
+    player.moving = horizontal !== 0 || vertical !== 0;
 
     if (horizontal && vertical) {
 
@@ -317,8 +322,8 @@ function updatePlayer(deltaTime) {
     player.x += horizontal * movementSpeed * deltaTime;
     player.y += vertical * movementSpeed * deltaTime;
 
-    player.x = Math.max(0, Math.min(player.x, gameCanvas.width - player.size));
-    player.y = Math.max(0, Math.min(player.y, gameCanvas.height - player.size));
+    player.x = Math.max(0, Math.min(player.x, gameCanvas.width - player.width));
+    player.y = Math.max(0, Math.min(player.y, gameCanvas.height - player.height));
 
 }
 
