@@ -266,6 +266,9 @@ const dialog = document.getElementById("dialog");
 const titleScreen = document.getElementById("titleScreen");
 
 const gameDialogue = document.getElementById("gameDialogue");
+const gameDialogueName = document.querySelector(".gameDialogueName");
+const gameDialogueText = document.querySelector(".gameDialogueText");
+const gameDialogueContinue = document.querySelector(".gameDialogueContinue");
 
 let gameStarted = false;
 
@@ -319,8 +322,23 @@ const walkableZones = [
 
 const meetingState = {
     triggered: false,
-    dialogueOpen: false
+    dialogueOpen: false,
+    pageIndex: 0,
+    characterIndex: 0,
+    typeTimer: 0,
+    pageComplete: false
 };
+
+const meetingDialoguePages = [
+    {
+        speaker: "乐乐",
+        text: "终于见到你了，\n我是乐乐。"
+    },
+    {
+        speaker: "森",
+        text: "很高兴见到你，\n我是森。\n希望我们在日本玩得开心。"
+    }
+];
 
 const TOKYO_WORLD_PROMPT = "Warm 16-bit top-down Tokyo spring neighborhood: Tokyo Station entrance at the top center, park and pond at upper left, shrine at upper right, shopping street on the left, sakura avenue on the right, road and crosswalk below, and a river with wooden bridges along the bottom. Use dense handcrafted pixel-art detail, clear walkable stone paths, no labels, no UI, and no NPCs.";
 const STORY_MAP_SCALE = 2;
@@ -596,7 +614,75 @@ function openMeetingDialogue() {
     player.moving = false;
     faceToward(player, le);
     faceToward(le, player);
+    setDialoguePage(0);
     gameDialogue.classList.remove("hidden");
+
+}
+
+function setDialoguePage(pageIndex) {
+
+    const page = meetingDialoguePages[pageIndex];
+
+    meetingState.pageIndex = pageIndex;
+    meetingState.characterIndex = 0;
+    meetingState.typeTimer = 0;
+    meetingState.pageComplete = false;
+    gameDialogueName.textContent = page.speaker;
+    gameDialogueText.textContent = "";
+    gameDialogueContinue.classList.add("hidden");
+
+}
+
+function updateDialogueTypewriter(deltaTime) {
+
+    if (!meetingState.dialogueOpen || meetingState.pageComplete) return;
+
+    const page = meetingDialoguePages[meetingState.pageIndex];
+
+    meetingState.typeTimer += deltaTime * 1000;
+
+    while (meetingState.characterIndex < page.text.length) {
+
+        const character = page.text[meetingState.characterIndex];
+        const delay = /[，。]/.test(character) ? 95 : 40;
+
+        if (meetingState.typeTimer < delay) return;
+
+        meetingState.typeTimer -= delay;
+        meetingState.characterIndex++;
+        gameDialogueText.textContent = page.text.slice(0, meetingState.characterIndex);
+
+    }
+
+    meetingState.pageComplete = true;
+    gameDialogueContinue.classList.remove("hidden");
+
+}
+
+function advanceMeetingDialogue() {
+
+    if (!meetingState.dialogueOpen) return;
+
+    const page = meetingDialoguePages[meetingState.pageIndex];
+
+    if (!meetingState.pageComplete) {
+
+        meetingState.characterIndex = page.text.length;
+        meetingState.pageComplete = true;
+        gameDialogueText.textContent = page.text;
+        gameDialogueContinue.classList.remove("hidden");
+        return;
+
+    }
+
+    if (meetingState.pageIndex < meetingDialoguePages.length - 1) {
+
+        setDialoguePage(meetingState.pageIndex + 1);
+        return;
+
+    }
+
+    closeMeetingDialogue();
 
 }
 
@@ -606,6 +692,7 @@ function closeMeetingDialogue() {
 
     meetingState.dialogueOpen = false;
     gameDialogue.classList.add("hidden");
+    gameDialogueContinue.classList.add("hidden");
 
 }
 
@@ -1232,6 +1319,7 @@ function gameLoop(timestamp) {
 
     updatePlayer(deltaTime);
     checkFirstMeeting();
+    updateDialogueTypewriter(deltaTime);
     updateWorldAtmosphere(deltaTime);
 
     if (player.moving) playerAnimationTime += deltaTime;
@@ -1260,10 +1348,15 @@ startButton.addEventListener("click",()=>{
 
 window.addEventListener("keydown", event => {
 
-    if (meetingState.dialogueOpen && (event.code === "Enter" || event.code === "Space")) {
+    if (meetingState.dialogueOpen) {
 
-        event.preventDefault();
-        closeMeetingDialogue();
+        if (event.code === "Enter" || event.code === "Space") {
+
+            event.preventDefault();
+            advanceMeetingDialogue();
+
+        }
+
         return;
 
     }
@@ -1285,7 +1378,7 @@ window.addEventListener("keydown", event => {
 
 });
 
-gameDialogue.addEventListener("click", closeMeetingDialogue);
+gameDialogue.addEventListener("click", advanceMeetingDialogue);
 
 window.addEventListener("keyup", event => {
 
