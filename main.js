@@ -1,12 +1,14 @@
 /* ======================================
    AdventureWedding
-   Version 0.6.0
+   Version 0.6.1
 ====================================== */
 
 const canvas = document.getElementById("background");
 const ctx = canvas.getContext("2d");
 const gameCanvas = document.getElementById("gameCanvas");
 const gameCtx = gameCanvas.getContext("2d");
+
+gameCtx.imageSmoothingEnabled = false;
 
 let width = 0;
 let height = 0;
@@ -18,6 +20,7 @@ function resizeCanvas() {
 
     gameCanvas.width = window.innerWidth;
     gameCanvas.height = window.innerHeight;
+    gameCtx.imageSmoothingEnabled = false;
 
 }
 
@@ -275,6 +278,11 @@ const player = {
     moving: false
 };
 
+const playerSprite = new Image();
+playerSprite.src = "assets/player-mori-sprite-sheet-32x48.png?v=2";
+
+let playerAnimationTime = 0;
+
 const pressedKeys = new Set();
 
 const directionByKey = {
@@ -291,15 +299,36 @@ const directionByKey = {
 const TILE_SIZE = 64;
 
 const Tile = {
-    MAIN_ROAD: 0,
-    GRASS: 1,
-    SIDEWALK: 2,
-    BUILDING: 3,
+    GRASS: 0,
+    STONE_PATH: 1,
+    SAKURA_ROAD: 2,
+    PLAZA: 3,
     TREE: 4,
-    PARK: 5,
-    SHRINE: 6,
-    CONVENIENCE_STORE: 7,
-    SHOPPING_STREET: 8
+    SAKURA_TREE: 5,
+    FLOWER_BED: 6,
+    BUSH: 7,
+    FENCE: 8,
+    LAMP: 9,
+    BENCH: 10,
+    SIGN: 11,
+    STATION: 12,
+    SHOP: 13,
+    CAFE: 14,
+    CONVENIENCE: 15,
+    VENDING: 16,
+    TORII: 17,
+    SHRINE: 18,
+    LANTERN: 19,
+    STAIRS: 20,
+    PRAYER_GROUND: 21,
+    POND: 22,
+    POND_EDGE: 23,
+    WOOD_BRIDGE: 24,
+    SHOPPING_STREET: 25,
+    SUBWAY_ENTRANCE: 26,
+    HIGH_RISE: 27,
+    UTILITY_POLE: 28,
+    CROSSWALK: 29
 };
 
 const MAP_COLUMNS = 48;
@@ -309,7 +338,7 @@ function createTokyoMap() {
 
     const map = Array.from(
         { length: MAP_ROWS },
-        () => Array(MAP_COLUMNS).fill(Tile.BUILDING)
+        () => Array(MAP_COLUMNS).fill(Tile.GRASS)
     );
 
     const fillTiles = (x, y, columns, rows, tile) => {
@@ -326,25 +355,59 @@ function createTokyoMap() {
 
     };
 
-    fillTiles(0, 12, MAP_COLUMNS, 2, Tile.SIDEWALK);
-    fillTiles(0, 17, MAP_COLUMNS, 2, Tile.SIDEWALK);
-    fillTiles(20, 0, 2, MAP_ROWS, Tile.SIDEWALK);
-    fillTiles(25, 0, 2, MAP_ROWS, Tile.SIDEWALK);
-    fillTiles(0, 14, MAP_COLUMNS, 3, Tile.MAIN_ROAD);
-    fillTiles(22, 0, 3, MAP_ROWS, Tile.MAIN_ROAD);
+    // Tokyo Station plaza and the central sakura avenue.
+    fillTiles(18, 2, 12, 9, Tile.PLAZA);
+    fillTiles(20, 2, 8, 4, Tile.HIGH_RISE);
+    fillTiles(21, 6, 6, 1, Tile.STAIRS);
+    fillTiles(22, 7, 4, 2, Tile.SUBWAY_ENTRANCE);
+    fillTiles(2, 14, 28, 4, Tile.SAKURA_ROAD);
+    fillTiles(22, 14, 3, 4, Tile.CROSSWALK);
 
-    fillTiles(3, 3, 11, 7, Tile.PARK);
-    fillTiles(32, 3, 10, 7, Tile.SHRINE);
-    fillTiles(4, 22, 10, 5, Tile.CONVENIENCE_STORE);
-    fillTiles(30, 22, 13, 5, Tile.SHOPPING_STREET);
+    // Shopping street, including a cafe and convenience store.
+    fillTiles(30, 10, 15, 14, Tile.SHOPPING_STREET);
+    fillTiles(32, 11, 3, 3, Tile.SHOP);
+    fillTiles(37, 11, 3, 3, Tile.CAFE);
+    fillTiles(42, 11, 3, 3, Tile.CONVENIENCE);
+    fillTiles(32, 19, 3, 3, Tile.SHOP);
+    fillTiles(37, 19, 3, 3, Tile.CAFE);
+    fillTiles(42, 19, 3, 3, Tile.SHOP);
+
+    // Shrine precinct in the north-west.
+    fillTiles(3, 3, 12, 9, Tile.PRAYER_GROUND);
+    fillTiles(6, 3, 6, 3, Tile.SHRINE);
+    fillTiles(7, 6, 4, 1, Tile.STAIRS);
+    fillTiles(7, 8, 4, 1, Tile.TORII);
+
+    // Park, pond and river in the southern half of the map.
+    fillTiles(3, 21, 15, 7, Tile.GRASS);
+    fillTiles(3, 24, 4, 1, Tile.STONE_PATH);
+    fillTiles(14, 24, 4, 1, Tile.STONE_PATH);
+    fillTiles(7, 23, 7, 4, Tile.POND);
+    fillTiles(6, 22, 9, 1, Tile.POND_EDGE);
+    fillTiles(6, 27, 9, 1, Tile.POND_EDGE);
+    fillTiles(9, 23, 2, 4, Tile.WOOD_BRIDGE);
+    fillTiles(0, 29, MAP_COLUMNS, 3, Tile.POND);
+    fillTiles(21, 29, 5, 3, Tile.WOOD_BRIDGE);
 
     [
-        [4, 4], [7, 5], [11, 4], [5, 8], [12, 8],
-        [16, 4], [18, 7], [28, 5], [29, 9], [44, 4],
-        [16, 23], [18, 27], [28, 23], [45, 26]
-    ].forEach(([column, row]) => {
+        [3, 13, Tile.LAMP], [6, 13, Tile.SAKURA_TREE], [10, 13, Tile.SAKURA_TREE],
+        [14, 13, Tile.SAKURA_TREE], [18, 13, Tile.SAKURA_TREE], [22, 13, Tile.SAKURA_TREE],
+        [26, 13, Tile.SAKURA_TREE], [29, 13, Tile.LAMP], [5, 18, Tile.LAMP],
+        [9, 18, Tile.BENCH], [15, 18, Tile.BENCH], [21, 18, Tile.LAMP],
+        [27, 18, Tile.BENCH], [31, 15, Tile.VENDING], [35, 15, Tile.SIGN],
+        [40, 15, Tile.VENDING], [44, 15, Tile.SIGN], [31, 18, Tile.LAMP],
+        [45, 18, Tile.LAMP], [5, 7, Tile.LANTERN], [12, 7, Tile.LANTERN],
+        [5, 10, Tile.LANTERN], [12, 10, Tile.LANTERN], [4, 22, Tile.TREE],
+        [16, 22, Tile.TREE], [4, 26, Tile.TREE], [16, 26, Tile.TREE],
+        [6, 21, Tile.FLOWER_BED], [15, 21, Tile.FLOWER_BED], [5, 28, Tile.FENCE],
+        [6, 28, Tile.FENCE], [7, 28, Tile.FENCE], [13, 28, Tile.FENCE],
+        [14, 28, Tile.FENCE], [15, 28, Tile.FENCE], [17, 24, Tile.BENCH],
+        [29, 9, Tile.SIGN], [30, 9, Tile.FLOWER_BED], [31, 9, Tile.FLOWER_BED],
+        [3, 22, Tile.BUSH], [17, 23, Tile.BUSH], [4, 25, Tile.BUSH], [16, 25, Tile.BUSH],
+        [1, 15, Tile.UTILITY_POLE], [28, 12, Tile.UTILITY_POLE], [46, 16, Tile.UTILITY_POLE]
+    ].forEach(([column, row, tile]) => {
 
-        map[row][column] = Tile.TREE;
+        map[row][column] = tile;
 
     });
 
@@ -354,17 +417,35 @@ function createTokyoMap() {
 
 const tokyoMap = createTokyoMap();
 
-const tileColors = {
-    [Tile.MAIN_ROAD]: "#363942",
-    [Tile.GRASS]: "#557a50",
-    [Tile.SIDEWALK]: "#a8a39b",
-    [Tile.BUILDING]: "#625963",
-    [Tile.TREE]: "#2f6747",
-    [Tile.PARK]: "#6e9b5f",
-    [Tile.SHRINE]: "#99544a",
-    [Tile.CONVENIENCE_STORE]: "#3f7890",
-    [Tile.SHOPPING_STREET]: "#b77c4a"
-};
+const sakuraTreeLocations = tokyoMap.flatMap((row, rowIndex) =>
+    row.flatMap((tile, columnIndex) =>
+        tile === Tile.SAKURA_TREE ? [{ x: columnIndex * TILE_SIZE, y: rowIndex * TILE_SIZE }] : []
+    )
+);
+
+const worldPetals = Array.from({ length: 70 }, () => ({
+    x: Math.random() * MAP_COLUMNS * TILE_SIZE,
+    y: Math.random() * MAP_ROWS * TILE_SIZE,
+    size: 2 + Math.random() * 3,
+    drift: 8 + Math.random() * 16,
+    fall: 10 + Math.random() * 18,
+    phase: Math.random() * Math.PI * 2
+}));
+
+const birds = [
+    { x: 1120, y: 760, speed: 16, phase: 0.2 },
+    { x: 1200, y: 790, speed: 16, phase: 0.8 },
+    { x: 1280, y: 740, speed: 16, phase: 1.4 }
+];
+
+let windTime = 0;
+
+const solidTiles = new Set([
+    Tile.TREE, Tile.SAKURA_TREE, Tile.FLOWER_BED, Tile.BUSH, Tile.FENCE,
+    Tile.BENCH, Tile.SIGN, Tile.STATION, Tile.SHOP, Tile.CAFE,
+    Tile.CONVENIENCE, Tile.VENDING, Tile.TORII, Tile.SHRINE, Tile.LANTERN,
+    Tile.POND, Tile.POND_EDGE, Tile.SUBWAY_ENTRANCE, Tile.HIGH_RISE
+]);
 
 const camera = {
     x: 0,
@@ -390,10 +471,7 @@ function isBlockedTile(x, y) {
     const row = Math.floor(y / TILE_SIZE);
     const tile = tokyoMap[row]?.[column];
 
-    return tile === Tile.BUILDING
-        || tile === Tile.TREE
-        || tile === Tile.SHRINE
-        || tile === Tile.CONVENIENCE_STORE;
+    return solidTiles.has(tile);
 
 }
 
@@ -442,9 +520,400 @@ function updateCamera(deltaTime) {
 
 }
 
+function tileNoise(column, row, offset) {
+
+    return (column * 19 + row * 37 + offset * 13) % 13;
+
+}
+
+function drawGrassTile(x, y, column, row) {
+
+    gameCtx.fillStyle = "#91ad6d";
+    gameCtx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+
+    for (let detail = 0; detail < 4; detail++) {
+
+        const px = 8 + tileNoise(column, row, detail) * 4;
+        const py = 8 + tileNoise(row, column, detail + 4) * 3;
+
+        gameCtx.fillStyle = detail % 2 ? "#7f9e61" : "#b7c983";
+        gameCtx.fillRect(x + px, y + py, 4, 8);
+
+    }
+
+}
+
+function drawStoneTile(x, y, column, row, color = "#cab99b") {
+
+    gameCtx.fillStyle = color;
+    gameCtx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+    gameCtx.fillStyle = "#a99c8d";
+
+    for (let brickRow = 0; brickRow < 4; brickRow++) {
+
+        const yOffset = brickRow * 16;
+        const stagger = (brickRow + column + row) % 2 ? 8 : 0;
+
+        for (let brick = -1; brick < 5; brick++) {
+
+            const xOffset = brick * 16 + stagger;
+
+            gameCtx.fillRect(x + xOffset + 2, y + yOffset + 6, 12, 2);
+            gameCtx.fillRect(x + xOffset + 12, y + yOffset + 2, 2, 12);
+
+        }
+
+    }
+
+}
+
+function drawSakuraRoadTile(x, y, column, row) {
+
+    gameCtx.fillStyle = "#66666a";
+    gameCtx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+    gameCtx.fillStyle = "#cbc0af";
+    gameCtx.fillRect(x, y + 4, TILE_SIZE, 4);
+    gameCtx.fillRect(x, y + 56, TILE_SIZE, 4);
+
+    gameCtx.fillStyle = "#8a8585";
+    gameCtx.fillRect(x, y + 28, TILE_SIZE, 4);
+
+    for (let petal = 0; petal < 3; petal++) {
+
+        const px = 8 + tileNoise(column, row, petal) * 4;
+        const py = 10 + tileNoise(row, column, petal + 6) * 3;
+
+        gameCtx.fillStyle = petal % 2 ? "#f3bdc8" : "#e894ad";
+        gameCtx.fillRect(x + px, y + py, 4, 4);
+
+    }
+
+}
+
+function drawWaterTile(x, y, column, row) {
+
+    gameCtx.fillStyle = "#79b8c1";
+    gameCtx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+    gameCtx.fillStyle = "#b4d9d2";
+
+    for (let ripple = 0; ripple < 3; ripple++) {
+
+        const px = 4 + tileNoise(column, row, ripple) * 4;
+        const py = 8 + tileNoise(row, column, ripple + 8) * 3;
+
+        gameCtx.fillRect(x + px, y + py, 12, 4);
+
+    }
+
+}
+
+function drawTree(x, y, sakura = false) {
+
+    drawGrassTile(x, y, Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE));
+    gameCtx.fillStyle = "rgba(58, 70, 52, 0.26)";
+    gameCtx.fillRect(x + 12, y + 44, 40, 12);
+    gameCtx.fillStyle = "#6f736c";
+    gameCtx.fillRect(x + 8, y + 48, 48, 8);
+    gameCtx.fillStyle = "#c1b99f";
+    gameCtx.fillRect(x + 12, y + 44, 40, 8);
+    gameCtx.fillStyle = "#80533a";
+    gameCtx.fillRect(x + 28, y + 36, 8, 20);
+    gameCtx.fillStyle = sakura ? "#c97997" : "#3e754b";
+    gameCtx.fillRect(x + 12, y + 16, 40, 28);
+    gameCtx.fillRect(x + 20, y + 8, 24, 40);
+    gameCtx.fillStyle = sakura ? "#efa9bf" : "#64a55e";
+    gameCtx.fillRect(x + 16, y + 20, 12, 16);
+    gameCtx.fillRect(x + 36, y + 16, 12, 16);
+    gameCtx.fillRect(x + 28, y + 8, 12, 16);
+    gameCtx.fillStyle = sakura ? "#ffd0dc" : "#8dbe6b";
+    gameCtx.fillRect(x + 24, y + 24, 12, 12);
+
+}
+
+function drawBuilding(x, y, type) {
+
+    drawStoneTile(x, y, Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE), "#bfae95");
+    gameCtx.fillStyle = "rgba(67, 54, 49, 0.2)";
+    gameCtx.fillRect(x + 12, y + 52, 48, 8);
+
+    const styles = {
+        [Tile.STATION]: ["#a66f4f", "#ead1a0", "#5b4a4b"],
+        [Tile.SHOP]: ["#b86c55", "#f3c37d", "#67474b"],
+        [Tile.CAFE]: ["#9e6d58", "#f0d7ac", "#62474a"],
+        [Tile.CONVENIENCE]: ["#618a77", "#f4deb1", "#4c5a58"],
+        [Tile.SHRINE]: ["#9f4e3d", "#e8bc77", "#5d302d"]
+    };
+    const [roof, awning, wall] = styles[type];
+
+    gameCtx.fillStyle = roof;
+    gameCtx.fillRect(x + 4, y + 8, 56, 16);
+    gameCtx.fillStyle = awning;
+    gameCtx.fillRect(x + 8, y + 24, 48, 8);
+    gameCtx.fillStyle = wall;
+    gameCtx.fillRect(x + 12, y + 32, 40, 24);
+    gameCtx.fillStyle = "#f5dda7";
+    gameCtx.fillRect(x + 28, y + 40, 8, 16);
+    gameCtx.fillStyle = "#534e55";
+    gameCtx.fillRect(x + 16, y + 40, 8, 8);
+    gameCtx.fillRect(x + 40, y + 40, 8, 8);
+
+}
+
+function drawLandmarkTile(tile, x, y, column, row) {
+
+    switch (tile) {
+        case Tile.GRASS:
+            drawGrassTile(x, y, column, row);
+            break;
+        case Tile.STONE_PATH:
+        case Tile.PLAZA:
+        case Tile.SHOPPING_STREET:
+        case Tile.PRAYER_GROUND:
+            drawStoneTile(x, y, column, row, tile === Tile.PRAYER_GROUND ? "#c6b08e" : "#cab99b");
+            break;
+        case Tile.STAIRS:
+            drawStoneTile(x, y, column, row, "#c6b08e");
+            gameCtx.fillStyle = "#9e8a70";
+            for (let step = 0; step < 4; step++) gameCtx.fillRect(x, y + step * 16 + 8, TILE_SIZE, 4);
+            break;
+        case Tile.SAKURA_ROAD:
+            drawSakuraRoadTile(x, y, column, row);
+            break;
+        case Tile.CROSSWALK:
+            drawSakuraRoadTile(x, y, column, row);
+            gameCtx.fillStyle = "#efe4d2";
+            for (let stripe = 0; stripe < 4; stripe++) {
+                gameCtx.fillRect(x + stripe * 16 + 3, y + 6, 8, 52);
+            }
+            break;
+        case Tile.POND:
+            drawWaterTile(x, y, column, row);
+            break;
+        case Tile.POND_EDGE:
+            drawGrassTile(x, y, column, row);
+            gameCtx.fillStyle = "#c5b594";
+            gameCtx.fillRect(x, y + 48, TILE_SIZE, 16);
+            break;
+        case Tile.WOOD_BRIDGE:
+            drawWaterTile(x, y, column, row);
+            gameCtx.fillStyle = "#9b6945";
+            gameCtx.fillRect(x + 8, y, 48, TILE_SIZE);
+            gameCtx.fillStyle = "#d1a36d";
+            for (let plank = 0; plank < 4; plank++) gameCtx.fillRect(x + 8, y + plank * 16 + 4, 48, 4);
+            break;
+        case Tile.TREE:
+            drawTree(x, y);
+            break;
+        case Tile.SAKURA_TREE:
+            drawTree(x, y, true);
+            break;
+        case Tile.FLOWER_BED:
+            drawGrassTile(x, y, column, row);
+            gameCtx.fillStyle = "#9b6a4a";
+            gameCtx.fillRect(x + 8, y + 12, 48, 40);
+            ["#f4d06f", "#ef8da4", "#fff1bb"].forEach((color, index) => {
+                gameCtx.fillStyle = color;
+                gameCtx.fillRect(x + 16 + index * 12, y + 24, 8, 8);
+                gameCtx.fillRect(x + 20 + index * 12, y + 20, 4, 16);
+            });
+            break;
+        case Tile.BUSH:
+            drawGrassTile(x, y, column, row);
+            gameCtx.fillStyle = "#527d4d";
+            gameCtx.fillRect(x + 8, y + 24, 48, 24);
+            gameCtx.fillStyle = "#76a45f";
+            gameCtx.fillRect(x + 16, y + 16, 16, 16);
+            gameCtx.fillRect(x + 36, y + 20, 12, 16);
+            break;
+        case Tile.FENCE:
+            drawGrassTile(x, y, column, row);
+            gameCtx.fillStyle = "#8e6547";
+            gameCtx.fillRect(x, y + 28, TILE_SIZE, 8);
+            gameCtx.fillRect(x + 12, y + 16, 8, 32);
+            gameCtx.fillRect(x + 44, y + 16, 8, 32);
+            break;
+        case Tile.LAMP:
+            drawStoneTile(x, y, column, row);
+            gameCtx.fillStyle = "#5f5551";
+            gameCtx.fillRect(x + 28, y + 20, 8, 36);
+            gameCtx.fillStyle = "#f6d68a";
+            gameCtx.fillRect(x + 20, y + 12, 24, 12);
+            break;
+        case Tile.BENCH:
+            drawStoneTile(x, y, column, row);
+            gameCtx.fillStyle = "#875b3c";
+            gameCtx.fillRect(x + 12, y + 24, 40, 8);
+            gameCtx.fillRect(x + 16, y + 36, 8, 16);
+            gameCtx.fillRect(x + 40, y + 36, 8, 16);
+            break;
+        case Tile.SIGN:
+            drawStoneTile(x, y, column, row);
+            gameCtx.fillStyle = "#6f4a35";
+            gameCtx.fillRect(x + 28, y + 24, 8, 32);
+            gameCtx.fillStyle = "#d9b86a";
+            gameCtx.fillRect(x + 12, y + 12, 40, 16);
+            break;
+        case Tile.STATION:
+        case Tile.SHOP:
+        case Tile.CAFE:
+        case Tile.CONVENIENCE:
+        case Tile.SHRINE:
+            drawBuilding(x, y, tile);
+            break;
+        case Tile.HIGH_RISE:
+            drawStoneTile(x, y, column, row, "#bfae95");
+            gameCtx.fillStyle = "#5f7181";
+            gameCtx.fillRect(x + 8, y + 4, 48, 56);
+            gameCtx.fillStyle = "#9fc0c4";
+            for (let floor = 0; floor < 3; floor++) {
+                for (let window = 0; window < 3; window++) {
+                    gameCtx.fillRect(x + 16 + window * 12, y + 12 + floor * 14, 8, 8);
+                }
+            }
+            gameCtx.fillStyle = "#c7815f";
+            gameCtx.fillRect(x + 4, y + 4, 56, 8);
+            break;
+        case Tile.SUBWAY_ENTRANCE:
+            drawStoneTile(x, y, column, row, "#c8b999");
+            gameCtx.fillStyle = "#64767a";
+            gameCtx.fillRect(x + 8, y + 24, 48, 28);
+            gameCtx.fillStyle = "#d66a55";
+            gameCtx.fillRect(x + 8, y + 16, 48, 8);
+            gameCtx.fillStyle = "#f4deb1";
+            gameCtx.fillRect(x + 16, y + 28, 8, 12);
+            gameCtx.fillRect(x + 40, y + 28, 8, 12);
+            gameCtx.fillStyle = "#3d4b52";
+            gameCtx.fillRect(x + 28, y + 28, 8, 24);
+            break;
+        case Tile.VENDING:
+            drawStoneTile(x, y, column, row);
+            gameCtx.fillStyle = "#6094a0";
+            gameCtx.fillRect(x + 16, y + 8, 32, 48);
+            gameCtx.fillStyle = "#e7dfbd";
+            gameCtx.fillRect(x + 20, y + 16, 24, 12);
+            gameCtx.fillStyle = "#b86a58";
+            gameCtx.fillRect(x + 24, y + 36, 16, 8);
+            break;
+        case Tile.TORII:
+            drawStoneTile(x, y, column, row, "#c6b08e");
+            gameCtx.fillStyle = "#c4513b";
+            gameCtx.fillRect(x + 8, y + 12, 48, 8);
+            gameCtx.fillRect(x + 16, y + 16, 8, 40);
+            gameCtx.fillRect(x + 40, y + 16, 8, 40);
+            break;
+        case Tile.LANTERN:
+            drawStoneTile(x, y, column, row, "#c6b08e");
+            gameCtx.fillStyle = "#7d6a58";
+            gameCtx.fillRect(x + 24, y + 16, 16, 32);
+            gameCtx.fillStyle = "#f4d188";
+            gameCtx.fillRect(x + 20, y + 20, 24, 16);
+            break;
+        case Tile.UTILITY_POLE:
+            drawStoneTile(x, y, column, row);
+            gameCtx.fillStyle = "#5b4b45";
+            gameCtx.fillRect(x + 28, y + 8, 8, 52);
+            gameCtx.fillRect(x + 12, y + 16, 40, 4);
+            gameCtx.fillStyle = "#8f7e6f";
+            gameCtx.fillRect(x + 16, y + 12, 4, 12);
+            gameCtx.fillRect(x + 44, y + 12, 4, 12);
+            break;
+        default:
+            drawGrassTile(x, y, column, row);
+    }
+
+}
+
+function updateWorldAtmosphere(deltaTime) {
+
+    windTime += deltaTime;
+
+    worldPetals.forEach(petal => {
+
+        petal.y += petal.fall * deltaTime;
+        petal.x += (petal.drift + Math.sin(windTime * 1.5 + petal.phase) * 8) * deltaTime;
+
+        if (petal.y > getWorldHeight()) petal.y = -8;
+        if (petal.x > getWorldWidth()) petal.x = -8;
+
+    });
+
+    birds.forEach(bird => {
+
+        bird.x += bird.speed * deltaTime;
+
+        if (bird.x > getWorldWidth()) bird.x = -16;
+
+    });
+
+}
+
+function drawWorldAtmosphere() {
+
+    sakuraTreeLocations.forEach((tree, index) => {
+
+        const sway = Math.sin(windTime * 1.4 + index) * 3;
+
+        gameCtx.fillStyle = "rgba(246, 190, 204, 0.75)";
+        gameCtx.fillRect(tree.x + 18 + sway, tree.y + 8, 4, 4);
+        gameCtx.fillRect(tree.x + 44 + sway, tree.y + 24, 4, 4);
+
+    });
+
+    worldPetals.forEach(petal => {
+
+        gameCtx.fillStyle = "rgba(244, 177, 197, 0.75)";
+        gameCtx.fillRect(petal.x, petal.y, petal.size, petal.size);
+
+    });
+
+    birds.forEach(bird => {
+
+        const wing = Math.sin(windTime * 8 + bird.phase) > 0 ? -3 : 3;
+
+        gameCtx.strokeStyle = "#5d5650";
+        gameCtx.lineWidth = 2;
+        gameCtx.beginPath();
+        gameCtx.moveTo(bird.x - 4, bird.y);
+        gameCtx.lineTo(bird.x, bird.y + wing);
+        gameCtx.lineTo(bird.x + 4, bird.y);
+        gameCtx.stroke();
+
+    });
+
+}
+
+function drawPlayer() {
+
+    const directionRows = { down: 0, up: 1, left: 2, right: 3 };
+    const frame = player.moving ? Math.floor(playerAnimationTime / 0.14) % 4 : 0;
+    const row = directionRows[player.direction];
+
+    if (playerSprite.complete && playerSprite.naturalWidth) {
+
+        gameCtx.drawImage(
+            playerSprite,
+            frame * 32,
+            row * 48,
+            32,
+            48,
+            player.x - 4,
+            player.y - 24,
+            32,
+            48
+        );
+
+        return;
+
+    }
+
+    gameCtx.fillStyle = "#ffffff";
+    gameCtx.fillRect(player.x, player.y, player.width, player.height);
+
+}
+
 function drawGame() {
 
-    gameCtx.fillStyle = tileColors[Tile.MAIN_ROAD];
+    gameCtx.fillStyle = "#91ad6d";
     gameCtx.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
 
     gameCtx.save();
@@ -454,20 +923,20 @@ function drawGame() {
 
         row.forEach((tile, columnIndex) => {
 
-            gameCtx.fillStyle = tileColors[tile];
-            gameCtx.fillRect(
+            drawLandmarkTile(
+                tile,
                 columnIndex * TILE_SIZE,
                 rowIndex * TILE_SIZE,
-                TILE_SIZE,
-                TILE_SIZE
+                columnIndex,
+                rowIndex
             );
 
         });
 
     });
 
-    gameCtx.fillStyle = "#ffffff";
-    gameCtx.fillRect(player.x, player.y, player.width, player.height);
+    drawWorldAtmosphere();
+    drawPlayer();
 
     gameCtx.restore();
 
@@ -521,6 +990,10 @@ function gameLoop(timestamp) {
     previousGameTime = timestamp;
 
     updatePlayer(deltaTime);
+    updateWorldAtmosphere(deltaTime);
+
+    if (player.moving) playerAnimationTime += deltaTime;
+
     updateCamera(deltaTime);
     drawGame();
 
