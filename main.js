@@ -74,15 +74,21 @@ function createPetals() {
 
             y: Math.random() * height,
 
-            size: 6 + Math.random() * 8,
+            layer: Math.floor(Math.random() * 3),
 
-            speedY: 0.5 + Math.random(),
+            size: 5 + Math.random() * 8,
+
+            speedY: 0.3 + Math.random() * 0.9,
 
             angle: Math.random() * Math.PI * 2,
 
+            sway: 0.2 + Math.random() * 0.45,
+
+            swaySpeed: 0.008 + Math.random() * 0.018,
+
             rotate: Math.random() * Math.PI * 2,
 
-            rotateSpeed: 0.01 + Math.random() * 0.02
+            rotateSpeed: 0.004 + Math.random() * 0.014
 
         });
 
@@ -151,15 +157,17 @@ function drawStars(){
 
 function drawPetals(){
 
-    petals.forEach(p=>{
+    petals.slice().sort((a,b)=>a.layer-b.layer).forEach(p=>{
 
-        p.y += p.speedY;
+        const depth = 0.55 + p.layer * 0.25;
 
-        p.angle += 0.02;
+        p.y += p.speedY * depth;
 
-        p.rotate += p.rotateSpeed;
+        p.angle += p.swaySpeed;
 
-        p.x += Math.sin(p.angle) * 0.5;
+        p.rotate += p.rotateSpeed * depth;
+
+        p.x += Math.sin(p.angle) * p.sway * depth;
 
         if(p.y > height + 30){
 
@@ -175,27 +183,49 @@ function drawPetals(){
 
         ctx.rotate(p.rotate);
 
-        ctx.fillStyle = "#ffd7e8";
+        ctx.globalAlpha = 0.38 + p.layer * 0.2;
+
+        ctx.fillStyle = "#ffd2e4";
+
+        for(let petal=0;petal<5;petal++){
+
+            ctx.save();
+
+            ctx.rotate((Math.PI*2/5)*petal);
+
+            ctx.beginPath();
+
+            ctx.ellipse(
+
+                0,
+
+                -p.size * 0.45,
+
+                p.size * 0.43,
+
+                p.size * 0.65,
+
+                0,
+
+                0,
+
+                Math.PI*2
+
+            );
+
+            ctx.fill();
+
+            ctx.restore();
+
+        }
+
+        ctx.globalAlpha = 0.75 + p.layer * 0.08;
+
+        ctx.fillStyle = "#e98cad";
 
         ctx.beginPath();
 
-        ctx.ellipse(
-
-            0,
-
-            0,
-
-            p.size,
-
-            p.size * 0.55,
-
-            0,
-
-            0,
-
-            Math.PI*2
-
-        );
+        ctx.arc(0,0,p.size*0.24,0,Math.PI*2);
 
         ctx.fill();
 

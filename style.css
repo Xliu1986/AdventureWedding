@@ -21,7 +21,7 @@ body{
 body{
 
     background:#06111d;
-    color:white;
+    color:#fff3c4;
 
     font-family:
         "PingFang SC",
@@ -86,11 +86,19 @@ body{
 
     text-shadow:
 
-    0 0 10px rgba(255,255,255,.25),
+    -2px -2px 0 #b87a19,
+    2px -2px 0 #b87a19,
+    -2px 2px 0 #b87a19,
+    2px 2px 0 #b87a19,
+    0 7px 0 #271607,
+    0 11px 18px rgba(0,0,0,.72),
+    0 0 24px rgba(255,205,96,.4);
 
-    0 0 30px rgba(173,216,255,.15);
+    -webkit-text-stroke:1px #f6c35a;
 
-    animation:titleFade 2.5s ease;
+    font-family:"Fusion Pixel 12px Monospaced JP", "Press Start 2P", monospace;
+
+    animation:titleFloat 3.6s ease-in-out infinite;
 
 }
 
@@ -99,6 +107,8 @@ body{
     font-size:22px;
 
     color:#d9d9d9;
+
+    font-family:"Fusion Pixel 12px Monospaced JP", monospace;
 
     margin-bottom:40px;
 
@@ -109,6 +119,8 @@ body{
     font-size:36px;
 
     letter-spacing:10px;
+
+    font-family:"Fusion Pixel 12px Monospaced JP", monospace;
 
     margin-bottom:70px;
 
@@ -124,25 +136,62 @@ body{
 
     padding:18px 48px;
 
-    background:#ffffff;
+    background:#e8b54e;
 
-    color:#222;
+    color:#29170c;
 
-    border:none;
+    border:4px solid #fff1a3;
 
-    border-radius:14px;
+    border-radius:0;
 
     cursor:pointer;
 
     transition:.25s;
 
-    animation:breathe 2s ease infinite;
+    box-shadow:
+    inset 4px 4px 0 #fff3b6,
+    inset -4px -4px 0 #a94e20,
+    4px 4px 0 #48200f,
+    8px 8px 0 rgba(0,0,0,.42);
+
+    text-shadow:1px 1px 0 rgba(255,255,255,.35);
+
+    animation:startPulse 2s steps(2,end) infinite;
+
+}
+
+#startButton::after{
+
+    content:"▮";
+
+    margin-left:12px;
+
+    color:#6a2a14;
+
+    animation:cursorBlink 1s steps(1,end) infinite;
 
 }
 
 #startButton:hover{
 
-    transform:scale(1.06);
+    transform:translate(-2px,-2px);
+
+    box-shadow:
+    inset 4px 4px 0 #fff3b6,
+    inset -4px -4px 0 #a94e20,
+    6px 6px 0 #48200f,
+    10px 10px 0 rgba(0,0,0,.34);
+
+}
+
+#startButton:active{
+
+    transform:translate(3px,3px);
+
+    box-shadow:
+    inset 4px 4px 0 #a94e20,
+    inset -4px -4px 0 #fff3b6,
+    1px 1px 0 #48200f;
 
 }
 
@@ -255,6 +304,41 @@ body{
     100%{
 
         transform:translateY(0px);
+
+    }
+
+}
+
+@keyframes startPulse{
+
+    0%,
+    100%{
+
+        filter:brightness(1);
+
+    }
+
+    50%{
+
+        filter:brightness(1.12);
+
+    }
+
+}
+
+@keyframes cursorBlink{
+
+    0%,
+    49%{
+
+        opacity:1;
+
+    }
+
+    50%,
+    100%{
+
+        opacity:0;
 
     }
 
