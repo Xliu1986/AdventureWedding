@@ -281,6 +281,20 @@ const player = {
 const playerSprite = new Image();
 playerSprite.src = "assets/player-mori-sprite-sheet-32x48.png?v=2";
 
+const TOKYO_WORLD_PROMPT = "Warm 16-bit top-down Tokyo spring neighborhood: Tokyo Station entrance at the top center, park and pond at upper left, shrine at upper right, shopping street on the left, sakura avenue on the right, road and crosswalk below, and a river with wooden bridges along the bottom. Use dense handcrafted pixel-art detail, clear walkable stone paths, no labels, no UI, and no NPCs.";
+const STORY_MAP_SCALE = 2;
+const PLAYER_RENDER_WIDTH = 64;
+const PLAYER_RENDER_HEIGHT = 96;
+const SAKURA_AVENUE_BOUNDS = {
+    x: 1740,
+    y: 220,
+    width: 460,
+    height: 1400
+};
+
+const exteriorMap = new Image();
+exteriorMap.src = "assets/tokyo-story-map.png";
+
 let playerAnimationTime = 0;
 
 const pressedKeys = new Set();
@@ -331,8 +345,8 @@ const Tile = {
     CROSSWALK: 29
 };
 
-const MAP_COLUMNS = 48;
-const MAP_ROWS = 32;
+const MAP_COLUMNS = 50;
+const MAP_ROWS = 30;
 
 function createTokyoMap() {
 
@@ -386,8 +400,8 @@ function createTokyoMap() {
     fillTiles(6, 22, 9, 1, Tile.POND_EDGE);
     fillTiles(6, 27, 9, 1, Tile.POND_EDGE);
     fillTiles(9, 23, 2, 4, Tile.WOOD_BRIDGE);
-    fillTiles(0, 29, MAP_COLUMNS, 3, Tile.POND);
-    fillTiles(21, 29, 5, 3, Tile.WOOD_BRIDGE);
+    fillTiles(0, 29, MAP_COLUMNS, 1, Tile.POND);
+    fillTiles(21, 29, 5, 1, Tile.WOOD_BRIDGE);
 
     [
         [3, 13, Tile.LAMP], [6, 13, Tile.SAKURA_TREE], [10, 13, Tile.SAKURA_TREE],
@@ -450,18 +464,30 @@ const solidTiles = new Set([
 const camera = {
     x: 0,
     y: 0,
-    smoothing: 0.12
+    smoothing: 0.16,
+    zoom: 1
+};
+
+const cameraIntro = {
+    active: false,
+    elapsed: 0,
+    overviewDuration: 1.2,
+    transitionDuration: 1.8
 };
 
 function getWorldWidth() {
 
-    return MAP_COLUMNS * TILE_SIZE;
+    return exteriorMap.naturalWidth
+        ? exteriorMap.naturalWidth * STORY_MAP_SCALE
+        : MAP_COLUMNS * TILE_SIZE;
 
 }
 
 function getWorldHeight() {
 
-    return MAP_ROWS * TILE_SIZE;
+    return exteriorMap.naturalHeight
+        ? exteriorMap.naturalHeight * STORY_MAP_SCALE
+        : MAP_ROWS * TILE_SIZE;
 
 }
 
@@ -489,8 +515,8 @@ function canMoveTo(x, y) {
 
 function spawnPlayer() {
 
-    player.x = (getWorldWidth() - player.width) / 2;
-    player.y = (getWorldHeight() - player.height) / 2;
+    player.x = 1940;
+    player.y = 1020;
     player.moving = false;
 
     centerCameraOnPlayer();
@@ -504,6 +530,22 @@ function centerCameraOnPlayer() {
 
     camera.x = Math.max(0, Math.min(player.x + player.width / 2 - gameCanvas.width / 2, maxX));
     camera.y = Math.max(0, Math.min(player.y + player.height / 2 - gameCanvas.height / 2, maxY));
+    camera.zoom = 1;
+
+}
+
+function startCameraIntro() {
+
+    const overviewZoom = Math.min(
+        (gameCanvas.width - 48) / getWorldWidth(),
+        (gameCanvas.height - 48) / getWorldHeight()
+    );
+
+    camera.x = (getWorldWidth() - gameCanvas.width) / 2;
+    camera.y = (getWorldHeight() - gameCanvas.height) / 2;
+    camera.zoom = overviewZoom;
+    cameraIntro.active = true;
+    cameraIntro.elapsed = 0;
 
 }
 
@@ -515,8 +557,40 @@ function updateCamera(deltaTime) {
     const targetY = Math.max(0, Math.min(player.y + player.height / 2 - gameCanvas.height / 2, maxY));
     const followAmount = 1 - Math.pow(1 - camera.smoothing, deltaTime * 60);
 
+    if (cameraIntro.active) {
+
+        cameraIntro.elapsed += deltaTime;
+
+        const overviewZoom = Math.min(
+            (gameCanvas.width - 48) / getWorldWidth(),
+            (gameCanvas.height - 48) / getWorldHeight()
+        );
+        const overviewX = (getWorldWidth() - gameCanvas.width) / 2;
+        const overviewY = (getWorldHeight() - gameCanvas.height) / 2;
+
+        if (cameraIntro.elapsed > cameraIntro.overviewDuration) {
+
+            const progress = Math.min(
+                1,
+                (cameraIntro.elapsed - cameraIntro.overviewDuration) / cameraIntro.transitionDuration
+            );
+            const ease = progress * progress * (3 - 2 * progress);
+
+            camera.x = overviewX + (targetX - overviewX) * ease;
+            camera.y = overviewY + (targetY - overviewY) * ease;
+            camera.zoom = overviewZoom + (1 - overviewZoom) * ease;
+
+            if (progress === 1) cameraIntro.active = false;
+
+        }
+
+        return;
+
+    }
+
     camera.x += (targetX - camera.x) * followAmount;
     camera.y += (targetY - camera.y) * followAmount;
+    camera.zoom += (1 - camera.zoom) * followAmount;
 
 }
 
@@ -849,7 +923,7 @@ function updateWorldAtmosphere(deltaTime) {
 
 function drawWorldAtmosphere() {
 
-    sakuraTreeLocations.forEach((tree, index) => {
+    if (!(exteriorMap.complete && exteriorMap.naturalWidth)) sakuraTreeLocations.forEach((tree, index) => {
 
         const sway = Math.sin(windTime * 1.4 + index) * 3;
 
@@ -896,10 +970,10 @@ function drawPlayer() {
             row * 48,
             32,
             48,
-            player.x - 4,
-            player.y - 24,
-            32,
-            48
+            player.x + (player.width - PLAYER_RENDER_WIDTH) / 2,
+            player.y + player.height - PLAYER_RENDER_HEIGHT,
+            PLAYER_RENDER_WIDTH,
+            PLAYER_RENDER_HEIGHT
         );
 
         return;
@@ -917,23 +991,33 @@ function drawGame() {
     gameCtx.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
 
     gameCtx.save();
-    gameCtx.translate(-camera.x, -camera.y);
+    gameCtx.translate(gameCanvas.width / 2, gameCanvas.height / 2);
+    gameCtx.scale(camera.zoom, camera.zoom);
+    gameCtx.translate(-camera.x - gameCanvas.width / 2, -camera.y - gameCanvas.height / 2);
 
-    tokyoMap.forEach((row, rowIndex) => {
+    if (exteriorMap.complete && exteriorMap.naturalWidth) {
 
-        row.forEach((tile, columnIndex) => {
+        gameCtx.drawImage(exteriorMap, 0, 0, getWorldWidth(), getWorldHeight());
 
-            drawLandmarkTile(
-                tile,
-                columnIndex * TILE_SIZE,
-                rowIndex * TILE_SIZE,
-                columnIndex,
-                rowIndex
-            );
+    } else {
+
+        tokyoMap.forEach((row, rowIndex) => {
+
+            row.forEach((tile, columnIndex) => {
+
+                drawLandmarkTile(
+                    tile,
+                    columnIndex * TILE_SIZE,
+                    rowIndex * TILE_SIZE,
+                    columnIndex,
+                    rowIndex
+                );
+
+            });
 
         });
 
-    });
+    }
 
     drawWorldAtmosphere();
     drawPlayer();
@@ -943,6 +1027,13 @@ function drawGame() {
 }
 
 function updatePlayer(deltaTime) {
+
+    if (cameraIntro.active) {
+
+        player.moving = false;
+        return;
+
+    }
 
     let horizontal = 0;
     let vertical = 0;
@@ -963,17 +1054,19 @@ function updatePlayer(deltaTime) {
 
     const isSprinting = pressedKeys.has("ShiftLeft") || pressedKeys.has("ShiftRight");
     const movementSpeed = player.speed * (isSprinting ? player.sprintMultiplier : 1);
+    const avenueMaxX = SAKURA_AVENUE_BOUNDS.x + SAKURA_AVENUE_BOUNDS.width - player.width;
+    const avenueMaxY = SAKURA_AVENUE_BOUNDS.y + SAKURA_AVENUE_BOUNDS.height - player.height;
 
     const destinationX = Math.max(
-        0,
-        Math.min(player.x + horizontal * movementSpeed * deltaTime, getWorldWidth() - player.width)
+        SAKURA_AVENUE_BOUNDS.x,
+        Math.min(player.x + horizontal * movementSpeed * deltaTime, avenueMaxX)
     );
     const destinationY = Math.max(
-        0,
-        Math.min(player.y + vertical * movementSpeed * deltaTime, getWorldHeight() - player.height)
+        SAKURA_AVENUE_BOUNDS.y,
+        Math.min(player.y + vertical * movementSpeed * deltaTime, avenueMaxY)
     );
 
-    if (canMoveTo(destinationX, destinationY)) {
+    if (exteriorMap.complete || canMoveTo(destinationX, destinationY)) {
 
         player.x = destinationX;
         player.y = destinationY;
@@ -1010,6 +1103,7 @@ startButton.addEventListener("click",()=>{
     dialog.classList.add("hidden");
     gameCanvas.classList.remove("hidden");
     spawnPlayer();
+    startCameraIntro();
     previousGameTime = performance.now();
     requestAnimationFrame(gameLoop);
 
