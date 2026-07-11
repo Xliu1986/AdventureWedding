@@ -1,88 +1,93 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>冒険の結婚式</title>
+<meta charset="UTF-8">
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<title>冒険の結婚式</title>
 
-    <link rel="stylesheet" href="style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="style.css?v=0.5.0-1">
+
 </head>
 
 <body>
 
-    <!-- Canvas Background -->
-    <canvas id="background"></canvas>
+<canvas id="background"></canvas>
 
-    <!-- Main UI -->
-    <main class="screen">
+<!-- 游戏层（东京章节开始使用） -->
+<canvas id="gameCanvas" class="hidden"></canvas>
 
-        <header class="title">
+<main class="screen" id="titleScreen">
 
-            <h1>冒険の結婚式</h1>
+<header class="title">
 
-            <p class="subtitle">
-                一段始于东京的故事
-            </p>
+<h1>冒険の結婚式</h1>
 
-            <p class="names">
-                森 × 乐
-            </p>
+<p class="subtitle">
+一段始于东京的故事
+</p>
 
-        </header>
+<p class="names">
+森 × 乐
+</p>
 
-        <section class="menu">
+</header>
 
-            <button id="startButton">
-                PRESS START
-            </button>
+<section class="menu">
 
-        </section>
+<button id="startButton">
+PRESS START
+</button>
 
-        <footer class="version">
+</section>
 
-            Version 0.3 Alpha
+<footer class="version">
 
-        </footer>
+Version 0.5.0
 
-    </main>
+</footer>
 
-    <!-- Dialog -->
+</main>
 
-    <div id="dialog" class="hidden">
+<div id="dialog" class="hidden">
 
-        <div class="dialogBox">
+<div class="dialogBox">
 
-            <h2>欢迎</h2>
+<h2>欢迎</h2>
 
-            <p>
+<p>
 
-                欢迎来到《冒険の結婚式》
+欢迎来到《冒険の結婚式》
 
-                <br><br>
+<br><br>
 
-                第一章：
+第一章：
 
-                东京 · Tokyo
+东京 · Tokyo
 
-            </p>
+</p>
 
-            <button id="closeDialog">
+<button id="closeDialog">
 
-                开始旅程
+开始旅程
 
-            </button>
+</button>
 
-        </div>
+</div>
 
-    </div>
+</div>
 
-    <script src="main.js"></script>
+<script src="main.js?v=0.5.0-1"></script>
 
 </body>
+
 </html>

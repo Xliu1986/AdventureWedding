@@ -1,11 +1,12 @@
 /* ======================================
    AdventureWedding
-   Version 0.3
-   Part 1 / 2
+   Version 0.5.0
 ====================================== */
 
 const canvas = document.getElementById("background");
 const ctx = canvas.getContext("2d");
+const gameCanvas = document.getElementById("gameCanvas");
+const gameCtx = gameCanvas.getContext("2d");
 
 let width = 0;
 let height = 0;
@@ -14,6 +15,9 @@ function resizeCanvas() {
 
     width = canvas.width = window.innerWidth;
     height = canvas.height = window.innerHeight;
+
+    gameCanvas.width = window.innerWidth;
+    gameCanvas.height = window.innerHeight;
 
 }
 
@@ -226,19 +230,127 @@ const startButton = document.getElementById("startButton");
 
 const dialog = document.getElementById("dialog");
 
-const closeDialog = document.getElementById("closeDialog");
+const titleScreen = document.getElementById("titleScreen");
+
+let gameStarted = false;
+
+const player = {
+    size: 24,
+    x: 0,
+    y: 0,
+    speed: 240
+};
+
+const pressedKeys = new Set();
+
+function spawnPlayer() {
+
+    player.x = (gameCanvas.width - player.size) / 2;
+    player.y = (gameCanvas.height - player.size) / 2;
+
+}
+
+function drawGame() {
+
+    gameCtx.fillStyle = "#252525";
+    gameCtx.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
+
+    gameCtx.strokeStyle = "#383838";
+    gameCtx.lineWidth = 1;
+
+    for (let x = 0; x <= gameCanvas.width; x += 64) {
+
+        gameCtx.beginPath();
+        gameCtx.moveTo(x, 0);
+        gameCtx.lineTo(x, gameCanvas.height);
+        gameCtx.stroke();
+
+    }
+
+    for (let y = 0; y <= gameCanvas.height; y += 64) {
+
+        gameCtx.beginPath();
+        gameCtx.moveTo(0, y);
+        gameCtx.lineTo(gameCanvas.width, y);
+        gameCtx.stroke();
+
+    }
+
+    gameCtx.fillStyle = "#ffffff";
+    gameCtx.fillRect(player.x, player.y, player.size, player.size);
+
+}
+
+function updatePlayer(deltaTime) {
+
+    let horizontal = 0;
+    let vertical = 0;
+
+    if (pressedKeys.has("KeyA") || pressedKeys.has("ArrowLeft")) horizontal -= 1;
+    if (pressedKeys.has("KeyD") || pressedKeys.has("ArrowRight")) horizontal += 1;
+    if (pressedKeys.has("KeyW") || pressedKeys.has("ArrowUp")) vertical -= 1;
+    if (pressedKeys.has("KeyS") || pressedKeys.has("ArrowDown")) vertical += 1;
+
+    if (horizontal && vertical) {
+
+        horizontal *= Math.SQRT1_2;
+        vertical *= Math.SQRT1_2;
+
+    }
+
+    player.x += horizontal * player.speed * deltaTime;
+    player.y += vertical * player.speed * deltaTime;
+
+}
+
+let previousGameTime = 0;
+
+function gameLoop(timestamp) {
+
+    const deltaTime = Math.min((timestamp - previousGameTime) / 1000, 0.1);
+    previousGameTime = timestamp;
+
+    updatePlayer(deltaTime);
+    drawGame();
+
+    requestAnimationFrame(gameLoop);
+
+}
 
 startButton.addEventListener("click",()=>{
 
-    dialog.classList.remove("hidden");
+    if (gameStarted) return;
 
-});
-
-closeDialog.addEventListener("click",()=>{
-
+    gameStarted = true;
+    titleScreen.classList.add("hidden");
     dialog.classList.add("hidden");
+    gameCanvas.classList.remove("hidden");
+    spawnPlayer();
+    previousGameTime = performance.now();
+    requestAnimationFrame(gameLoop);
 
 });
+
+window.addEventListener("keydown", event => {
+
+    if (!gameStarted) return;
+
+    if (["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.code)) {
+
+        event.preventDefault();
+        pressedKeys.add(event.code);
+
+    }
+
+});
+
+window.addEventListener("keyup", event => {
+
+    pressedKeys.delete(event.code);
+
+});
+
+window.addEventListener("blur", () => pressedKeys.clear());
 
 /* ===========================
    Rebuild on Resize
@@ -251,5 +363,12 @@ window.addEventListener("resize",()=>{
     createStars();
 
     createPetals();
+
+    if (gameStarted) {
+
+        spawnPlayer();
+        drawGame();
+
+    }
 
 });
