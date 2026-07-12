@@ -1,10 +1,11 @@
 /* ======================================
    AdventureWedding
-   Version 0.6.7 — Tokyo Memories
+   Version 0.6.9 — Tokyo Memories
 ====================================== */
 
 const canvas = document.getElementById("background");
 const ctx = canvas.getContext("2d");
+const gameViewport = document.getElementById("gameViewport");
 const gameCanvas = document.getElementById("gameCanvas");
 const gameCtx = gameCanvas.getContext("2d");
 
@@ -13,18 +14,61 @@ gameCtx.imageSmoothingEnabled = false;
 let width = 0;
 let height = 0;
 
+const gameViewportState = {
+    width: 960,
+    height: 540,
+    cssWidth: 960,
+    cssHeight: 540,
+    dpr: 1,
+    isMobile: false,
+    portrait: false
+};
+
+let lastGameViewportKey = "";
+
+function resizeGameViewport() {
+
+    const availableWidth = Math.max(1, window.innerWidth);
+    const availableHeight = Math.max(1, window.innerHeight);
+    const isMobile = navigator.maxTouchPoints > 0
+        || window.matchMedia("(any-pointer: coarse), (max-width: 900px)").matches;
+    const portrait = availableHeight > availableWidth;
+    const internalWidth = isMobile && portrait ? 540 : 960;
+    const internalHeight = isMobile && portrait ? 960 : 540;
+    const scale = Math.min(availableWidth / internalWidth, availableHeight / internalHeight);
+    const cssWidth = Math.max(1, Math.round(internalWidth * scale));
+    const cssHeight = Math.max(1, Math.round(internalHeight * scale));
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const viewportKey = [internalWidth, internalHeight, cssWidth, cssHeight, dpr, isMobile, portrait].join(":");
+
+    gameViewportState.width = internalWidth;
+    gameViewportState.height = internalHeight;
+    gameViewportState.cssWidth = cssWidth;
+    gameViewportState.cssHeight = cssHeight;
+    gameViewportState.dpr = dpr;
+    gameViewportState.isMobile = isMobile;
+    gameViewportState.portrait = portrait;
+
+    if (viewportKey === lastGameViewportKey) return;
+
+    lastGameViewportKey = viewportKey;
+    gameCanvas.width = Math.round(internalWidth * dpr);
+    gameCanvas.height = Math.round(internalHeight * dpr);
+    gameCanvas.style.width = `${cssWidth}px`;
+    gameCanvas.style.height = `${cssHeight}px`;
+    gameCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    gameCtx.imageSmoothingEnabled = false;
+
+}
+
 function resizeCanvas() {
 
     width = canvas.width = window.innerWidth;
     height = canvas.height = window.innerHeight;
 
-    gameCanvas.width = window.innerWidth;
-    gameCanvas.height = window.innerHeight;
-    gameCtx.imageSmoothingEnabled = false;
+    resizeGameViewport();
 
 }
-
-window.addEventListener("resize", resizeCanvas);
 
 resizeCanvas();
 
@@ -241,7 +285,11 @@ function drawPetals(){
    Animation Loop
 =========================== */
 
+let titleAnimationRunning = true;
+
 function animate(){
+
+    if (!titleAnimationRunning) return;
 
     drawBackground();
 
@@ -267,6 +315,7 @@ const titleScreen = document.getElementById("titleScreen");
 const chapterLocation = document.getElementById("chapterLocation");
 const partyFrames = document.getElementById("partyFrames");
 const catPartyFrames = document.querySelectorAll('[data-party="tuotuo"], [data-party="dazhi"]');
+const mobileControls = document.getElementById("mobileControls");
 
 const gameDialogue = document.getElementById("gameDialogue");
 const gameDialogueName = document.querySelector(".gameDialogueName");
@@ -274,6 +323,18 @@ const gameDialogueText = document.querySelector(".gameDialogueText");
 const gameDialogueContinue = document.querySelector(".gameDialogueContinue");
 
 let gameStarted = false;
+
+function refreshMobileControlMode() {
+
+    const enabled = navigator.maxTouchPoints > 0
+        || window.matchMedia("(any-pointer: coarse), (max-width: 900px)").matches;
+
+    document.body.classList.toggle("touchMode", enabled);
+    mobileControls.classList.toggle("isTouchMode", enabled);
+
+}
+
+refreshMobileControlMode();
 
 const player = {
     x: 0,
@@ -456,6 +517,15 @@ exteriorMap.src = "assets/tokyo-story-map.png";
 let playerAnimationTime = 0;
 
 const pressedKeys = new Set();
+const activeControlPointers = new Map();
+
+const mobileControlKeys = {
+    up: "KeyW",
+    down: "KeyS",
+    left: "KeyA",
+    right: "KeyD",
+    sprint: "ShiftLeft"
+};
 
 const directionByKey = {
     KeyW: "up",
@@ -716,6 +786,7 @@ function openMeetingDialogue() {
     meetingState.triggered = true;
     meetingState.dialogueOpen = true;
     pressedKeys.clear();
+    clearMobileControls();
     player.moving = false;
     faceToward(player, le);
     faceToward(le, player);
@@ -838,6 +909,7 @@ function openInteractionDialogue(interactable) {
     activeInteraction = interactable;
     meetingState.dialogueOpen = true;
     pressedKeys.clear();
+    clearMobileControls();
     player.moving = false;
     le.moving = false;
     setDialoguePage(0);
@@ -851,6 +923,7 @@ function openCatDialogue() {
     dialoguePurpose = "cats";
     meetingState.dialogueOpen = true;
     pressedKeys.clear();
+    clearMobileControls();
     player.moving = false;
     le.moving = false;
     setDialoguePage(0);
@@ -1011,7 +1084,10 @@ function drawInteractionPrompt() {
 
     if ((!nearbyInteractable && !nearbyCatEvent) || meetingState.dialogueOpen) return;
 
-    const promptText = nearbyCatEvent ? "发现了什么…… 按 E 互动" : "按 E / 点击互动";
+    const mobilePrompt = mobileControls.classList.contains("isTouchMode");
+    const promptText = nearbyCatEvent
+        ? (mobilePrompt ? "发现了什么…… 点击 A 互动" : "发现了什么…… 按 E 互动")
+        : (mobilePrompt ? "点击 A 互动" : "按 E / 点击互动");
     const promptWidth = nearbyCatEvent ? 164 : 112;
 
     gameCtx.fillStyle = "rgba(10, 20, 38, 0.86)";
@@ -1116,24 +1192,63 @@ function spawnPlayer() {
 
 function centerCameraOnPlayer() {
 
-    const maxX = Math.max(0, getWorldWidth() - gameCanvas.width);
-    const maxY = Math.max(0, getWorldHeight() - gameCanvas.height);
+    const targetZoom = getCameraFollowZoom();
+    const visibleWidth = gameViewportState.width / targetZoom;
+    const visibleHeight = gameViewportState.height / targetZoom;
+    const portraitOffsetY = gameViewportState.isMobile && gameViewportState.portrait ? 110 : 0;
+    const maxX = Math.max(0, getWorldWidth() - visibleWidth);
+    const maxY = Math.max(0, getWorldHeight() - visibleHeight);
 
-    camera.x = Math.max(0, Math.min(player.x + player.width / 2 - gameCanvas.width / 2, maxX));
-    camera.y = Math.max(0, Math.min(player.y + player.height / 2 - gameCanvas.height / 2, maxY));
-    camera.zoom = 1;
+    camera.x = Math.max(0, Math.min(player.x + player.width / 2 - visibleWidth / 2, maxX));
+    camera.y = Math.max(0, Math.min(player.y + player.height / 2 + portraitOffsetY - visibleHeight / 2, maxY));
+    camera.zoom = targetZoom;
+
+}
+
+function getCameraFollowZoom() {
+
+    if (!gameViewportState.isMobile) return 1;
+
+    return gameViewportState.portrait ? 0.76 : 0.92;
+
+}
+
+function getCameraTarget(zoom = getCameraFollowZoom()) {
+
+    const visibleWidth = gameViewportState.width / zoom;
+    const visibleHeight = gameViewportState.height / zoom;
+    const portraitOffsetY = gameViewportState.isMobile && gameViewportState.portrait ? 110 : 0;
+    const maxX = Math.max(0, getWorldWidth() - visibleWidth);
+    const maxY = Math.max(0, getWorldHeight() - visibleHeight);
+
+    return {
+        x: Math.max(0, Math.min(player.x + player.width / 2 - visibleWidth / 2, maxX)),
+        y: Math.max(0, Math.min(player.y + player.height / 2 + portraitOffsetY - visibleHeight / 2, maxY))
+    };
+
+}
+
+function clampCameraToWorld() {
+
+    const visibleWidth = gameViewportState.width / camera.zoom;
+    const visibleHeight = gameViewportState.height / camera.zoom;
+    const maxX = Math.max(0, getWorldWidth() - visibleWidth);
+    const maxY = Math.max(0, getWorldHeight() - visibleHeight);
+
+    camera.x = Math.max(0, Math.min(camera.x, maxX));
+    camera.y = Math.max(0, Math.min(camera.y, maxY));
 
 }
 
 function startCameraIntro() {
 
     const overviewZoom = Math.min(
-        (gameCanvas.width - 48) / getWorldWidth(),
-        (gameCanvas.height - 48) / getWorldHeight()
+        (gameViewportState.width - 48) / getWorldWidth(),
+        (gameViewportState.height - 48) / getWorldHeight()
     );
 
-    camera.x = (getWorldWidth() - gameCanvas.width) / 2;
-    camera.y = (getWorldHeight() - gameCanvas.height) / 2;
+    camera.x = Math.max(0, (getWorldWidth() - gameViewportState.width / overviewZoom) / 2);
+    camera.y = Math.max(0, (getWorldHeight() - gameViewportState.height / overviewZoom) / 2);
     camera.zoom = overviewZoom;
     cameraIntro.active = true;
     cameraIntro.elapsed = 0;
@@ -1142,22 +1257,20 @@ function startCameraIntro() {
 
 function updateCamera(deltaTime) {
 
-    const maxX = Math.max(0, getWorldWidth() - gameCanvas.width);
-    const maxY = Math.max(0, getWorldHeight() - gameCanvas.height);
-    const targetX = Math.max(0, Math.min(player.x + player.width / 2 - gameCanvas.width / 2, maxX));
-    const targetY = Math.max(0, Math.min(player.y + player.height / 2 - gameCanvas.height / 2, maxY));
+    const followZoom = getCameraFollowZoom();
+    const target = getCameraTarget(followZoom);
     const followAmount = 1 - Math.pow(1 - camera.smoothing, deltaTime * 60);
 
-    if (cameraIntro.active || meetingState.dialogueOpen) {
+    if (cameraIntro.active) {
 
         cameraIntro.elapsed += deltaTime;
 
         const overviewZoom = Math.min(
-            (gameCanvas.width - 48) / getWorldWidth(),
-            (gameCanvas.height - 48) / getWorldHeight()
+            (gameViewportState.width - 48) / getWorldWidth(),
+            (gameViewportState.height - 48) / getWorldHeight()
         );
-        const overviewX = (getWorldWidth() - gameCanvas.width) / 2;
-        const overviewY = (getWorldHeight() - gameCanvas.height) / 2;
+        const overviewX = Math.max(0, (getWorldWidth() - gameViewportState.width / overviewZoom) / 2);
+        const overviewY = Math.max(0, (getWorldHeight() - gameViewportState.height / overviewZoom) / 2);
 
         if (cameraIntro.elapsed > cameraIntro.overviewDuration) {
 
@@ -1167,9 +1280,9 @@ function updateCamera(deltaTime) {
             );
             const ease = progress * progress * (3 - 2 * progress);
 
-            camera.x = overviewX + (targetX - overviewX) * ease;
-            camera.y = overviewY + (targetY - overviewY) * ease;
-            camera.zoom = overviewZoom + (1 - overviewZoom) * ease;
+            camera.x = overviewX + (target.x - overviewX) * ease;
+            camera.y = overviewY + (target.y - overviewY) * ease;
+            camera.zoom = overviewZoom + (followZoom - overviewZoom) * ease;
 
             if (progress === 1) cameraIntro.active = false;
 
@@ -1179,9 +1292,9 @@ function updateCamera(deltaTime) {
 
     }
 
-    camera.x += (targetX - camera.x) * followAmount;
-    camera.y += (targetY - camera.y) * followAmount;
-    camera.zoom += (1 - camera.zoom) * followAmount;
+    camera.x += (target.x - camera.x) * followAmount;
+    camera.y += (target.y - camera.y) * followAmount;
+    camera.zoom += (followZoom - camera.zoom) * followAmount;
 
 }
 
@@ -1708,12 +1821,11 @@ function drawCat(cat) {
 function drawGame() {
 
     gameCtx.fillStyle = "#91ad6d";
-    gameCtx.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
+    gameCtx.fillRect(0, 0, gameViewportState.width, gameViewportState.height);
 
     gameCtx.save();
-    gameCtx.translate(gameCanvas.width / 2, gameCanvas.height / 2);
     gameCtx.scale(camera.zoom, camera.zoom);
-    gameCtx.translate(-camera.x - gameCanvas.width / 2, -camera.y - gameCanvas.height / 2);
+    gameCtx.translate(-Math.round(camera.x), -Math.round(camera.y));
 
     if (exteriorMap.complete && exteriorMap.naturalWidth) {
 
@@ -1827,6 +1939,7 @@ function gameLoop(timestamp) {
     updateCatCompanions(deltaTime);
     updateDialogueTypewriter(deltaTime);
     updateWorldAtmosphere(deltaTime);
+    mobileControls.classList.toggle("isDialogueOpen", meetingState.dialogueOpen);
 
     if (player.moving) playerAnimationTime += deltaTime;
 
@@ -1842,15 +1955,103 @@ startButton.addEventListener("click",()=>{
     if (gameStarted) return;
 
     gameStarted = true;
+    titleAnimationRunning = false;
     titleScreen.classList.add("hidden");
     dialog.classList.add("hidden");
-    gameCanvas.classList.remove("hidden");
+    gameViewport.classList.remove("hidden");
     chapterLocation.classList.remove("hidden");
     partyFrames.classList.remove("hidden");
+    mobileControls.classList.remove("hidden");
     spawnPlayer();
     startCameraIntro();
     previousGameTime = performance.now();
     requestAnimationFrame(gameLoop);
+
+});
+
+function triggerMobileAction() {
+
+    if (meetingState.dialogueOpen) {
+
+        advanceMeetingDialogue();
+        return;
+
+    }
+
+    if (!gameStarted || cameraIntro.active) return;
+
+    if (nearbyInteractable || nearbyCatEvent) tryInteraction();
+
+}
+
+function releaseMobileControl(pointerId) {
+
+    const control = activeControlPointers.get(pointerId);
+
+    if (!control) return;
+
+    activeControlPointers.delete(pointerId);
+
+    const key = mobileControlKeys[control];
+
+    if (key && ![...activeControlPointers.values()].includes(control)) {
+
+        pressedKeys.delete(key);
+
+    }
+
+}
+
+function clearMobileControls() {
+
+    activeControlPointers.clear();
+    Object.values(mobileControlKeys).forEach(key => pressedKeys.delete(key));
+    mobileControls.querySelectorAll(".isPressed").forEach(button => button.classList.remove("isPressed"));
+
+}
+
+mobileControls.querySelectorAll("button[data-control]").forEach(button => {
+
+    button.addEventListener("pointerdown", event => {
+
+        event.preventDefault();
+
+        const control = button.dataset.control;
+
+        if (control === "action") {
+
+            triggerMobileAction();
+            button.classList.add("isPressed");
+            return;
+
+        }
+
+        if (!gameStarted || meetingState.dialogueOpen || cameraIntro.active) return;
+
+        activeControlPointers.set(event.pointerId, control);
+        pressedKeys.add(mobileControlKeys[control]);
+        button.classList.add("isPressed");
+
+        if (directionByKey[mobileControlKeys[control]]) {
+
+            player.direction = directionByKey[mobileControlKeys[control]];
+
+        }
+
+    });
+
+    const release = event => {
+
+        event.preventDefault();
+        releaseMobileControl(event.pointerId);
+        button.classList.remove("isPressed");
+    };
+
+    button.addEventListener("pointerup", release);
+    button.addEventListener("pointercancel", release);
+    button.addEventListener("pointerleave", release);
+    button.addEventListener("contextmenu", event => event.preventDefault());
+    button.addEventListener("dragstart", event => event.preventDefault());
 
 });
 
@@ -1903,7 +2104,12 @@ window.addEventListener("keyup", event => {
 
 });
 
-window.addEventListener("blur", () => pressedKeys.clear());
+window.addEventListener("blur", () => {
+
+    pressedKeys.clear();
+    clearMobileControls();
+
+});
 
 /* ===========================
    Rebuild on Resize
@@ -1912,6 +2118,7 @@ window.addEventListener("blur", () => pressedKeys.clear());
 window.addEventListener("resize",()=>{
 
     resizeCanvas();
+    refreshMobileControlMode();
 
     createStars();
 
@@ -1919,7 +2126,7 @@ window.addEventListener("resize",()=>{
 
     if (gameStarted) {
 
-        spawnPlayer();
+        clampCameraToWorld();
         drawGame();
 
     }
