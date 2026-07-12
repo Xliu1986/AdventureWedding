@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.6.1
+   Version 0.6.7 — Tokyo Memories
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -264,6 +264,9 @@ const startButton = document.getElementById("startButton");
 const dialog = document.getElementById("dialog");
 
 const titleScreen = document.getElementById("titleScreen");
+const chapterLocation = document.getElementById("chapterLocation");
+const partyFrames = document.getElementById("partyFrames");
+const catPartyFrames = document.querySelectorAll('[data-party="tuotuo"], [data-party="dazhi"]');
 
 const gameDialogue = document.getElementById("gameDialogue");
 const gameDialogueName = document.querySelector(".gameDialogueName");
@@ -300,6 +303,9 @@ const le = {
 
 const leSprite = new Image();
 leSprite.src = "assets/player-le-sprite-sheet-32x48.png?v=1";
+
+const catSpriteSheet = new Image();
+catSpriteSheet.src = "assets/cat-companions-pixel.png?v=1";
 
 const DEBUG_COLLISIONS = false;
 
@@ -347,12 +353,91 @@ let dialoguePurpose = "meeting";
 const moriPositionHistory = [];
 
 const interactables = [
-    { id: "bench", x: 1930, y: 700, width: 90, height: 70, text: "这里很安静。" },
-    { id: "vending", x: 1280, y: 1300, width: 80, height: 80, text: "东京的自动售货机，\n好像随处可见。" },
-    { id: "shrine", x: 2080, y: 520, width: 140, height: 110, text: "愿接下来的旅程，\n一切顺利。" }
+    {
+        id: "bench",
+        x: 1930, y: 700, width: 90, height: 70,
+        pages: [
+            { speaker: "乐乐", text: "东京有很多这样的公园。\n以前我喜欢一个人坐在这里。" },
+            { speaker: "森", text: "以后。\n就不是一个人了。" }
+        ],
+        completed: false
+    },
+    {
+        id: "vending",
+        x: 1280, y: 1300, width: 80, height: 80,
+        pages: [
+            { speaker: "乐乐", text: "日本的自动售货机，\n什么都有。" },
+            { speaker: "森", text: "真的吗？" },
+            { speaker: "乐乐", text: "以后慢慢带你发现。" }
+        ],
+        completed: false
+    },
+    {
+        id: "shrine",
+        x: 2080, y: 520, width: 140, height: 110,
+        pages: [
+            { speaker: "乐乐", text: "来东京的人。\n都会来这里。" },
+            { speaker: "森", text: "那我们也许个愿吧。" },
+            { speaker: "乐乐", text: "好。" }
+        ],
+        completed: false,
+        pauseAfter: 3
+    }
 ];
 
 let nearbyInteractable = null;
+
+const sakuraAvenueMoment = {
+    x: 1810,
+    y: 900,
+    width: 360,
+    height: 640,
+    active: false,
+    discovered: false
+};
+
+const hiddenCatEvent = {
+    x: 1855,
+    y: 600,
+    width: 96,
+    height: 72,
+    discovered: false,
+    pages: [
+        { speaker: "坨坨", text: "喵~" },
+        { speaker: "大痣", text: "喵呜……" },
+        { speaker: "乐乐", text: "咦？\n坨坨？\n大痣？\n你们怎么会在东京？" },
+        { speaker: "森", text: "它们认识你？" },
+        { speaker: "乐乐", text: "嗯。\n它们一直都是我的家人。" },
+        { speaker: "森", text: "看来。\n今天真的很幸运。" }
+    ]
+};
+
+const cats = [
+    {
+        id: "tuotuo", name: "坨坨", x: 1870, y: 622, width: 22, height: 18,
+        collar: "#d9524f", marking: "#d9d7ce", direction: "down",
+        following: false, moving: false, animationTime: 0, behaviour: "idle", behaviourTime: 0
+    },
+    {
+        id: "dazhi", name: "大痣", x: 1902, y: 629, width: 22, height: 18,
+        collar: "#8855a6", marking: "#77757a", direction: "down",
+        following: false, moving: false, animationTime: 0, behaviour: "idle", behaviourTime: 0
+    }
+];
+
+// Kept data-only for this build: it unlocks with the cats without adding a new UI.
+const characterAlbum = {
+    tuotuo: { unlocked: false, description: "面冷心热的贴心喵。" },
+    dazhi: { unlocked: false, description: "神经大条的暖暖喵。" }
+};
+
+const achievements = {
+    walkingTogether: { unlocked: false, name: "与你同行" }
+};
+
+let nearbyCatEvent = false;
+let activeInteraction = null;
+let gameplayPauseRemaining = 0;
 
 const TOKYO_WORLD_PROMPT = "Warm 16-bit top-down Tokyo spring neighborhood: Tokyo Station entrance at the top center, park and pond at upper left, shrine at upper right, shopping street on the left, sakura avenue on the right, road and crosswalk below, and a river with wooden bridges along the bottom. Use dense handcrafted pixel-art detail, clear walkable stone paths, no labels, no UI, and no NPCs.";
 const STORY_MAP_SCALE = 2;
@@ -597,7 +682,13 @@ function rectanglesOverlap(first, second) {
 
 function canMoveOnOfficialMap(x, y) {
 
-    const destination = { x, y, width: player.width, height: player.height };
+    return canActorMoveOnOfficialMap(player, x, y);
+
+}
+
+function canActorMoveOnOfficialMap(actor, x, y) {
+
+    const destination = { x, y, width: actor.width, height: actor.height };
 
     return !collisionRects.some(rect => rectanglesOverlap(destination, rect));
 
@@ -644,6 +735,7 @@ function setDialoguePage(pageIndex) {
     meetingState.typeTimer = 0;
     meetingState.pageComplete = false;
     gameDialogueName.textContent = page.speaker;
+    gameDialogue.dataset.speaker = page.speaker;
     gameDialogueText.textContent = "";
     gameDialogueContinue.classList.add("hidden");
 
@@ -712,12 +804,51 @@ function closeMeetingDialogue() {
 
     if (dialoguePurpose === "meeting") le.companion = true;
 
+    if (dialoguePurpose === "interaction" && activeInteraction) {
+
+        activeInteraction.completed = true;
+
+        if (activeInteraction.pauseAfter) {
+
+            gameplayPauseRemaining = activeInteraction.pauseAfter;
+
+        }
+
+    }
+
+    if (dialoguePurpose === "cats") {
+
+        hiddenCatEvent.discovered = true;
+        cats.forEach(cat => cat.following = true);
+        characterAlbum.tuotuo.unlocked = true;
+        characterAlbum.dazhi.unlocked = true;
+        achievements.walkingTogether.unlocked = true;
+        catPartyFrames.forEach(frame => frame.classList.remove("hidden"));
+
+    }
+
+    activeInteraction = null;
+
 }
 
 function openInteractionDialogue(interactable) {
 
-    activeDialoguePages = [{ speaker: "", text: interactable.text }];
+    activeDialoguePages = interactable.pages;
     dialoguePurpose = "interaction";
+    activeInteraction = interactable;
+    meetingState.dialogueOpen = true;
+    pressedKeys.clear();
+    player.moving = false;
+    le.moving = false;
+    setDialoguePage(0);
+    gameDialogue.classList.remove("hidden");
+
+}
+
+function openCatDialogue() {
+
+    activeDialoguePages = hiddenCatEvent.pages;
+    dialoguePurpose = "cats";
     meetingState.dialogueOpen = true;
     pressedKeys.clear();
     player.moving = false;
@@ -747,9 +878,68 @@ function updateNearbyInteractable() {
     }
 
     nearbyInteractable = interactables
+        .filter(item => !item.completed)
         .map(item => ({ item, distance: Math.hypot(player.x - item.x, player.y - item.y) }))
         .filter(entry => entry.distance <= 100)
         .sort((first, second) => first.distance - second.distance)[0]?.item || null;
+
+}
+
+function playerIsInsideZone(zone) {
+
+    const playerCenterX = player.x + player.width / 2;
+    const playerCenterY = player.y + player.height / 2;
+
+    return playerCenterX >= zone.x
+        && playerCenterX <= zone.x + zone.width
+        && playerCenterY >= zone.y
+        && playerCenterY <= zone.y + zone.height;
+
+}
+
+function updateSakuraAvenueMoment() {
+
+    if (!le.companion || cameraIntro.active) return;
+
+    const insideAvenue = playerIsInsideZone(sakuraAvenueMoment);
+
+    sakuraAvenueMoment.active = insideAvenue;
+
+    if (insideAvenue && !sakuraAvenueMoment.discovered) {
+
+        sakuraAvenueMoment.discovered = true;
+
+        for (let index = 0; index < 28; index++) {
+
+            worldPetals.push({
+                x: sakuraAvenueMoment.x + Math.random() * sakuraAvenueMoment.width,
+                y: sakuraAvenueMoment.y + Math.random() * sakuraAvenueMoment.height,
+                size: 2 + Math.random() * 3,
+                drift: 8 + Math.random() * 16,
+                fall: 10 + Math.random() * 18,
+                phase: Math.random() * Math.PI * 2
+            });
+
+        }
+
+    }
+
+}
+
+function updateNearbyCatEvent() {
+
+    if (hiddenCatEvent.discovered || meetingState.dialogueOpen || !le.companion) {
+
+        nearbyCatEvent = false;
+        return;
+
+    }
+
+    const playerCenterX = player.x + player.width / 2;
+    const playerCenterY = player.y + player.height / 2;
+    const closestX = Math.max(hiddenCatEvent.x, Math.min(playerCenterX, hiddenCatEvent.x + hiddenCatEvent.width));
+    const closestY = Math.max(hiddenCatEvent.y, Math.min(playerCenterY, hiddenCatEvent.y + hiddenCatEvent.height));
+    nearbyCatEvent = Math.hypot(playerCenterX - closestX, playerCenterY - closestY) <= 118;
 
 }
 
@@ -759,20 +949,24 @@ function tryInteraction() {
 
         openInteractionDialogue(nearbyInteractable);
 
+    } else if (nearbyCatEvent && !meetingState.dialogueOpen && !cameraIntro.active) {
+
+        openCatDialogue();
+
     }
 
 }
 
 function updateLeCompanion(deltaTime) {
 
-    if (!le.companion || meetingState.dialogueOpen || cameraIntro.active) {
+    if (!le.companion || meetingState.dialogueOpen || cameraIntro.active || gameplayPauseRemaining > 0) {
 
         le.moving = false;
         return;
 
     }
 
-    const delayedPoint = moriPositionHistory[Math.max(0, moriPositionHistory.length - 28)];
+    const delayedPoint = moriPositionHistory[Math.max(0, moriPositionHistory.length - 14)];
 
     if (!delayedPoint) return;
 
@@ -787,7 +981,7 @@ function updateLeCompanion(deltaTime) {
 
     }
 
-    if (distance < 55) {
+    if (distance < 46) {
 
         le.moving = false;
         return;
@@ -796,7 +990,7 @@ function updateLeCompanion(deltaTime) {
 
     const horizontal = (delayedPoint.x - le.x) / distance;
     const vertical = (delayedPoint.y - le.y) / distance;
-    const speed = 190;
+    const speed = sakuraAvenueMoment.active ? 160 : 190;
     const nextX = Math.max(0, Math.min(le.x + horizontal * speed * deltaTime, getWorldWidth() - le.width));
     const nextY = Math.max(0, Math.min(le.y + vertical * speed * deltaTime, getWorldHeight() - le.height));
 
@@ -815,13 +1009,86 @@ function updateLeCompanion(deltaTime) {
 
 function drawInteractionPrompt() {
 
-    if (!nearbyInteractable || meetingState.dialogueOpen) return;
+    if ((!nearbyInteractable && !nearbyCatEvent) || meetingState.dialogueOpen) return;
+
+    const promptText = nearbyCatEvent ? "发现了什么…… 按 E 互动" : "按 E / 点击互动";
+    const promptWidth = nearbyCatEvent ? 164 : 112;
 
     gameCtx.fillStyle = "rgba(10, 20, 38, 0.86)";
-    gameCtx.fillRect(player.x - 44, player.y - 58, 112, 28);
+    gameCtx.fillRect(player.x - 44, player.y - 58, promptWidth, 28);
     gameCtx.fillStyle = "#f4cf7a";
     gameCtx.font = "14px Fusion Pixel 12px Monospaced JP";
-    gameCtx.fillText("按 E / 点击互动", player.x - 38, player.y - 39);
+    gameCtx.fillText(promptText, player.x - 38, player.y - 39);
+
+}
+
+function updateCatCompanion(cat, index, deltaTime) {
+
+    if (!cat.following || meetingState.dialogueOpen || cameraIntro.active || gameplayPauseRemaining > 0) {
+
+        cat.moving = false;
+        cat.animationTime += deltaTime;
+        return;
+
+    }
+
+    cat.animationTime += deltaTime;
+
+    if (cat.behaviourTime > 0) {
+
+        cat.behaviourTime -= deltaTime;
+        cat.moving = false;
+        return;
+
+    }
+
+    const delayedPoint = moriPositionHistory[Math.max(0, moriPositionHistory.length - 24 - index * 10)];
+
+    if (!delayedPoint) return;
+
+    const distance = Math.hypot(delayedPoint.x - cat.x, delayedPoint.y - cat.y);
+
+    if (distance > 190) {
+
+        cat.x = delayedPoint.x;
+        cat.y = delayedPoint.y;
+        cat.moving = false;
+        return;
+
+    }
+
+    if (distance < 32) {
+
+        const restingBehaviours = ["sit", "groom", "idle"];
+        cat.behaviour = restingBehaviours[Math.floor(Math.random() * restingBehaviours.length)];
+        cat.behaviourTime = 0.35 + Math.random() * 0.65;
+        cat.moving = false;
+        return;
+
+    }
+
+    cat.behaviour = Math.random() < 0.025 ? "run" : "walk";
+    const speed = cat.behaviour === "run" ? 275 : 190;
+    const horizontal = (delayedPoint.x - cat.x) / distance;
+    const vertical = (delayedPoint.y - cat.y) / distance;
+    const nextX = Math.max(0, Math.min(cat.x + horizontal * speed * deltaTime, getWorldWidth() - cat.width));
+    const nextY = Math.max(0, Math.min(cat.y + vertical * speed * deltaTime, getWorldHeight() - cat.height));
+
+    if (canActorMoveOnOfficialMap(cat, nextX, nextY)) {
+
+        cat.x = nextX;
+        cat.y = nextY;
+
+    }
+
+    cat.moving = true;
+    faceToward(cat, delayedPoint);
+
+}
+
+function updateCatCompanions(deltaTime) {
+
+    cats.forEach((cat, index) => updateCatCompanion(cat, index, deltaTime));
 
 }
 
@@ -1247,7 +1514,9 @@ function updateWorldAtmosphere(deltaTime) {
 
 function drawWorldAtmosphere() {
 
-    if (!(exteriorMap.complete && exteriorMap.naturalWidth)) sakuraTreeLocations.forEach((tree, index) => {
+    const hasOfficialMap = exteriorMap.complete && exteriorMap.naturalWidth;
+
+    if (!hasOfficialMap) sakuraTreeLocations.forEach((tree, index) => {
 
         const sway = Math.sin(windTime * 1.4 + index) * 3;
 
@@ -1256,6 +1525,35 @@ function drawWorldAtmosphere() {
         gameCtx.fillRect(tree.x + 44 + sway, tree.y + 24, 4, 4);
 
     });
+
+    if (hasOfficialMap) {
+
+        // A few low-opacity highlights make the painted cherry canopies feel
+        // gently windblown without covering or redesigning the map artwork.
+        [
+            { x: 1830, y: 940 }, { x: 2110, y: 1050 }, { x: 1860, y: 1350 },
+            { x: 2380, y: 1190 }, { x: 420, y: 420 }, { x: 2500, y: 400 }
+        ].forEach((tree, index) => {
+
+            const sway = Math.sin(windTime * 1.35 + index * 1.7) * 5;
+            gameCtx.fillStyle = "rgba(255, 209, 225, 0.45)";
+            gameCtx.fillRect(tree.x + sway, tree.y, 5, 3);
+            gameCtx.fillRect(tree.x + 18 + sway, tree.y + 13, 3, 4);
+
+        });
+
+        // Small shifting highlights bring the river to life while leaving its
+        // original pixel-art texture clearly visible.
+        gameCtx.fillStyle = "rgba(202, 239, 255, 0.28)";
+        for (let index = 0; index < 14; index++) {
+
+            const shimmerX = 320 + index * 165 + Math.sin(windTime * 1.6 + index) * 16;
+            const shimmerY = 1930 + (index % 3) * 42;
+            gameCtx.fillRect(shimmerX, shimmerY, 26, 3);
+
+        }
+
+    }
 
     worldPetals.forEach(petal => {
 
@@ -1335,6 +1633,78 @@ function drawLe() {
 
 }
 
+function drawCat(cat) {
+
+    const x = Math.round(cat.x - 7);
+    const y = Math.round(cat.y - 27);
+    const blink = Math.sin(cat.animationTime * 2.6 + (cat.id === "dazhi" ? 1 : 0)) > 0.96;
+    const tailWag = Math.round(Math.sin(cat.animationTime * 5 + (cat.id === "dazhi" ? 1 : 0)) * 3);
+    const grooming = cat.behaviour === "groom" && Math.sin(cat.animationTime * 9) > 0;
+
+    if (catSpriteSheet.complete && catSpriteSheet.naturalWidth) {
+
+        const sourceX = cat.id === "tuotuo" ? 370 : 990;
+        const bob = cat.behaviour === "run" ? Math.sin(cat.animationTime * 12) * 2 : 0;
+
+        gameCtx.fillStyle = "rgba(26, 31, 39, 0.25)";
+        gameCtx.fillRect(cat.x - 8, cat.y + cat.height - 3, 34, 5);
+        gameCtx.drawImage(
+            catSpriteSheet,
+            sourceX, 170, 420, 510,
+            Math.round(cat.x - 4), Math.round(cat.y - 27 + bob), 30, 36
+        );
+
+        return;
+
+    }
+
+    // Animated tail and ears give the small companions a distinctly feline idle.
+    gameCtx.fillStyle = "#5f5d61";
+    gameCtx.fillRect(x - 4 + tailWag, y + 22, 7, 5);
+    gameCtx.fillRect(x - 7 + tailWag, y + 18, 5, 7);
+    gameCtx.fillStyle = "#d8d5cf";
+    gameCtx.fillRect(x + 4, y + 8, 24, 20);
+    gameCtx.fillStyle = "#59575b";
+    gameCtx.fillRect(x + 6, y + 3, 7, 9);
+    gameCtx.fillRect(x + 22, y + 3, 7, 9);
+    gameCtx.fillRect(x + 6, y + 8, 22, 13);
+    gameCtx.fillStyle = "#c7c4bd";
+    gameCtx.fillRect(x + 10, y + 12, 14, 14);
+    gameCtx.fillStyle = cat.marking;
+    gameCtx.fillRect(x + 10, y + 8, 5, 8);
+    gameCtx.fillRect(x + 21, y + 8, 4, 7);
+    gameCtx.fillRect(x + 4, y + 20, 5, 6);
+    gameCtx.fillRect(x + 25, y + 20, 5, 6);
+    gameCtx.fillStyle = blink ? "#454348" : "#79a56e";
+    gameCtx.fillRect(x + 12, y + 14, 3, blink ? 1 : 3);
+    gameCtx.fillRect(x + 21, y + 14, 3, blink ? 1 : 3);
+    gameCtx.fillStyle = "#d98b8b";
+    gameCtx.fillRect(x + 17, y + 18, 3, 2);
+    gameCtx.fillStyle = cat.collar;
+    gameCtx.fillRect(x + 10, y + 24, 14, 3);
+
+    if (cat.id === "tuotuo") {
+
+        gameCtx.fillStyle = "#e9bd4e";
+        gameCtx.fillRect(x + 16, y + 27, 4, 4);
+
+    } else {
+
+        gameCtx.fillStyle = "#9b6ac0";
+        gameCtx.fillRect(x + 12, y + 26, 4, 4);
+        gameCtx.fillRect(x + 20, y + 26, 4, 4);
+
+    }
+
+    if (grooming) {
+
+        gameCtx.fillStyle = "#d8d5cf";
+        gameCtx.fillRect(x + 26, y + 14, 5, 8);
+
+    }
+
+}
+
 function drawGame() {
 
     gameCtx.fillStyle = "#91ad6d";
@@ -1374,7 +1744,8 @@ function drawGame() {
 
     [
         { y: player.y, draw: drawPlayer },
-        { y: le.y, draw: drawLe }
+        { y: le.y, draw: drawLe },
+        ...cats.filter(cat => hiddenCatEvent.discovered || !cat.following).map(cat => ({ y: cat.y, draw: () => drawCat(cat) }))
     ].sort((first, second) => first.y - second.y).forEach(character => character.draw());
 
     drawInteractionPrompt();
@@ -1385,7 +1756,7 @@ function drawGame() {
 
 function updatePlayer(deltaTime) {
 
-    if (cameraIntro.active) {
+    if (cameraIntro.active || meetingState.dialogueOpen || gameplayPauseRemaining > 0) {
 
         player.moving = false;
         return;
@@ -1441,6 +1812,8 @@ function gameLoop(timestamp) {
     const deltaTime = Math.min((timestamp - previousGameTime) / 1000, 0.1);
     previousGameTime = timestamp;
 
+    if (gameplayPauseRemaining > 0) gameplayPauseRemaining = Math.max(0, gameplayPauseRemaining - deltaTime);
+
     updatePlayer(deltaTime);
     checkFirstMeeting();
     moriPositionHistory.push({ x: player.x, y: player.y });
@@ -1449,6 +1822,9 @@ function gameLoop(timestamp) {
 
     updateLeCompanion(deltaTime);
     updateNearbyInteractable();
+    updateNearbyCatEvent();
+    updateSakuraAvenueMoment();
+    updateCatCompanions(deltaTime);
     updateDialogueTypewriter(deltaTime);
     updateWorldAtmosphere(deltaTime);
 
@@ -1469,6 +1845,8 @@ startButton.addEventListener("click",()=>{
     titleScreen.classList.add("hidden");
     dialog.classList.add("hidden");
     gameCanvas.classList.remove("hidden");
+    chapterLocation.classList.remove("hidden");
+    partyFrames.classList.remove("hidden");
     spawnPlayer();
     startCameraIntro();
     previousGameTime = performance.now();
@@ -1493,7 +1871,7 @@ window.addEventListener("keydown", event => {
 
     if (!gameStarted) return;
 
-    if ((event.code === "KeyE" || event.code === "Enter" || event.code === "Space") && nearbyInteractable) {
+    if ((event.code === "KeyE" || event.code === "Enter" || event.code === "Space") && (nearbyInteractable || nearbyCatEvent)) {
 
         event.preventDefault();
         tryInteraction();

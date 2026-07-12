@@ -17,7 +17,7 @@
 
 <link href="https://cdn.jsdelivr.net/npm/@fontsource/fusion-pixel-12px-monospaced-jp@5.2.5/index.css" rel="stylesheet">
 
-<link rel="stylesheet" href="style.css?v=0.6.4">
+<link rel="stylesheet" href="style.css?v=0.6.7-art1">
 
 </head>
 
@@ -28,9 +28,24 @@
 <!-- 游戏层（东京章节开始使用） -->
 <canvas id="gameCanvas" class="hidden"></canvas>
 
+<div id="chapterLocation" class="hidden">东京 · 春日漫步</div>
+
+<aside id="partyFrames" class="hidden" aria-label="同行伙伴">
+
+<p class="partyTitle">同行伙伴</p>
+
+<div class="partyFrame" data-party="mori"><span class="partyPortrait"></span><span>森</span></div>
+<div class="partyFrame" data-party="le"><span class="partyPortrait"></span><span>乐乐</span></div>
+<div class="partyFrame hidden" data-party="tuotuo"><span class="partyPortrait"></span><span>坨坨</span></div>
+<div class="partyFrame hidden" data-party="dazhi"><span class="partyPortrait"></span><span>大痣</span></div>
+
+</aside>
+
 <div id="gameDialogue" class="hidden" role="dialog" aria-live="polite">
 
 <div class="gameDialogueBox">
+
+<div class="gameDialoguePortrait" aria-hidden="true"></div>
 
 <p class="gameDialogueName">乐乐</p>
 
@@ -68,7 +83,8 @@ PRESS START
 
 <footer class="version">
 
-Version 0.6.4
+Version 0.6.7<br>
+Tokyo Memories
 
 </footer>
 
@@ -102,7 +118,7 @@ Version 0.6.4
 
 </div>
 
-<script src="main.js?v=0.6.4"></script>
+<script src="main.js?v=0.6.7-art1"></script>
 
 </body>
 
