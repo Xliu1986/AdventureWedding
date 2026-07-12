@@ -294,7 +294,8 @@ const le = {
     direction: "down",
     moving: false,
     animationTime: 0,
-    visible: true
+    visible: true,
+    companion: false
 };
 
 const leSprite = new Image();
@@ -339,6 +340,19 @@ const meetingDialoguePages = [
         text: "很高兴见到你，\n我是森。\n希望我们在日本玩得开心。"
     }
 ];
+
+let activeDialoguePages = meetingDialoguePages;
+let dialoguePurpose = "meeting";
+
+const moriPositionHistory = [];
+
+const interactables = [
+    { id: "bench", x: 1930, y: 700, width: 90, height: 70, text: "这里很安静。" },
+    { id: "vending", x: 1280, y: 1300, width: 80, height: 80, text: "东京的自动售货机，\n好像随处可见。" },
+    { id: "shrine", x: 2080, y: 520, width: 140, height: 110, text: "愿接下来的旅程，\n一切顺利。" }
+];
+
+let nearbyInteractable = null;
 
 const TOKYO_WORLD_PROMPT = "Warm 16-bit top-down Tokyo spring neighborhood: Tokyo Station entrance at the top center, park and pond at upper left, shrine at upper right, shopping street on the left, sakura avenue on the right, road and crosswalk below, and a river with wooden bridges along the bottom. Use dense handcrafted pixel-art detail, clear walkable stone paths, no labels, no UI, and no NPCs.";
 const STORY_MAP_SCALE = 2;
@@ -614,6 +628,8 @@ function openMeetingDialogue() {
     player.moving = false;
     faceToward(player, le);
     faceToward(le, player);
+    activeDialoguePages = meetingDialoguePages;
+    dialoguePurpose = "meeting";
     setDialoguePage(0);
     gameDialogue.classList.remove("hidden");
 
@@ -621,7 +637,7 @@ function openMeetingDialogue() {
 
 function setDialoguePage(pageIndex) {
 
-    const page = meetingDialoguePages[pageIndex];
+    const page = activeDialoguePages[pageIndex];
 
     meetingState.pageIndex = pageIndex;
     meetingState.characterIndex = 0;
@@ -637,7 +653,7 @@ function updateDialogueTypewriter(deltaTime) {
 
     if (!meetingState.dialogueOpen || meetingState.pageComplete) return;
 
-    const page = meetingDialoguePages[meetingState.pageIndex];
+    const page = activeDialoguePages[meetingState.pageIndex];
 
     meetingState.typeTimer += deltaTime * 1000;
 
@@ -663,7 +679,7 @@ function advanceMeetingDialogue() {
 
     if (!meetingState.dialogueOpen) return;
 
-    const page = meetingDialoguePages[meetingState.pageIndex];
+    const page = activeDialoguePages[meetingState.pageIndex];
 
     if (!meetingState.pageComplete) {
 
@@ -675,7 +691,7 @@ function advanceMeetingDialogue() {
 
     }
 
-    if (meetingState.pageIndex < meetingDialoguePages.length - 1) {
+    if (meetingState.pageIndex < activeDialoguePages.length - 1) {
 
         setDialoguePage(meetingState.pageIndex + 1);
         return;
@@ -694,6 +710,21 @@ function closeMeetingDialogue() {
     gameDialogue.classList.add("hidden");
     gameDialogueContinue.classList.add("hidden");
 
+    if (dialoguePurpose === "meeting") le.companion = true;
+
+}
+
+function openInteractionDialogue(interactable) {
+
+    activeDialoguePages = [{ speaker: "", text: interactable.text }];
+    dialoguePurpose = "interaction";
+    meetingState.dialogueOpen = true;
+    pressedKeys.clear();
+    player.moving = false;
+    le.moving = false;
+    setDialoguePage(0);
+    gameDialogue.classList.remove("hidden");
+
 }
 
 function checkFirstMeeting() {
@@ -703,6 +734,94 @@ function checkFirstMeeting() {
     const distance = Math.hypot(player.x - le.x, player.y - le.y);
 
     if (distance <= 100) openMeetingDialogue();
+
+}
+
+function updateNearbyInteractable() {
+
+    if (meetingState.dialogueOpen || !le.companion) {
+
+        nearbyInteractable = null;
+        return;
+
+    }
+
+    nearbyInteractable = interactables
+        .map(item => ({ item, distance: Math.hypot(player.x - item.x, player.y - item.y) }))
+        .filter(entry => entry.distance <= 100)
+        .sort((first, second) => first.distance - second.distance)[0]?.item || null;
+
+}
+
+function tryInteraction() {
+
+    if (nearbyInteractable && !meetingState.dialogueOpen && !cameraIntro.active) {
+
+        openInteractionDialogue(nearbyInteractable);
+
+    }
+
+}
+
+function updateLeCompanion(deltaTime) {
+
+    if (!le.companion || meetingState.dialogueOpen || cameraIntro.active) {
+
+        le.moving = false;
+        return;
+
+    }
+
+    const delayedPoint = moriPositionHistory[Math.max(0, moriPositionHistory.length - 28)];
+
+    if (!delayedPoint) return;
+
+    const distance = Math.hypot(delayedPoint.x - le.x, delayedPoint.y - le.y);
+
+    if (distance > 240) {
+
+        le.x = delayedPoint.x;
+        le.y = delayedPoint.y;
+        le.moving = false;
+        return;
+
+    }
+
+    if (distance < 55) {
+
+        le.moving = false;
+        return;
+
+    }
+
+    const horizontal = (delayedPoint.x - le.x) / distance;
+    const vertical = (delayedPoint.y - le.y) / distance;
+    const speed = 190;
+    const nextX = Math.max(0, Math.min(le.x + horizontal * speed * deltaTime, getWorldWidth() - le.width));
+    const nextY = Math.max(0, Math.min(le.y + vertical * speed * deltaTime, getWorldHeight() - le.height));
+
+    if (canMoveOnOfficialMap(nextX, nextY)) {
+
+        le.x = nextX;
+        le.y = nextY;
+
+    }
+
+    le.moving = true;
+    le.animationTime += deltaTime;
+    faceToward(le, delayedPoint);
+
+}
+
+function drawInteractionPrompt() {
+
+    if (!nearbyInteractable || meetingState.dialogueOpen) return;
+
+    gameCtx.fillStyle = "rgba(10, 20, 38, 0.86)";
+    gameCtx.fillRect(player.x - 44, player.y - 58, 112, 28);
+    gameCtx.fillStyle = "#f4cf7a";
+    gameCtx.font = "14px Fusion Pixel 12px Monospaced JP";
+    gameCtx.fillText("按 E / 点击互动", player.x - 38, player.y - 39);
 
 }
 
@@ -1252,8 +1371,13 @@ function drawGame() {
 
     drawCollisionDebug();
     drawWorldAtmosphere();
-    drawLe();
-    drawPlayer();
+
+    [
+        { y: player.y, draw: drawPlayer },
+        { y: le.y, draw: drawLe }
+    ].sort((first, second) => first.y - second.y).forEach(character => character.draw());
+
+    drawInteractionPrompt();
 
     gameCtx.restore();
 
@@ -1319,6 +1443,12 @@ function gameLoop(timestamp) {
 
     updatePlayer(deltaTime);
     checkFirstMeeting();
+    moriPositionHistory.push({ x: player.x, y: player.y });
+
+    if (moriPositionHistory.length > 180) moriPositionHistory.shift();
+
+    updateLeCompanion(deltaTime);
+    updateNearbyInteractable();
     updateDialogueTypewriter(deltaTime);
     updateWorldAtmosphere(deltaTime);
 
@@ -1363,6 +1493,14 @@ window.addEventListener("keydown", event => {
 
     if (!gameStarted) return;
 
+    if ((event.code === "KeyE" || event.code === "Enter" || event.code === "Space") && nearbyInteractable) {
+
+        event.preventDefault();
+        tryInteraction();
+        return;
+
+    }
+
     if (["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "ShiftLeft", "ShiftRight"].includes(event.code)) {
 
         event.preventDefault();
@@ -1379,6 +1517,7 @@ window.addEventListener("keydown", event => {
 });
 
 gameDialogue.addEventListener("click", advanceMeetingDialogue);
+gameCanvas.addEventListener("click", tryInteraction);
 
 window.addEventListener("keyup", event => {
 
