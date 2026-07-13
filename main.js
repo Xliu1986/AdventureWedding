@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.8.0 — Chapter 2: Sydney
+   Version 0.8.2 — Chapter 2: Sydney / Coles
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -364,7 +364,7 @@ function isTypingInField(target) {
 
 function setCharacterPanelOpen(open) {
 
-    if (meetingState.dialogueOpen || !gameStarted || gameState !== GameState.TOKYO) return;
+    if (meetingState.dialogueOpen || !gameStarted || ![GameState.TOKYO, GameState.SYDNEY, GameState.COLES].includes(gameState)) return;
 
     characterPanelOpen = open;
     characterPanel.classList.toggle("hidden", !open);
@@ -573,6 +573,75 @@ const achievements = {
 let nearbyCatEvent = false;
 let activeInteraction = null;
 let gameplayPauseRemaining = 0;
+let piaoziMemoryUnlocked = false;
+let colesArrivalSeen = false;
+let colesArrivalPending = false;
+
+const piaoziState = {
+    introSeen: false,
+    objectiveActive: false,
+    completed: false,
+    nearby: null,
+    goalNoticeTime: 0
+};
+
+const piaoziIntroZone = { x: 764, y: 664, width: 72, height: 58 };
+const fruitDisplays = [
+    {
+        id: "strawberries", x: 620, y: 742,
+        pages: [{ speaker: "森", text: "鲜红的草莓，\n看起来很甜。" }]
+    },
+    {
+        id: "whiteGrapes", x: 456, y: 720,
+        pages: [{ speaker: "森", text: "不是瓢子，\n只是白葡萄。" }]
+    },
+    {
+        id: "piaozi", x: 782, y: 684,
+        pages: [
+            { speaker: "森", text: "找到了。\n是这个吗？" },
+            { speaker: "乐乐", text: "对。\n就是瓢子。" },
+            { speaker: "森", text: "那今天的甜点，\n就决定是它了。" },
+            { speaker: "乐乐", text: "没想到在悉尼，\n还能找到家乡的味道。" },
+            { speaker: "森", text: "以后，\n我们还会一起找到更多。" },
+            { speaker: "坨坨", text: "喵～" },
+            { speaker: "大痣", text: "喵喵～" }
+        ]
+    }
+];
+
+const colesInspectables = [
+    { id: "vegetables", x: 282, y: 724, pages: [{ speaker: "乐乐", text: "蔬菜的颜色，\n总让人觉得生活很新鲜。" }] },
+    { id: "fruit", x: 610, y: 740, pages: [{ speaker: "森", text: "水果区总有一种，\n刚刚晒过太阳的味道。" }] },
+    { id: "bread", x: 588, y: 236, pages: [{ speaker: "乐乐", text: "刚出炉的面包，\n闻起来好温暖。" }] },
+    { id: "milk", x: 1108, y: 238, pages: [{ speaker: "森", text: "牛奶和果汁，\n是新生活的小日常。" }] },
+    { id: "yogurt", x: 864, y: 238, pages: [{ speaker: "乐乐", text: "酸奶的口味好多，\n下次慢慢选。" }] },
+    { id: "snacks", x: 1270, y: 240, pages: [{ speaker: "森", text: "零食架看起来，\n比地图还复杂。" }] },
+    { id: "checkout", x: 1160, y: 584, pages: [{ speaker: "乐乐", text: "结账以后，\n就是带着好吃的回家。" }] }
+];
+let nearbyColesInspectable = null;
+
+const piaoziIntroPages = [
+    { speaker: "森", text: "这个白色的小果子，\n好像草莓。" },
+    { speaker: "乐乐", text: "这个叫瓢子。" },
+    { speaker: "森", text: "瓢子？" },
+    { speaker: "乐乐", text: "这是甘肃陇南很特别的一种小浆果。\n小时候，\n夏天来了，\n就会去摘。" },
+    { speaker: "森", text: "原来。\n这是家乡的味道。" },
+    { speaker: "乐乐", text: "嗯。\n没想到。\n会在悉尼再次遇见它。" },
+    { speaker: "森", text: "那今天。\n就把它带回家吧。" },
+    { speaker: "乐乐", text: "好呀。" },
+    { speaker: "坨坨", text: "喵～" },
+    { speaker: "大痣", text: "喵呜～" }
+];
+
+const colesArrivalPages = [
+    { speaker: "森", text: "新的一年请多多关照：）" },
+    { speaker: "乐乐", text: "嘻嘻，\n没想到我们已经成为了一家人。" },
+    { speaker: "坨坨", text: "还有我和痣宝～\n喵～" },
+    { speaker: "大痣", text: "喵呜～" },
+    { speaker: "森", text: "那咱们就一起去探索新的生活吧，\n当然要从好吃的开始啦。" },
+    { speaker: "乐乐", text: "耶～" },
+    { speaker: "坨坨、大痣", text: "喵喵～" }
+];
 
 const TOKYO_WORLD_PROMPT = "Warm 16-bit top-down Tokyo spring neighborhood: Tokyo Station entrance at the top center, park and pond at upper left, shrine at upper right, shopping street on the left, sakura avenue on the right, road and crosswalk below, and a river with wooden bridges along the bottom. Use dense handcrafted pixel-art detail, clear walkable stone paths, no labels, no UI, and no NPCs.";
 const STORY_MAP_SCALE = 2;
@@ -591,14 +660,25 @@ exteriorMap.src = "assets/tokyo-story-map.png";
 const sydneyMap = new Image();
 sydneyMap.src = "assets/maps/sydney-harbour-lookout.png?v=0.8.0";
 
+const sydneyExplorationMap = new Image();
+sydneyExplorationMap.src = "assets/sydney/sydney-harbour-night.png?v=0.8.0";
+
+const colesInteriorMap = new Image();
+colesInteriorMap.src = "assets/maps/coles-interior-v0.8.2.png?v=0.8.2";
+
 const SYDNEY_WORLD_WIDTH = 1920;
 const SYDNEY_WORLD_HEIGHT = 1080;
+const COLES_WORLD_WIDTH = 1536;
+const COLES_WORLD_HEIGHT = 1024;
 const GameState = Object.freeze({
     TOKYO: "tokyo",
     TOKYO_STATION_CUTSCENE: "tokyoStationCutscene",
     CHAPTER_TRANSITION: "chapterTransition",
     SYDNEY_LOOKOUT: "sydneyLookout",
-    SYDNEY: "sydney"
+    SYDNEY: "sydney",
+    TRANSITION_TO_COLES: "transitionToColes",
+    TRANSITION_TO_SYDNEY: "transitionToSydney",
+    COLES: "coles"
 });
 
 let currentChapter = "tokyo";
@@ -809,9 +889,38 @@ const chapterTransition = {
     ]
 };
 
+// Scene exits are intentionally explicit: this keeps exploration player-led on
+// both desktop and touch devices.
+const sydneyToColesExit = { x: 790, y: 900, width: 280, height: 150 };
+const colesToSydneyExit = { x: 600, y: 760, width: 330, height: 180 };
+let nearbySceneExit = null;
+const sceneTransition = { active: false, phase: "idle", target: null, elapsed: 0 };
+
+const colesCollisionRects = [
+    { x: 0, y: 0, width: COLES_WORLD_WIDTH, height: 62 },
+    { x: 0, y: 0, width: 64, height: COLES_WORLD_HEIGHT },
+    { x: 1470, y: 0, width: 66, height: COLES_WORLD_HEIGHT },
+    { x: 0, y: 742, width: 590, height: 282 },
+    { x: 944, y: 742, width: 592, height: 282 },
+    { x: 228, y: 96, width: 230, height: 112 },
+    { x: 498, y: 72, width: 182, height: 150 },
+    { x: 698, y: 72, width: 482, height: 148 },
+    { x: 1280, y: 74, width: 184, height: 144 },
+    { x: 72, y: 170, width: 88, height: 420 },
+    { x: 314, y: 264, width: 150, height: 206 },
+    { x: 478, y: 224, width: 140, height: 158 },
+    { x: 876, y: 258, width: 126, height: 302 },
+    { x: 1016, y: 258, width: 126, height: 274 },
+    { x: 1176, y: 276, width: 290, height: 286 },
+    { x: 160, y: 480, width: 264, height: 224 },
+    { x: 480, y: 484, width: 282, height: 232 },
+    { x: 1118, y: 610, width: 340, height: 114 }
+];
+
 function getWorldWidth() {
 
     if (currentChapter === "sydney") return SYDNEY_WORLD_WIDTH;
+    if (currentChapter === "coles") return COLES_WORLD_WIDTH;
 
     return exteriorMap.naturalWidth
         ? exteriorMap.naturalWidth * STORY_MAP_SCALE
@@ -822,6 +931,7 @@ function getWorldWidth() {
 function getWorldHeight() {
 
     if (currentChapter === "sydney") return SYDNEY_WORLD_HEIGHT;
+    if (currentChapter === "coles") return COLES_WORLD_HEIGHT;
 
     return exteriorMap.naturalHeight
         ? exteriorMap.naturalHeight * STORY_MAP_SCALE
@@ -871,6 +981,12 @@ function canActorMoveOnOfficialMap(actor, x, y) {
     if (currentChapter === "sydney") return true;
 
     const destination = { x, y, width: actor.width, height: actor.height };
+
+    if (currentChapter === "coles") {
+
+        return !colesCollisionRects.some(rect => rectanglesOverlap(destination, rect));
+
+    }
 
     return !collisionRects.some(rect => rectanglesOverlap(destination, rect));
 
@@ -1018,7 +1134,40 @@ function closeMeetingDialogue() {
 
     if (dialoguePurpose === "sydney") {
 
-        gameState = GameState.SYDNEY_LOOKOUT;
+        gameState = GameState.SYDNEY;
+
+    }
+
+    if (dialoguePurpose === "piaoziIntro") {
+
+        piaoziState.objectiveActive = false;
+        piaoziState.completed = true;
+        piaoziState.nearby = null;
+        piaoziMemoryUnlocked = true;
+        faceToward(le, fruitDisplays[2]);
+        faceToward(player, fruitDisplays[2]);
+        cats.forEach(cat => {
+            cat.behaviour = "sit";
+            cat.behaviourTime = 1;
+        });
+        gameplayPauseRemaining = 1;
+
+    }
+
+    if (dialoguePurpose === "piaoziFound") {
+
+        piaoziState.objectiveActive = false;
+        piaoziState.completed = true;
+        piaoziState.nearby = null;
+        piaoziMemoryUnlocked = true;
+        // A quiet one-second tableau: Lele faces the fruit, the cats rest nearby.
+        faceToward(le, fruitDisplays[2]);
+        faceToward(player, fruitDisplays[2]);
+        cats.forEach(cat => {
+            cat.behaviour = "sit";
+            cat.behaviourTime = 1;
+        });
+        gameplayPauseRemaining = 1;
 
     }
 
@@ -1052,6 +1201,28 @@ function openCatDialogue() {
     le.moving = false;
     setDialoguePage(0);
     gameDialogue.classList.remove("hidden");
+
+}
+
+function openPiaoziDialogue(pages, purpose) {
+
+    activeDialoguePages = pages;
+    dialoguePurpose = purpose;
+    meetingState.dialogueOpen = true;
+    pressedKeys.clear();
+    clearMobileControls();
+    player.moving = false;
+    le.moving = false;
+    cats.forEach(cat => cat.moving = false);
+    setDialoguePage(0);
+    gameDialogue.classList.remove("hidden");
+
+}
+
+function openColesArrivalDialogue() {
+
+    colesArrivalSeen = true;
+    openPiaoziDialogue(colesArrivalPages, "colesArrival");
 
 }
 
@@ -1359,9 +1530,173 @@ function updateNearbyCatEvent() {
 
 }
 
+function updateNearbySceneExit() {
+
+    nearbySceneExit = null;
+    if (meetingState.dialogueOpen || sceneTransition.active) return;
+
+    const exit = gameState === GameState.SYDNEY
+        ? sydneyToColesExit
+        : gameState === GameState.COLES ? colesToSydneyExit : null;
+
+    if (!exit) return;
+
+    const closestX = Math.max(exit.x, Math.min(player.x + player.width / 2, exit.x + exit.width));
+    const closestY = Math.max(exit.y, Math.min(player.y + player.height / 2, exit.y + exit.height));
+    if (Math.hypot(player.x + player.width / 2 - closestX, player.y + player.height / 2 - closestY) <= 100) {
+
+        nearbySceneExit = gameState === GameState.SYDNEY ? "coles" : "sydney";
+
+    }
+
+}
+
+function updateNearbyPiaozi() {
+
+    piaoziState.nearby = null;
+    if (currentChapter !== "coles" || meetingState.dialogueOpen || piaoziState.completed) return;
+
+    const playerCenterX = player.x + player.width / 2;
+    const playerCenterY = player.y + player.height / 2;
+
+    if (!piaoziState.introSeen) {
+
+        const closestX = Math.max(piaoziIntroZone.x, Math.min(playerCenterX, piaoziIntroZone.x + piaoziIntroZone.width));
+        const closestY = Math.max(piaoziIntroZone.y, Math.min(playerCenterY, piaoziIntroZone.y + piaoziIntroZone.height));
+        if (Math.hypot(playerCenterX - closestX, playerCenterY - closestY) <= 92) piaoziState.nearby = "intro";
+        return;
+
+    }
+
+    if (!piaoziState.objectiveActive) return;
+
+    piaoziState.nearby = fruitDisplays
+        .map(display => ({ display, distance: Math.hypot(playerCenterX - display.x, playerCenterY - display.y) }))
+        .filter(entry => entry.distance <= 92)
+        .sort((first, second) => first.distance - second.distance)[0]?.display || null;
+
+}
+
+function updateNearbyColesInspectable() {
+
+    nearbyColesInspectable = null;
+    if (currentChapter !== "coles" || meetingState.dialogueOpen) return;
+    const playerCenterX = player.x + player.width / 2;
+    const playerCenterY = player.y + player.height / 2;
+    nearbyColesInspectable = colesInspectables
+        .map(item => ({ item, distance: Math.hypot(playerCenterX - item.x, playerCenterY - item.y) }))
+        .filter(entry => entry.distance <= 86)
+        .sort((first, second) => first.distance - second.distance)[0]?.item || null;
+
+}
+
+function seedPartyHistory() {
+
+    moriPositionHistory.length = 0;
+    for (let index = 0; index < 90; index++) {
+
+        moriPositionHistory.push({ x: player.x, y: player.y + index * 1.5 });
+
+    }
+
+}
+
+function placePartyInColes() {
+
+    currentChapter = "coles";
+    gameState = GameState.COLES;
+    chapterLocation.textContent = "悉尼 · Coles 超市";
+    player.x = 760;
+    player.y = 800;
+    le.x = 720;
+    le.y = 826;
+    cats[0].x = 686;
+    cats[0].y = 846;
+    cats[1].x = 652;
+    cats[1].y = 850;
+    player.direction = "up";
+    le.direction = "up";
+    cats.forEach(cat => cat.direction = "up");
+    colesArrivalPending = !colesArrivalSeen;
+    seedPartyHistory();
+    centerCameraOnPlayer();
+
+}
+
+function placePartyInSydney() {
+
+    currentChapter = "sydney";
+    gameState = GameState.SYDNEY;
+    chapterLocation.textContent = "悉尼 · 海港之夜";
+    player.x = 920;
+    player.y = 850;
+    le.x = 880;
+    le.y = 880;
+    cats[0].x = 842;
+    cats[0].y = 896;
+    cats[1].x = 808;
+    cats[1].y = 900;
+    player.direction = "up";
+    le.direction = "up";
+    cats.forEach(cat => cat.direction = "up");
+    seedPartyHistory();
+    centerCameraOnPlayer();
+
+}
+
+function startSceneTransition(target) {
+
+    if (sceneTransition.active || !target) return;
+    sceneTransition.active = true;
+    sceneTransition.phase = "fadeOut";
+    sceneTransition.target = target;
+    sceneTransition.elapsed = 0;
+    gameState = target === "coles" ? GameState.TRANSITION_TO_COLES : GameState.TRANSITION_TO_SYDNEY;
+    pressedKeys.clear();
+    clearMobileControls();
+    player.moving = false;
+    le.moving = false;
+    cats.forEach(cat => cat.moving = false);
+
+}
+
+function updateSceneTransition(deltaTime) {
+
+    if (!sceneTransition.active) return;
+    sceneTransition.elapsed += deltaTime;
+
+    if (sceneTransition.phase === "fadeOut" && sceneTransition.elapsed >= 1) {
+
+        if (sceneTransition.target === "coles") placePartyInColes();
+        else placePartyInSydney();
+        sceneTransition.phase = "fadeIn";
+        sceneTransition.elapsed = 0;
+
+    } else if (sceneTransition.phase === "fadeIn" && sceneTransition.elapsed >= 1) {
+
+        sceneTransition.active = false;
+        sceneTransition.phase = "idle";
+        sceneTransition.target = null;
+        sceneTransition.elapsed = 0;
+
+        if (colesArrivalPending) {
+
+            colesArrivalPending = false;
+            openColesArrivalDialogue();
+
+        }
+
+    }
+
+}
+
 function tryInteraction() {
 
-    if (nearbyStation && !meetingState.dialogueOpen && !cameraIntro.active) {
+    if (nearbySceneExit && !meetingState.dialogueOpen && !cameraIntro.active) {
+
+        startSceneTransition(nearbySceneExit);
+
+    } else if (nearbyStation && !meetingState.dialogueOpen && !cameraIntro.active) {
 
         openTokyoStationDialogue();
 
@@ -1373,13 +1708,27 @@ function tryInteraction() {
 
         openCatDialogue();
 
+    } else if (piaoziState.nearby === "intro" && !meetingState.dialogueOpen) {
+
+        piaoziState.introSeen = true;
+        openPiaoziDialogue(piaoziIntroPages, "piaoziIntro");
+
+    } else if (piaoziState.nearby && !piaoziState.completed && !meetingState.dialogueOpen) {
+
+        const display = piaoziState.nearby;
+        openPiaoziDialogue(display.pages, display.id === "piaozi" ? "piaoziFound" : "piaoziInspect");
+
+    } else if (nearbyColesInspectable && !meetingState.dialogueOpen) {
+
+        openPiaoziDialogue(nearbyColesInspectable.pages, "colesInspect");
+
     }
 
 }
 
 function updateLeCompanion(deltaTime) {
 
-    if (!le.companion || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active || gameplayPauseRemaining > 0 || chapterTransition.active) {
+    if (!le.companion || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active || gameplayPauseRemaining > 0 || chapterTransition.active || sceneTransition.active) {
 
         le.moving = false;
         return;
@@ -1429,15 +1778,25 @@ function updateLeCompanion(deltaTime) {
 
 function drawInteractionPrompt() {
 
-    if ((!nearbyInteractable && !nearbyCatEvent && !nearbyStation) || meetingState.dialogueOpen) return;
+    if ((!nearbyInteractable && !nearbyCatEvent && !nearbyStation && !nearbySceneExit && !piaoziState.nearby && !nearbyColesInspectable) || meetingState.dialogueOpen) return;
 
     const mobilePrompt = mobileControls.classList.contains("isTouchMode");
-    const promptText = nearbyStation
+    const promptText = piaoziState.nearby === "intro"
+        ? (mobilePrompt ? "好像发现了特别的水果…… 点击 A 查看" : "好像发现了特别的水果…… 按 E 查看")
+        : piaoziState.nearby
+        ? (mobilePrompt ? "点击 A 查看" : "按 E 查看")
+        : nearbyColesInspectable
+        ? (mobilePrompt ? "点击 A 查看" : "按 E 查看")
+        : nearbySceneExit === "coles"
+        ? (mobilePrompt ? "点击 A 前往 Coles" : "按 E 前往 Coles")
+        : nearbySceneExit === "sydney"
+        ? (mobilePrompt ? "点击 A 返回悉尼街区" : "按 E 返回悉尼街区")
+        : nearbyStation
         ? (mobilePrompt ? "点击 A 进入东京站" : "按 E 进入东京站")
         : nearbyCatEvent
         ? (mobilePrompt ? "发现了什么…… 点击 A 互动" : "发现了什么…… 按 E 互动")
         : (mobilePrompt ? "点击 A 互动" : "按 E / 点击互动");
-    const promptWidth = nearbyStation ? 156 : nearbyCatEvent ? 164 : 112;
+    const promptWidth = piaoziState.nearby === "intro" ? 240 : piaoziState.nearby ? 116 : nearbySceneExit ? 170 : nearbyStation ? 156 : nearbyCatEvent ? 164 : 112;
 
     gameCtx.fillStyle = "rgba(10, 20, 38, 0.86)";
     gameCtx.fillRect(player.x - 44, player.y - 58, promptWidth, 28);
@@ -1449,7 +1808,7 @@ function drawInteractionPrompt() {
 
 function updateCatCompanion(cat, index, deltaTime) {
 
-    if (!cat.following || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active || gameplayPauseRemaining > 0 || chapterTransition.active) {
+    if (!cat.following || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active || gameplayPauseRemaining > 0 || chapterTransition.active || sceneTransition.active) {
 
         cat.moving = false;
         cat.animationTime += deltaTime;
@@ -2358,6 +2717,255 @@ function drawSydneyLookout() {
 
 }
 
+function drawColesShelf(x, y, width, label, colors) {
+
+    gameCtx.fillStyle = "#6f4931";
+    gameCtx.fillRect(x, y, width, 72);
+    gameCtx.fillStyle = "#f1d493";
+    gameCtx.fillRect(x + 4, y + 5, width - 8, 7);
+    gameCtx.fillStyle = "#321e1a";
+    gameCtx.fillRect(x + 5, y + 31, width - 10, 4);
+    gameCtx.fillRect(x + 5, y + 56, width - 10, 4);
+    for (let column = 0; column < width - 16; column += 17) {
+
+        gameCtx.fillStyle = colors[(column / 17) % colors.length];
+        gameCtx.fillRect(x + 9 + column, y + 15, 11, 13);
+        gameCtx.fillStyle = colors[(column / 17 + 1) % colors.length];
+        gameCtx.fillRect(x + 9 + column, y + 39, 11, 13);
+
+    }
+    gameCtx.fillStyle = "#fff0c7";
+    gameCtx.font = "10px Fusion Pixel, monospace";
+    gameCtx.fillText(label, x + 8, y - 5);
+
+}
+
+function drawColesMap() {
+
+    if (colesInteriorMap.complete && colesInteriorMap.naturalWidth) {
+
+        gameCtx.drawImage(colesInteriorMap, 0, 0, COLES_WORLD_WIDTH, COLES_WORLD_HEIGHT);
+        drawColesSign("BAKERY", 550, 72, 92);
+        drawColesSign("DAIRY", 720, 72, 84);
+        drawColesSign("YOGURT", 818, 72, 100);
+        drawColesSign("JUICE", 932, 72, 84);
+        drawColesSign("MILK", 1030, 72, 90);
+        drawColesSign("SNACKS", 1330, 72, 102);
+        drawColesSign("VEGETABLES", 228, 480, 140);
+        drawColesSign("FRESH FRUIT", 560, 484, 136);
+        drawColesSign("CEREAL", 884, 258, 94);
+        drawColesSign("PASTA", 1026, 258, 88);
+        drawColesPunnet(774, 672);
+        // Gentle refrigerator shimmer and a tiny cart-handle bob make the room feel lived in.
+        const refrigeratorGlow = 0.12 + (Math.sin(windTime * 3) + 1) * 0.035;
+        gameCtx.fillStyle = `rgba(210, 237, 255, ${refrigeratorGlow})`;
+        gameCtx.fillRect(702, 82, 474, 6);
+        gameCtx.fillRect(74, 182, 7, 400);
+        gameCtx.strokeStyle = "rgba(226, 87, 56, .72)";
+        gameCtx.lineWidth = 2;
+        gameCtx.beginPath();
+        gameCtx.moveTo(68, 706 + Math.sin(windTime * 2) * 1.5);
+        gameCtx.lineTo(194, 706 + Math.sin(windTime * 2) * 1.5);
+        gameCtx.stroke();
+        return;
+
+    }
+
+    // Warm tiled floor with hand-drawn grout and small scuffs.
+    gameCtx.fillStyle = "#d9d0bc";
+    gameCtx.fillRect(0, 0, COLES_WORLD_WIDTH, COLES_WORLD_HEIGHT);
+    for (let y = 78; y < COLES_WORLD_HEIGHT; y += 32) {
+        for (let x = 74; x < COLES_WORLD_WIDTH - 74; x += 32) {
+
+            gameCtx.fillStyle = (Math.floor(x / 32) + Math.floor(y / 32)) % 2 ? "#d3c8b2" : "#e1d8c6";
+            gameCtx.fillRect(x, y, 30, 30);
+            if ((x * 7 + y * 3) % 160 === 0) {
+
+                gameCtx.fillStyle = "rgba(118, 103, 84, .25)";
+                gameCtx.fillRect(x + 9, y + 12, 4, 1);
+
+            }
+        }
+    }
+
+    // Perimeter, entrance and a generic red grocery identity (not a copied logo).
+    gameCtx.fillStyle = "#314052";
+    gameCtx.fillRect(0, 0, COLES_WORLD_WIDTH, 78);
+    gameCtx.fillStyle = "#a92f2a";
+    gameCtx.fillRect(298, 15, 812, 46);
+    gameCtx.fillStyle = "#fff3d4";
+    gameCtx.font = "24px Fusion Pixel, monospace";
+    gameCtx.fillText("COLES  ·  FRESH MARKET", 476, 47);
+    gameCtx.fillStyle = "#6d5a49";
+    gameCtx.fillRect(0, 946, 582, 78);
+    gameCtx.fillRect(828, 946, COLES_WORLD_WIDTH - 828, 78);
+    gameCtx.fillStyle = "#bde5ed";
+    gameCtx.fillRect(596, 952, 216, 64);
+    gameCtx.fillStyle = "#f6e8bf";
+    gameCtx.fillRect(604, 958, 200, 6);
+
+    // Ceiling lamps.
+    for (let x = 140; x < COLES_WORLD_WIDTH - 100; x += 210) {
+
+        gameCtx.fillStyle = "rgba(255, 214, 126, .22)";
+        gameCtx.fillRect(x - 48, 84, 96, 230);
+        gameCtx.fillStyle = "#f7d27c";
+        gameCtx.fillRect(x - 19, 88, 38, 7);
+        gameCtx.fillStyle = "#756253";
+        gameCtx.fillRect(x - 2, 78, 4, 10);
+
+    }
+
+    // Produce displays, carts, dairy wall, aisles, checkout and endcaps.
+    [130, 346, 562].forEach((x, index) => {
+        gameCtx.fillStyle = "#7d5934";
+        gameCtx.fillRect(x, 176, 172, 130);
+        gameCtx.fillStyle = "#e6c47d";
+        gameCtx.fillRect(x + 7, 184, 158, 16);
+        for (let row = 0; row < 3; row++) for (let column = 0; column < 6; column++) {
+            gameCtx.fillStyle = ["#dd5540", "#f0b83e", "#6da849", "#a7607c"][(row + column + index) % 4];
+            gameCtx.fillRect(x + 12 + column * 24, 210 + row * 27, 16, 16);
+        }
+        gameCtx.fillStyle = "#fff0c7";
+        gameCtx.font = "11px Fusion Pixel, monospace";
+        gameCtx.fillText(["水果", "蔬菜", "今日精选"][index], x + 52, 197);
+    });
+    // A deliberately quiet, strawberry-shaped white-berry punnet. It sits on a
+    // lower side shelf, visible only to a player who looks beyond the first displays.
+    gameCtx.fillStyle = "#8ca9b3";
+    gameCtx.fillRect(738, 260, 62, 44);
+    gameCtx.fillStyle = "rgba(239, 249, 246, .9)";
+    gameCtx.fillRect(742, 265, 54, 31);
+    for (let index = 0; index < 6; index++) {
+        const berryX = 748 + (index % 3) * 15;
+        const berryY = 272 + Math.floor(index / 3) * 12;
+        gameCtx.fillStyle = "#75a25d";
+        gameCtx.fillRect(berryX + 4, berryY - 3, 5, 3);
+        gameCtx.fillStyle = index % 2 ? "#fff8e7" : "#f5e6e4";
+        gameCtx.fillRect(berryX + 2, berryY, 9, 8);
+        gameCtx.fillStyle = "#e7bfc4";
+        gameCtx.fillRect(berryX + 4, berryY + 5, 2, 2);
+    }
+    gameCtx.fillStyle = "#fff0c7";
+    gameCtx.font = "9px Fusion Pixel, monospace";
+    gameCtx.fillText("小浆果", 744, 316);
+    gameCtx.fillStyle = "#8bb4c4";
+    gameCtx.fillRect(930, 144, 310, 118);
+    for (let x = 942; x < 1225; x += 35) {
+        gameCtx.fillStyle = "#e8f4f0";
+        gameCtx.fillRect(x, 158, 24, 86);
+        gameCtx.fillStyle = x % 2 ? "#75a6dc" : "#f5e8a8";
+        gameCtx.fillRect(x + 5, 178, 14, 34);
+    }
+    gameCtx.fillStyle = "#fff0c7";
+    gameCtx.font = "12px Fusion Pixel, monospace";
+    gameCtx.fillText("乳品 · 冷藏", 1020, 137);
+    drawColesShelf(130, 392, 570, "零食 / 饮料", ["#d45346", "#e6ba42", "#5d93b7", "#79a854"]);
+    drawColesShelf(130, 572, 570, "面包 / 谷物", ["#d69a50", "#f0d071", "#b8734b", "#dfb35c"]);
+    drawColesShelf(792, 390, 474, "食品杂货", ["#d45346", "#6d9c65", "#e3b243", "#6891b2"]);
+    drawColesShelf(792, 570, 474, "厨房精选", ["#d9a151", "#9c744b", "#d44b4b", "#6b98a3"]);
+    [114, 318].forEach((x, index) => {
+        gameCtx.fillStyle = "#a62f2d";
+        gameCtx.fillRect(x, 748, 150, 96);
+        gameCtx.fillStyle = "#f6d36f";
+        gameCtx.fillRect(x + 10, 758, 130, 12);
+        gameCtx.fillStyle = "#fff4d4";
+        gameCtx.font = "10px Fusion Pixel, monospace";
+        gameCtx.fillText(index ? "促销" : "本周优惠", x + 39, 782);
+        gameCtx.fillStyle = "#e8bd4d";
+        gameCtx.fillRect(x + 30, 798, 22, 28);
+        gameCtx.fillStyle = "#76a85b";
+        gameCtx.fillRect(x + 80, 798, 22, 28);
+    });
+    gameCtx.fillStyle = "#574540";
+    gameCtx.fillRect(1140, 728, 130, 130);
+    gameCtx.fillStyle = "#dfd3bb";
+    gameCtx.fillRect(1150, 740, 110, 64);
+    gameCtx.fillStyle = "#5d7685";
+    gameCtx.fillRect(1160, 752, 40, 28);
+    gameCtx.fillStyle = "#f5d68a";
+    gameCtx.font = "11px Fusion Pixel, monospace";
+    gameCtx.fillText("结账", 1182, 832);
+    for (let x = 860; x < 1085; x += 54) {
+        gameCtx.strokeStyle = "#738897";
+        gameCtx.lineWidth = 4;
+        gameCtx.strokeRect(x, 805, 34, 22);
+        gameCtx.fillStyle = "#4a6675";
+        gameCtx.fillRect(x + 6, 800, 24, 5);
+    }
+    gameCtx.fillStyle = "#33404e";
+    gameCtx.fillRect(0, 0, 74, COLES_WORLD_HEIGHT);
+    gameCtx.fillRect(COLES_WORLD_WIDTH - 74, 0, 74, COLES_WORLD_HEIGHT);
+    gameCtx.fillStyle = "#f1c95d";
+    gameCtx.fillRect(34, 180, 5, 350);
+    gameCtx.fillRect(COLES_WORLD_WIDTH - 39, 180, 5, 350);
+
+}
+
+function drawColesSign(label, x, y, width) {
+
+    gameCtx.fillStyle = "rgba(29, 27, 26, .88)";
+    gameCtx.fillRect(x, y, width, 24);
+    gameCtx.strokeStyle = "#d5ad59";
+    gameCtx.lineWidth = 1;
+    gameCtx.strokeRect(x + 1, y + 1, width - 2, 22);
+    gameCtx.fillStyle = "#f5df9e";
+    gameCtx.font = "12px Fusion Pixel, monospace";
+    gameCtx.fillText(label, x + 8, y + 16);
+
+}
+
+function drawColesPunnet(x, y) {
+
+    gameCtx.fillStyle = "rgba(132, 164, 170, .94)";
+    gameCtx.fillRect(x, y, 46, 32);
+    gameCtx.fillStyle = "rgba(242, 247, 235, .88)";
+    gameCtx.fillRect(x + 3, y + 3, 40, 24);
+    for (let index = 0; index < 6; index++) {
+
+        const berryX = x + 7 + (index % 3) * 12;
+        const berryY = y + 8 + Math.floor(index / 3) * 10;
+        gameCtx.fillStyle = "#6e9f58";
+        gameCtx.fillRect(berryX + 3, berryY - 3, 4, 3);
+        gameCtx.fillStyle = index % 2 ? "#fff8e8" : "#f4e4e4";
+        gameCtx.fillRect(berryX + 1, berryY, 8, 8);
+        gameCtx.fillStyle = "#dfaeb6";
+        gameCtx.fillRect(berryX + 3, berryY + 5, 2, 1);
+
+    }
+
+}
+
+function drawSceneTransitionOverlay() {
+
+    if (!sceneTransition.active) return;
+    const progress = Math.min(sceneTransition.elapsed / 1, 1);
+    const alpha = sceneTransition.phase === "fadeOut" ? progress : 1 - progress;
+    gameCtx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+    gameCtx.fillRect(0, 0, gameViewportState.width, gameViewportState.height);
+
+}
+
+function drawPiaoziGoalNotice() {
+
+    if (piaoziState.goalNoticeTime <= 0) return;
+    const alpha = Math.min(1, piaoziState.goalNoticeTime * 2, (2.5 - piaoziState.goalNoticeTime) * 3);
+    const width = 226;
+    const x = Math.round((gameViewportState.width - width) / 2);
+    gameCtx.fillStyle = `rgba(8, 21, 40, ${0.9 * alpha})`;
+    gameCtx.fillRect(x, 38, width, 56);
+    gameCtx.strokeStyle = `rgba(244, 207, 122, ${alpha})`;
+    gameCtx.lineWidth = 2;
+    gameCtx.strokeRect(x + 1, 39, width - 2, 54);
+    gameCtx.fillStyle = `rgba(244, 207, 122, ${alpha})`;
+    gameCtx.font = "14px Fusion Pixel, monospace";
+    gameCtx.fillText("新的小目标", x + 75, 61);
+    gameCtx.fillStyle = `rgba(255, 249, 230, ${alpha})`;
+    gameCtx.font = "13px Fusion Pixel, monospace";
+    gameCtx.fillText("在水果区找到一盒瓢子", x + 34, 83);
+
+}
+
 function drawGame() {
 
     if (gameState === GameState.SYDNEY_LOOKOUT) {
@@ -2375,9 +2983,13 @@ function drawGame() {
     gameCtx.scale(camera.zoom, camera.zoom);
     gameCtx.translate(-Math.round(camera.x), -Math.round(camera.y));
 
-    if (currentChapter === "sydney" && sydneyMap.complete && sydneyMap.naturalWidth) {
+    if (currentChapter === "coles") {
 
-        gameCtx.drawImage(sydneyMap, 0, 0, getWorldWidth(), getWorldHeight());
+        drawColesMap();
+
+    } else if (currentChapter === "sydney" && sydneyExplorationMap.complete && sydneyExplorationMap.naturalWidth) {
+
+        gameCtx.drawImage(sydneyExplorationMap, 0, 0, getWorldWidth(), getWorldHeight());
 
     } else if (exteriorMap.complete && exteriorMap.naturalWidth) {
 
@@ -2417,12 +3029,14 @@ function drawGame() {
     gameCtx.restore();
 
     drawChapterTransitionOverlay();
+    drawSceneTransitionOverlay();
+    drawPiaoziGoalNotice();
 
 }
 
 function updatePlayer(deltaTime) {
 
-    if (cameraIntro.active || meetingState.dialogueOpen || characterPanelOpen || gameplayPauseRemaining > 0 || chapterTransition.active || gameState !== GameState.TOKYO) {
+    if (cameraIntro.active || meetingState.dialogueOpen || characterPanelOpen || gameplayPauseRemaining || chapterTransition.active || sceneTransition.active || ![GameState.TOKYO, GameState.SYDNEY, GameState.COLES].includes(gameState)) {
 
         player.moving = false;
         return;
@@ -2480,8 +3094,10 @@ function gameLoop(timestamp) {
     previousGameTime = timestamp;
 
     if (gameplayPauseRemaining > 0) gameplayPauseRemaining = Math.max(0, gameplayPauseRemaining - deltaTime);
+    if (piaoziState.goalNoticeTime > 0) piaoziState.goalNoticeTime = Math.max(0, piaoziState.goalNoticeTime - deltaTime);
 
     updateChapterTransition(deltaTime);
+    updateSceneTransition(deltaTime);
     updatePlayer(deltaTime);
     if (currentChapter === "tokyo") checkFirstMeeting();
     moriPositionHistory.push({ x: player.x, y: player.y });
@@ -2501,6 +3117,9 @@ function gameLoop(timestamp) {
         nearbyInteractable = null;
         nearbyCatEvent = false;
         nearbyStation = false;
+        updateNearbySceneExit();
+        updateNearbyPiaozi();
+        updateNearbyColesInspectable();
 
     }
     updateCatCompanions(deltaTime);
@@ -2555,7 +3174,7 @@ function triggerMobileAction() {
 
     if (!gameStarted || characterPanelOpen || cameraIntro.active) return;
 
-    if (nearbyInteractable || nearbyCatEvent || nearbyStation) tryInteraction();
+    if (nearbyInteractable || nearbyCatEvent || nearbyStation || nearbySceneExit || piaoziState.nearby || nearbyColesInspectable) tryInteraction();
 
 }
 
@@ -2665,7 +3284,7 @@ window.addEventListener("keydown", event => {
 
     if (characterPanelOpen) return;
 
-    if ((event.code === "KeyE" || event.code === "Enter" || event.code === "Space") && (nearbyInteractable || nearbyCatEvent || nearbyStation)) {
+    if ((event.code === "KeyE" || event.code === "Enter" || event.code === "Space") && (nearbyInteractable || nearbyCatEvent || nearbyStation || nearbySceneExit || piaoziState.nearby || nearbyColesInspectable)) {
 
         event.preventDefault();
         tryInteraction();
