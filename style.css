@@ -732,7 +732,7 @@ body.touchMode #characterMenuButton:not(.hidden){
 #gameDialogue[data-speaker="坨坨"] .gameDialoguePortrait,
 #gameDialogue[data-speaker="大痣"] .gameDialoguePortrait{
 
-    background-image:url("assets/portraits/tuotuo-portrait.png?v=0.7.1");
+    background-image:url("assets/portraits/tuotuo-portrait.png?v=0.7.1b");
     background-size:cover;
     background-position:center;
 
@@ -740,7 +740,7 @@ body.touchMode #characterMenuButton:not(.hidden){
 
 #gameDialogue[data-speaker="大痣"] .gameDialoguePortrait{
 
-    background-image:url("assets/portraits/dazhi-portrait.png?v=0.7.1");
+    background-image:url("assets/portraits/dazhi-portrait.png?v=0.8.0-dazhi3");
 
 }
 

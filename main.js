@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.7.1 — Tokyo Memories
+   Version 0.8.0 — Chapter 2: Sydney
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -328,8 +328,8 @@ let characterPanelOpen = false;
 const portraitSources = [
     "assets/portraits/mori-portrait.png?v=0.7.1",
     "assets/portraits/lele-portrait.png?v=0.7.1",
-    "assets/portraits/tuotuo-portrait.png?v=0.7.1",
-    "assets/portraits/dazhi-portrait.png?v=0.7.1"
+    "assets/portraits/tuotuo-portrait.png?v=0.7.1b",
+    "assets/portraits/dazhi-portrait.png?v=0.8.0-dazhi3"
 ];
 
 portraitSources.forEach(source => {
@@ -433,8 +433,8 @@ const catSprites = {
     tuotuo: new Image(),
     dazhi: new Image()
 };
-catSprites.tuotuo.src = "assets/characters/tuotuo/tuotuo-sprite-sheet.png?v=0.7.1";
-catSprites.dazhi.src = "assets/characters/dazhi/dazhi-sprite-sheet.png?v=0.7.1";
+catSprites.tuotuo.src = "assets/characters/tuotuo/tuotuo-sprite-sheet.png?v=0.7.1b";
+catSprites.dazhi.src = "assets/characters/dazhi/dazhi-sprite-sheet.png?v=0.8.0-dazhi3";
 Object.entries(catSprites).forEach(([id, image]) => {
     image.addEventListener("error", () => console.warn(`[AdventureWedding] ${id} character asset could not load; using the existing sprite fallback.`), { once: true });
 });
@@ -587,6 +587,13 @@ const SAKURA_AVENUE_BOUNDS = {
 
 const exteriorMap = new Image();
 exteriorMap.src = "assets/tokyo-story-map.png";
+
+const sydneyMap = new Image();
+sydneyMap.src = "assets/sydney/sydney-harbour-night.png?v=0.8.0";
+
+const SYDNEY_WORLD_WIDTH = 1920;
+const SYDNEY_WORLD_HEIGHT = 1080;
+let currentChapter = "tokyo";
 
 let playerAnimationTime = 0;
 
@@ -777,7 +784,24 @@ const cameraIntro = {
     transitionDuration: 1.8
 };
 
+const stationDepartureZone = { x: 1080, y: 390, width: 520, height: 260 };
+const chapterTransition = {
+    active: false,
+    completed: false,
+    phase: "idle",
+    elapsed: 0,
+    petalPhase: 0,
+    partyTargets: [
+        { actor: player, x: 1325, y: 365 },
+        { actor: le, x: 1275, y: 395 },
+        { actor: null, x: 1228, y: 425 },
+        { actor: null, x: 1195, y: 425 }
+    ]
+};
+
 function getWorldWidth() {
+
+    if (currentChapter === "sydney") return SYDNEY_WORLD_WIDTH;
 
     return exteriorMap.naturalWidth
         ? exteriorMap.naturalWidth * STORY_MAP_SCALE
@@ -786,6 +810,8 @@ function getWorldWidth() {
 }
 
 function getWorldHeight() {
+
+    if (currentChapter === "sydney") return SYDNEY_WORLD_HEIGHT;
 
     return exteriorMap.naturalHeight
         ? exteriorMap.naturalHeight * STORY_MAP_SCALE
@@ -831,6 +857,8 @@ function canMoveOnOfficialMap(x, y) {
 }
 
 function canActorMoveOnOfficialMap(actor, x, y) {
+
+    if (currentChapter === "sydney") return true;
 
     const destination = { x, y, width: actor.width, height: actor.height };
 
@@ -1014,6 +1042,169 @@ function checkFirstMeeting() {
 
 }
 
+function partyHasAllCompanions() {
+
+    return le.companion && cats.every(cat => cat.following);
+
+}
+
+function playerIsAtStation() {
+
+    return player.x >= stationDepartureZone.x
+        && player.x <= stationDepartureZone.x + stationDepartureZone.width
+        && player.y >= stationDepartureZone.y
+        && player.y <= stationDepartureZone.y + stationDepartureZone.height;
+
+}
+
+function startSydneyTransition() {
+
+    if (chapterTransition.active || chapterTransition.completed || currentChapter !== "tokyo") return;
+
+    chapterTransition.active = true;
+    chapterTransition.phase = "walk";
+    chapterTransition.elapsed = 0;
+    chapterTransition.petalPhase = 0;
+    chapterTransition.partyTargets[2].actor = cats[0];
+    chapterTransition.partyTargets[3].actor = cats[1];
+    pressedKeys.clear();
+    clearMobileControls();
+
+}
+
+function moveActorIntoStation(actor, target, deltaTime, speed) {
+
+    const dx = target.x - actor.x;
+    const dy = target.y - actor.y;
+    const distance = Math.hypot(dx, dy);
+
+    if (distance < 4) {
+
+        actor.x = target.x;
+        actor.y = target.y;
+        actor.moving = false;
+        return true;
+
+    }
+
+    const step = Math.min(distance, speed * deltaTime);
+    actor.x += dx / distance * step;
+    actor.y += dy / distance * step;
+    actor.moving = true;
+    faceToward(actor, target);
+    return false;
+
+}
+
+function startSydneyDialogue() {
+
+    activeDialoguePages = [
+        { speaker: "森", text: "欢迎来到悉尼。\n这里，是我生活了十六年的地方。" },
+        { speaker: "乐乐", text: "原来……\n这就是你每天看到的风景。" },
+        { speaker: "森", text: "从今天开始。\n我想把这里的一切。\n都慢慢介绍给你。" },
+        { speaker: "乐乐", text: "那以后。\n请多多指教。" },
+        { speaker: "坨坨", text: "喵～" },
+        { speaker: "大痣", text: "喵呜～" },
+        { speaker: "森", text: "欢迎回家。" }
+    ];
+    dialoguePurpose = "sydney";
+    meetingState.dialogueOpen = true;
+    pressedKeys.clear();
+    clearMobileControls();
+    player.moving = false;
+    le.moving = false;
+    cats.forEach(cat => cat.moving = false);
+    setDialoguePage(0);
+    gameDialogue.classList.remove("hidden");
+
+}
+
+function spawnSydneyParty() {
+
+    currentChapter = "sydney";
+    chapterLocation.textContent = "悉尼 · 海港之夜";
+    player.x = 875;
+    player.y = 755;
+    le.x = 830;
+    le.y = 785;
+    cats[0].x = 790;
+    cats[0].y = 820;
+    cats[1].x = 750;
+    cats[1].y = 825;
+    player.direction = "up";
+    le.direction = "up";
+    cats.forEach(cat => cat.direction = "up");
+    moriPositionHistory.length = 0;
+    for (let index = 0; index < 80; index++) moriPositionHistory.push({ x: player.x, y: player.y + index * 2 });
+    centerCameraOnPlayer();
+
+}
+
+function updateChapterTransition(deltaTime) {
+
+    if (!chapterTransition.active) {
+
+        if (currentChapter === "tokyo" && partyHasAllCompanions() && playerIsAtStation()) startSydneyTransition();
+        return;
+
+    }
+
+    chapterTransition.elapsed += deltaTime;
+    chapterTransition.petalPhase += deltaTime;
+
+    if (chapterTransition.phase === "walk") {
+
+        const arrived = chapterTransition.partyTargets
+            .map((target, index) => moveActorIntoStation(target.actor, target, deltaTime, index < 2 ? 118 : 100))
+            .every(Boolean);
+
+        if (arrived) {
+
+            chapterTransition.phase = "fadeTokyo";
+            chapterTransition.elapsed = 0;
+
+        }
+
+        return;
+
+    }
+
+    if (chapterTransition.phase === "fadeTokyo" && chapterTransition.elapsed >= 1.8) {
+
+        chapterTransition.phase = "chapterOne";
+        chapterTransition.elapsed = 0;
+        return;
+
+    }
+
+    if (chapterTransition.phase === "chapterOne" && chapterTransition.elapsed >= 2.1) {
+
+        chapterTransition.phase = "chapterTwo";
+        chapterTransition.elapsed = 0;
+        return;
+
+    }
+
+    if (chapterTransition.phase === "chapterTwo" && chapterTransition.elapsed >= 2.1) {
+
+        spawnSydneyParty();
+        chapterTransition.phase = "arrive";
+        chapterTransition.elapsed = 0;
+        return;
+
+    }
+
+    if (chapterTransition.phase === "arrive" && chapterTransition.elapsed >= 1.25) {
+
+        chapterTransition.phase = "dialogue";
+        chapterTransition.active = false;
+        chapterTransition.completed = true;
+        startSydneyDialogue();
+
+    }
+
+}
+
 function updateNearbyInteractable() {
 
     if (meetingState.dialogueOpen || !le.companion) {
@@ -1105,7 +1296,7 @@ function tryInteraction() {
 
 function updateLeCompanion(deltaTime) {
 
-    if (!le.companion || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active || gameplayPauseRemaining > 0) {
+    if (!le.companion || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active || gameplayPauseRemaining > 0 || chapterTransition.active) {
 
         le.moving = false;
         return;
@@ -1173,7 +1364,7 @@ function drawInteractionPrompt() {
 
 function updateCatCompanion(cat, index, deltaTime) {
 
-    if (!cat.following || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active || gameplayPauseRemaining > 0) {
+    if (!cat.following || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active || gameplayPauseRemaining > 0 || chapterTransition.active) {
 
         cat.moving = false;
         cat.animationTime += deltaTime;
@@ -1702,6 +1893,22 @@ function updateWorldAtmosphere(deltaTime) {
 
 function drawWorldAtmosphere() {
 
+    if (currentChapter === "sydney") {
+
+        // Gentle harbour glints retain the stillness of the Sydney night scene.
+        gameCtx.fillStyle = "rgba(178, 222, 255, 0.34)";
+        for (let index = 0; index < 14; index++) {
+
+            const x = 390 + index * 86 + Math.sin(windTime * 1.6 + index) * 12;
+            const y = 520 + (index % 4) * 54;
+            gameCtx.fillRect(x, y, 18, 2);
+
+        }
+
+        return;
+
+    }
+
     const hasOfficialMap = exteriorMap.complete && exteriorMap.naturalWidth;
 
     if (!hasOfficialMap) sakuraTreeLocations.forEach((tree, index) => {
@@ -1856,6 +2063,13 @@ function drawCat(cat) {
             Math.round(cat.x - 16), Math.round(cat.y - 34 + bob), 56, 56
         );
 
+        if (cat.id === "dazhi") {
+
+            gameCtx.fillStyle = "#fff4e5";
+            gameCtx.fillRect(Math.round(cat.x + 26), Math.round(cat.y + 13 + bob), 4, 4);
+
+        }
+
         return;
 
     }
@@ -1915,6 +2129,81 @@ function drawCat(cat) {
 
 }
 
+function drawTransitionPetals() {
+
+    gameCtx.fillStyle = "rgba(247, 177, 202, 0.9)";
+
+    for (let index = 0; index < 32; index++) {
+
+        const x = (index * 89 + chapterTransition.petalPhase * (22 + index % 5 * 8)) % gameViewportState.width;
+        const y = (index * 47 + chapterTransition.petalPhase * (30 + index % 4 * 9)) % gameViewportState.height;
+        const size = 2 + index % 3;
+        gameCtx.fillRect(Math.round(x), Math.round(y), size, size);
+
+    }
+
+}
+
+function drawChapterCard(title, subtitle, detail) {
+
+    const cardWidth = Math.min(520, gameViewportState.width - 64);
+    const cardHeight = 210;
+    const cardX = Math.round((gameViewportState.width - cardWidth) / 2);
+    const cardY = Math.round((gameViewportState.height - cardHeight) / 2);
+
+    gameCtx.fillStyle = "#061326";
+    gameCtx.fillRect(cardX, cardY, cardWidth, cardHeight);
+    gameCtx.strokeStyle = "#d9ae5e";
+    gameCtx.lineWidth = 4;
+    gameCtx.strokeRect(cardX + 3, cardY + 3, cardWidth - 6, cardHeight - 6);
+    gameCtx.fillStyle = "#f6d78c";
+    gameCtx.textAlign = "center";
+    gameCtx.font = "22px Fusion Pixel, monospace";
+    gameCtx.fillText(title, gameViewportState.width / 2, cardY + 58);
+    gameCtx.fillStyle = "#ffffff";
+    gameCtx.font = "38px Fusion Pixel, monospace";
+    gameCtx.fillText(subtitle, gameViewportState.width / 2, cardY + 116);
+    gameCtx.fillStyle = "#f1c86a";
+    gameCtx.font = "20px Fusion Pixel, monospace";
+    gameCtx.fillText(detail, gameViewportState.width / 2, cardY + 163);
+    gameCtx.textAlign = "left";
+
+}
+
+function drawChapterTransitionOverlay() {
+
+    if (!chapterTransition.active) return;
+
+    const phase = chapterTransition.phase;
+
+    if (phase === "fadeTokyo") {
+
+        gameCtx.fillStyle = `rgba(0, 0, 0, ${Math.min(1, chapterTransition.elapsed / 1.8)})`;
+        gameCtx.fillRect(0, 0, gameViewportState.width, gameViewportState.height);
+        drawTransitionPetals();
+        return;
+
+    }
+
+    if (phase === "chapterOne" || phase === "chapterTwo") {
+
+        gameCtx.fillStyle = "#02060d";
+        gameCtx.fillRect(0, 0, gameViewportState.width, gameViewportState.height);
+        if (phase === "chapterOne") drawChapterCard("Chapter 1", "东京", "Completed");
+        else drawChapterCard("Chapter 2", "Sydney", "悉尼");
+        return;
+
+    }
+
+    if (phase === "arrive") {
+
+        gameCtx.fillStyle = `rgba(0, 0, 0, ${Math.max(0, 1 - chapterTransition.elapsed / 1.25)})`;
+        gameCtx.fillRect(0, 0, gameViewportState.width, gameViewportState.height);
+
+    }
+
+}
+
 function drawGame() {
 
     gameCtx.fillStyle = "#91ad6d";
@@ -1924,7 +2213,11 @@ function drawGame() {
     gameCtx.scale(camera.zoom, camera.zoom);
     gameCtx.translate(-Math.round(camera.x), -Math.round(camera.y));
 
-    if (exteriorMap.complete && exteriorMap.naturalWidth) {
+    if (currentChapter === "sydney" && sydneyMap.complete && sydneyMap.naturalWidth) {
+
+        gameCtx.drawImage(sydneyMap, 0, 0, getWorldWidth(), getWorldHeight());
+
+    } else if (exteriorMap.complete && exteriorMap.naturalWidth) {
 
         gameCtx.drawImage(exteriorMap, 0, 0, getWorldWidth(), getWorldHeight());
 
@@ -1948,7 +2241,7 @@ function drawGame() {
 
     }
 
-    drawCollisionDebug();
+    if (currentChapter === "tokyo") drawCollisionDebug();
     drawWorldAtmosphere();
 
     [
@@ -1961,11 +2254,13 @@ function drawGame() {
 
     gameCtx.restore();
 
+    drawChapterTransitionOverlay();
+
 }
 
 function updatePlayer(deltaTime) {
 
-    if (cameraIntro.active || meetingState.dialogueOpen || characterPanelOpen || gameplayPauseRemaining > 0) {
+    if (cameraIntro.active || meetingState.dialogueOpen || characterPanelOpen || gameplayPauseRemaining > 0 || chapterTransition.active) {
 
         player.moving = false;
         return;
@@ -2001,9 +2296,10 @@ function updatePlayer(deltaTime) {
         Math.min(player.y + vertical * movementSpeed * deltaTime, getWorldHeight() - player.height)
     );
 
-    const canMove = exteriorMap.complete && exteriorMap.naturalWidth
-        ? canMoveOnOfficialMap(destinationX, destinationY)
-        : canMoveTo(destinationX, destinationY);
+    const canMove = currentChapter === "sydney"
+        || (exteriorMap.complete && exteriorMap.naturalWidth
+            ? canMoveOnOfficialMap(destinationX, destinationY)
+            : canMoveTo(destinationX, destinationY));
 
     if (canMove) {
 
@@ -2023,16 +2319,26 @@ function gameLoop(timestamp) {
 
     if (gameplayPauseRemaining > 0) gameplayPauseRemaining = Math.max(0, gameplayPauseRemaining - deltaTime);
 
+    updateChapterTransition(deltaTime);
     updatePlayer(deltaTime);
-    checkFirstMeeting();
+    if (currentChapter === "tokyo") checkFirstMeeting();
     moriPositionHistory.push({ x: player.x, y: player.y });
 
     if (moriPositionHistory.length > 180) moriPositionHistory.shift();
 
     updateLeCompanion(deltaTime);
-    updateNearbyInteractable();
-    updateNearbyCatEvent();
-    updateSakuraAvenueMoment();
+    if (currentChapter === "tokyo") {
+
+        updateNearbyInteractable();
+        updateNearbyCatEvent();
+        updateSakuraAvenueMoment();
+
+    } else {
+
+        nearbyInteractable = null;
+        nearbyCatEvent = false;
+
+    }
     updateCatCompanions(deltaTime);
     updateDialogueTypewriter(deltaTime);
     updateWorldAtmosphere(deltaTime);
