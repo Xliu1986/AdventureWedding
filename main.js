@@ -364,7 +364,7 @@ function isTypingInField(target) {
 
 function setCharacterPanelOpen(open) {
 
-    if (meetingState.dialogueOpen || !gameStarted) return;
+    if (meetingState.dialogueOpen || !gameStarted || gameState !== GameState.TOKYO) return;
 
     characterPanelOpen = open;
     characterPanel.classList.toggle("hidden", !open);
@@ -589,11 +589,20 @@ const exteriorMap = new Image();
 exteriorMap.src = "assets/tokyo-story-map.png";
 
 const sydneyMap = new Image();
-sydneyMap.src = "assets/sydney/sydney-harbour-night.png?v=0.8.0";
+sydneyMap.src = "assets/maps/sydney-harbour-lookout.png?v=0.8.0";
 
 const SYDNEY_WORLD_WIDTH = 1920;
 const SYDNEY_WORLD_HEIGHT = 1080;
+const GameState = Object.freeze({
+    TOKYO: "tokyo",
+    TOKYO_STATION_CUTSCENE: "tokyoStationCutscene",
+    CHAPTER_TRANSITION: "chapterTransition",
+    SYDNEY_LOOKOUT: "sydneyLookout",
+    SYDNEY: "sydney"
+});
+
 let currentChapter = "tokyo";
+let gameState = GameState.TOKYO;
 
 let playerAnimationTime = 0;
 
@@ -785,6 +794,7 @@ const cameraIntro = {
 };
 
 const stationDepartureZone = { x: 1080, y: 390, width: 520, height: 260 };
+let nearbyStation = false;
 const chapterTransition = {
     active: false,
     completed: false,
@@ -999,6 +1009,19 @@ function closeMeetingDialogue() {
 
     }
 
+    if (dialoguePurpose === "station") {
+
+        // The cutscene walks the party from their current positions into the station.
+        startSydneyTransition();
+
+    }
+
+    if (dialoguePurpose === "sydney") {
+
+        gameState = GameState.SYDNEY_LOOKOUT;
+
+    }
+
     activeInteraction = null;
 
 }
@@ -1048,6 +1071,34 @@ function partyHasAllCompanions() {
 
 }
 
+function tokyoStoryComplete() {
+
+    return meetingState.triggered
+        && le.companion
+        && interactables.find(item => item.id === "vending")?.completed
+        && interactables.find(item => item.id === "bench")?.completed
+        && interactables.find(item => item.id === "shrine")?.completed
+        && sakuraAvenueMoment.discovered
+        && hiddenCatEvent.discovered
+        && partyHasAllCompanions();
+
+}
+
+function updateNearbyStation() {
+
+    if (!tokyoStoryComplete() || meetingState.dialogueOpen || chapterTransition.completed) {
+
+        nearbyStation = false;
+        return;
+
+    }
+
+    const closestX = Math.max(stationDepartureZone.x, Math.min(player.x, stationDepartureZone.x + stationDepartureZone.width));
+    const closestY = Math.max(stationDepartureZone.y, Math.min(player.y, stationDepartureZone.y + stationDepartureZone.height));
+    nearbyStation = Math.hypot(player.x - closestX, player.y - closestY) <= 110;
+
+}
+
 function playerIsAtStation() {
 
     return player.x >= stationDepartureZone.x
@@ -1062,6 +1113,7 @@ function startSydneyTransition() {
     if (chapterTransition.active || chapterTransition.completed || currentChapter !== "tokyo") return;
 
     chapterTransition.active = true;
+    gameState = GameState.CHAPTER_TRANSITION;
     chapterTransition.phase = "walk";
     chapterTransition.elapsed = 0;
     chapterTransition.petalPhase = 0;
@@ -1069,6 +1121,36 @@ function startSydneyTransition() {
     chapterTransition.partyTargets[3].actor = cats[1];
     pressedKeys.clear();
     clearMobileControls();
+
+}
+
+function openTokyoStationDialogue() {
+
+    if (!nearbyStation || gameState !== GameState.TOKYO) return;
+
+    activeDialoguePages = [
+        { speaker: "乐乐", text: "今天。\n真的很开心。" },
+        { speaker: "森", text: "我也是。\n谢谢你陪我一起走过东京。" },
+        { speaker: "乐乐", text: "东京。\n有很多属于我的回忆。" },
+        { speaker: "森", text: "那接下来，\n让我带你去看看我的城市。" },
+        { speaker: "乐乐", text: "你的城市？" },
+        { speaker: "森", text: "嗯。\n我已经在悉尼生活了十六年。\n那里，也是我的家。" },
+        { speaker: "乐乐", text: "好呀。\n那以后，\n就请你带着我一起探索悉尼吧。" },
+        { speaker: "坨坨", text: "喵～" },
+        { speaker: "大痣", text: "喵呜～" },
+        { speaker: "森", text: "当然。\n还有你们两个。" },
+        { speaker: "乐乐", text: "一家人，\n一起出发。" }
+    ];
+    dialoguePurpose = "station";
+    gameState = GameState.TOKYO_STATION_CUTSCENE;
+    meetingState.dialogueOpen = true;
+    pressedKeys.clear();
+    clearMobileControls();
+    player.moving = false;
+    le.moving = false;
+    cats.forEach(cat => cat.moving = false);
+    setDialoguePage(0);
+    gameDialogue.classList.remove("hidden");
 
 }
 
@@ -1108,6 +1190,7 @@ function startSydneyDialogue() {
         { speaker: "森", text: "欢迎回家。" }
     ];
     dialoguePurpose = "sydney";
+    gameState = GameState.SYDNEY_LOOKOUT;
     meetingState.dialogueOpen = true;
     pressedKeys.clear();
     clearMobileControls();
@@ -1122,6 +1205,7 @@ function startSydneyDialogue() {
 function spawnSydneyParty() {
 
     currentChapter = "sydney";
+    gameState = GameState.SYDNEY_LOOKOUT;
     chapterLocation.textContent = "悉尼 · 海港之夜";
     player.x = 875;
     player.y = 755;
@@ -1142,12 +1226,7 @@ function spawnSydneyParty() {
 
 function updateChapterTransition(deltaTime) {
 
-    if (!chapterTransition.active) {
-
-        if (currentChapter === "tokyo" && partyHasAllCompanions() && playerIsAtStation()) startSydneyTransition();
-        return;
-
-    }
+    if (!chapterTransition.active) return;
 
     chapterTransition.elapsed += deltaTime;
     chapterTransition.petalPhase += deltaTime;
@@ -1282,7 +1361,11 @@ function updateNearbyCatEvent() {
 
 function tryInteraction() {
 
-    if (nearbyInteractable && !meetingState.dialogueOpen && !cameraIntro.active) {
+    if (nearbyStation && !meetingState.dialogueOpen && !cameraIntro.active) {
+
+        openTokyoStationDialogue();
+
+    } else if (nearbyInteractable && !meetingState.dialogueOpen && !cameraIntro.active) {
 
         openInteractionDialogue(nearbyInteractable);
 
@@ -1346,13 +1429,15 @@ function updateLeCompanion(deltaTime) {
 
 function drawInteractionPrompt() {
 
-    if ((!nearbyInteractable && !nearbyCatEvent) || meetingState.dialogueOpen) return;
+    if ((!nearbyInteractable && !nearbyCatEvent && !nearbyStation) || meetingState.dialogueOpen) return;
 
     const mobilePrompt = mobileControls.classList.contains("isTouchMode");
-    const promptText = nearbyCatEvent
+    const promptText = nearbyStation
+        ? (mobilePrompt ? "点击 A 进入东京站" : "按 E 进入东京站")
+        : nearbyCatEvent
         ? (mobilePrompt ? "发现了什么…… 点击 A 互动" : "发现了什么…… 按 E 互动")
         : (mobilePrompt ? "点击 A 互动" : "按 E / 点击互动");
-    const promptWidth = nearbyCatEvent ? 164 : 112;
+    const promptWidth = nearbyStation ? 156 : nearbyCatEvent ? 164 : 112;
 
     gameCtx.fillStyle = "rgba(10, 20, 38, 0.86)";
     gameCtx.fillRect(player.x - 44, player.y - 58, promptWidth, 28);
@@ -2204,7 +2289,84 @@ function drawChapterTransitionOverlay() {
 
 }
 
+const fireworks = [];
+let fireworkCooldown = 0;
+const fireworkColors = ["#f4a3ca", "#f6ce72", "#fff2d1", "#bd9bea"];
+
+function updateSydneyFireworks(deltaTime) {
+
+    if (gameState !== GameState.SYDNEY_LOOKOUT) return;
+
+    fireworkCooldown -= deltaTime;
+    if (fireworkCooldown <= 0 && fireworks.length < 120) {
+
+        const originX = 0.15 + Math.random() * 0.7;
+        const originY = 0.12 + Math.random() * 0.22;
+        const color = fireworkColors[Math.floor(Math.random() * fireworkColors.length)];
+        for (let index = 0; index < 22; index++) {
+
+            const angle = Math.PI * 2 * index / 22;
+            const speed = 28 + Math.random() * 38;
+            fireworks.push({ x: originX, y: originY, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: 0.8 + Math.random() * 0.45, maxLife: 1.2, color });
+
+        }
+        fireworkCooldown = 0.72 + Math.random() * 0.65;
+
+    }
+
+    for (let index = fireworks.length - 1; index >= 0; index--) {
+
+        const particle = fireworks[index];
+        particle.life -= deltaTime;
+        particle.x += particle.vx * deltaTime / gameViewportState.width;
+        particle.y += particle.vy * deltaTime / gameViewportState.height;
+        particle.vy += 35 * deltaTime;
+        if (particle.life <= 0) fireworks.splice(index, 1);
+
+    }
+
+}
+
+function drawSydneyLookout() {
+
+    gameCtx.fillStyle = "#030916";
+    gameCtx.fillRect(0, 0, gameViewportState.width, gameViewportState.height);
+
+    if (sydneyMap.complete && sydneyMap.naturalWidth) {
+
+        const sourceHeight = Math.min(665, sydneyMap.naturalHeight);
+        const sourceWidth = sydneyMap.naturalWidth;
+        const scale = gameViewportState.portrait
+            ? Math.max(gameViewportState.width / sourceWidth, gameViewportState.height / sourceHeight)
+            : Math.min(gameViewportState.width / sourceWidth, gameViewportState.height / sourceHeight);
+        const drawWidth = sourceWidth * scale;
+        const drawHeight = sourceHeight * scale;
+        const drawX = (gameViewportState.width - drawWidth) / 2;
+        const drawY = (gameViewportState.height - drawHeight) / 2;
+        gameCtx.drawImage(sydneyMap, 0, 0, sourceWidth, sourceHeight, drawX, drawY, drawWidth, drawHeight);
+
+    }
+
+    fireworks.forEach(particle => {
+
+        gameCtx.globalAlpha = Math.max(0, particle.life / particle.maxLife);
+        gameCtx.fillStyle = particle.color;
+        gameCtx.fillRect(Math.round(particle.x * gameViewportState.width), Math.round(particle.y * gameViewportState.height), 3, 3);
+
+    });
+    gameCtx.globalAlpha = 1;
+
+}
+
 function drawGame() {
+
+    if (gameState === GameState.SYDNEY_LOOKOUT) {
+
+        drawSydneyLookout();
+        drawChapterTransitionOverlay();
+        return;
+
+    }
 
     gameCtx.fillStyle = "#91ad6d";
     gameCtx.fillRect(0, 0, gameViewportState.width, gameViewportState.height);
@@ -2260,7 +2422,7 @@ function drawGame() {
 
 function updatePlayer(deltaTime) {
 
-    if (cameraIntro.active || meetingState.dialogueOpen || characterPanelOpen || gameplayPauseRemaining > 0 || chapterTransition.active) {
+    if (cameraIntro.active || meetingState.dialogueOpen || characterPanelOpen || gameplayPauseRemaining > 0 || chapterTransition.active || gameState !== GameState.TOKYO) {
 
         player.moving = false;
         return;
@@ -2332,16 +2494,19 @@ function gameLoop(timestamp) {
         updateNearbyInteractable();
         updateNearbyCatEvent();
         updateSakuraAvenueMoment();
+        updateNearbyStation();
 
     } else {
 
         nearbyInteractable = null;
         nearbyCatEvent = false;
+        nearbyStation = false;
 
     }
     updateCatCompanions(deltaTime);
     updateDialogueTypewriter(deltaTime);
     updateWorldAtmosphere(deltaTime);
+    updateSydneyFireworks(deltaTime);
     mobileControls.classList.toggle("isDialogueOpen", meetingState.dialogueOpen);
 
     if (player.moving) playerAnimationTime += deltaTime;
@@ -2390,7 +2555,7 @@ function triggerMobileAction() {
 
     if (!gameStarted || characterPanelOpen || cameraIntro.active) return;
 
-    if (nearbyInteractable || nearbyCatEvent) tryInteraction();
+    if (nearbyInteractable || nearbyCatEvent || nearbyStation) tryInteraction();
 
 }
 
@@ -2500,7 +2665,7 @@ window.addEventListener("keydown", event => {
 
     if (characterPanelOpen) return;
 
-    if ((event.code === "KeyE" || event.code === "Enter" || event.code === "Space") && (nearbyInteractable || nearbyCatEvent)) {
+    if ((event.code === "KeyE" || event.code === "Enter" || event.code === "Space") && (nearbyInteractable || nearbyCatEvent || nearbyStation)) {
 
         event.preventDefault();
         tryInteraction();
