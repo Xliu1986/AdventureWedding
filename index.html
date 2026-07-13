@@ -17,7 +17,7 @@
 
 <link href="https://cdn.jsdelivr.net/npm/@fontsource/fusion-pixel-12px-monospaced-jp@5.2.5/index.css" rel="stylesheet">
 
-<link rel="stylesheet" href="style.css?v=0.6.9-mobile-r2">
+<link rel="stylesheet" href="style.css?v=0.7.0">
 
 </head>
 
@@ -46,16 +46,44 @@
 
 </div>
 
-<aside id="partyFrames" class="hidden" aria-label="同行伙伴">
+<button id="characterMenuButton" class="hidden" type="button" aria-label="打开人物面板" aria-expanded="false">人物</button>
 
-<p class="partyTitle">同行伙伴</p>
+<section id="characterPanel" class="hidden" role="dialog" aria-modal="true" aria-label="同行者">
 
-<div class="partyFrame" data-party="mori"><span class="partyPortrait"></span><span>森</span></div>
-<div class="partyFrame" data-party="le"><span class="partyPortrait"></span><span>乐乐</span></div>
-<div class="partyFrame hidden" data-party="tuotuo"><span class="partyPortrait"></span><span>坨坨</span></div>
-<div class="partyFrame hidden" data-party="dazhi"><span class="partyPortrait"></span><span>大痣</span></div>
+<div class="characterPanelBox">
 
-</aside>
+<header class="characterPanelHeader">
+<h2>同行者</h2>
+<p class="characterPanelHint"><span class="desktopHint">B / ESC 关闭</span><span class="mobileHint">点击“关闭”返回</span></p>
+</header>
+
+<div class="characterGrid">
+
+<article class="characterCard">
+<div class="characterPortrait"><img src="assets/portraits/mori-portrait.png?v=0.7.1" alt="森的像素肖像"></div>
+<div><h3>森</h3><p>一段始于东京的旅程。</p></div>
+</article>
+
+<article class="characterCard">
+<div class="characterPortrait"><img src="assets/portraits/lele-portrait.png?v=0.7.1" alt="乐乐的像素肖像"></div>
+<div><h3>乐乐</h3><p>温柔坚定的同行者。</p></div>
+</article>
+
+<article class="characterCard">
+<div class="characterPortrait"><img src="assets/portraits/tuotuo-portrait.png?v=0.7.1" alt="坨坨的像素肖像"></div>
+<div><h3>坨坨</h3><p>面冷心热的贴心喵。</p></div>
+</article>
+
+<article class="characterCard">
+<div class="characterPortrait"><img src="assets/portraits/dazhi-portrait.png?v=0.7.1" alt="大痣的像素肖像"></div>
+<div><h3>大痣</h3><p>神经大条的暖暖喵。</p></div>
+</article>
+
+</div>
+
+</div>
+
+</section>
 
 <div id="gameDialogue" class="hidden" role="dialog" aria-live="polite">
 
@@ -99,7 +127,7 @@ PRESS START
 
 <footer class="version">
 
-Version 0.6.9<br>
+Version 0.7.1<br>
 Tokyo Memories
 
 </footer>
@@ -134,7 +162,7 @@ Tokyo Memories
 
 </div>
 
-<script src="main.js?v=0.6.9-mobile-r2"></script>
+<script src="main.js?v=0.7.0"></script>
 
 </body>
 

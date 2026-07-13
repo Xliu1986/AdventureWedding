@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.6.9 — Tokyo Memories
+   Version 0.7.1 — Tokyo Memories
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -313,9 +313,9 @@ const dialog = document.getElementById("dialog");
 
 const titleScreen = document.getElementById("titleScreen");
 const chapterLocation = document.getElementById("chapterLocation");
-const partyFrames = document.getElementById("partyFrames");
-const catPartyFrames = document.querySelectorAll('[data-party="tuotuo"], [data-party="dazhi"]');
 const mobileControls = document.getElementById("mobileControls");
+const characterPanel = document.getElementById("characterPanel");
+const characterMenuButton = document.getElementById("characterMenuButton");
 
 const gameDialogue = document.getElementById("gameDialogue");
 const gameDialogueName = document.querySelector(".gameDialogueName");
@@ -323,6 +323,27 @@ const gameDialogueText = document.querySelector(".gameDialogueText");
 const gameDialogueContinue = document.querySelector(".gameDialogueContinue");
 
 let gameStarted = false;
+let characterPanelOpen = false;
+
+const portraitSources = [
+    "assets/portraits/mori-portrait.png?v=0.7.1",
+    "assets/portraits/lele-portrait.png?v=0.7.1",
+    "assets/portraits/tuotuo-portrait.png?v=0.7.1",
+    "assets/portraits/dazhi-portrait.png?v=0.7.1"
+];
+
+portraitSources.forEach(source => {
+
+    const portrait = new Image();
+    portrait.src = source;
+
+});
+
+document.querySelectorAll(".characterPortrait img").forEach(image => {
+
+    image.addEventListener("error", () => image.parentElement.classList.add("portraitFallback"));
+
+});
 
 function refreshMobileControlMode() {
 
@@ -331,6 +352,41 @@ function refreshMobileControlMode() {
 
     document.body.classList.toggle("touchMode", enabled);
     mobileControls.classList.toggle("isTouchMode", enabled);
+
+}
+
+function isTypingInField(target) {
+
+    return target instanceof HTMLElement
+        && (target.matches("input, textarea, select") || target.isContentEditable);
+
+}
+
+function setCharacterPanelOpen(open) {
+
+    if (meetingState.dialogueOpen || !gameStarted) return;
+
+    characterPanelOpen = open;
+    characterPanel.classList.toggle("hidden", !open);
+    characterMenuButton.textContent = open ? "关闭" : "人物";
+    characterMenuButton.setAttribute("aria-label", open ? "关闭人物面板" : "打开人物面板");
+    characterMenuButton.setAttribute("aria-expanded", String(open));
+
+    if (open) {
+
+        pressedKeys.clear();
+        clearMobileControls();
+        player.moving = false;
+        le.moving = false;
+        cats.forEach(cat => cat.moving = false);
+
+    }
+
+}
+
+function toggleCharacterPanel() {
+
+    setCharacterPanelOpen(!characterPanelOpen);
 
 }
 
@@ -348,7 +404,11 @@ const player = {
 };
 
 const playerSprite = new Image();
-playerSprite.src = "assets/player-mori-sprite-sheet-32x48.png?v=2";
+playerSprite.src = "assets/characters/mori/mori-sprite-sheet.png?v=0.7.1";
+
+const playerFallbackSprite = new Image();
+playerFallbackSprite.src = "assets/player-mori-sprite-sheet-32x48.png?v=2";
+playerSprite.addEventListener("error", () => console.warn("[AdventureWedding] Mori character asset could not load; using the existing sprite fallback."), { once: true });
 
 const le = {
     x: 1950,
@@ -363,10 +423,24 @@ const le = {
 };
 
 const leSprite = new Image();
-leSprite.src = "assets/player-le-sprite-sheet-32x48.png?v=1";
+leSprite.src = "assets/characters/lele/lele-sprite-sheet.png?v=0.7.1";
 
-const catSpriteSheet = new Image();
-catSpriteSheet.src = "assets/cat-companions-pixel.png?v=1";
+const leFallbackSprite = new Image();
+leFallbackSprite.src = "assets/player-le-sprite-sheet-32x48.png?v=1";
+leSprite.addEventListener("error", () => console.warn("[AdventureWedding] Lele character asset could not load; using the existing sprite fallback."), { once: true });
+
+const catSprites = {
+    tuotuo: new Image(),
+    dazhi: new Image()
+};
+catSprites.tuotuo.src = "assets/characters/tuotuo/tuotuo-sprite-sheet.png?v=0.7.1";
+catSprites.dazhi.src = "assets/characters/dazhi/dazhi-sprite-sheet.png?v=0.7.1";
+Object.entries(catSprites).forEach(([id, image]) => {
+    image.addEventListener("error", () => console.warn(`[AdventureWedding] ${id} character asset could not load; using the existing sprite fallback.`), { once: true });
+});
+
+const catFallbackSpriteSheet = new Image();
+catFallbackSpriteSheet.src = "assets/cat-companions-pixel.png?v=1";
 
 const DEBUG_COLLISIONS = false;
 
@@ -894,7 +968,6 @@ function closeMeetingDialogue() {
         characterAlbum.tuotuo.unlocked = true;
         characterAlbum.dazhi.unlocked = true;
         achievements.walkingTogether.unlocked = true;
-        catPartyFrames.forEach(frame => frame.classList.remove("hidden"));
 
     }
 
@@ -1032,7 +1105,7 @@ function tryInteraction() {
 
 function updateLeCompanion(deltaTime) {
 
-    if (!le.companion || meetingState.dialogueOpen || cameraIntro.active || gameplayPauseRemaining > 0) {
+    if (!le.companion || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active || gameplayPauseRemaining > 0) {
 
         le.moving = false;
         return;
@@ -1100,7 +1173,7 @@ function drawInteractionPrompt() {
 
 function updateCatCompanion(cat, index, deltaTime) {
 
-    if (!cat.following || meetingState.dialogueOpen || cameraIntro.active || gameplayPauseRemaining > 0) {
+    if (!cat.following || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active || gameplayPauseRemaining > 0) {
 
         cat.moving = false;
         cat.animationTime += deltaTime;
@@ -1260,6 +1333,8 @@ function updateCamera(deltaTime) {
     const followZoom = getCameraFollowZoom();
     const target = getCameraTarget(followZoom);
     const followAmount = 1 - Math.pow(1 - camera.smoothing, deltaTime * 60);
+
+    if (characterPanelOpen) return;
 
     if (cameraIntro.active) {
 
@@ -1697,10 +1772,14 @@ function drawPlayer() {
     const frame = player.moving ? Math.floor(playerAnimationTime / 0.14) % 4 : 0;
     const row = directionRows[player.direction];
 
-    if (playerSprite.complete && playerSprite.naturalWidth) {
+    const activeSprite = playerSprite.complete && playerSprite.naturalWidth
+        ? playerSprite
+        : playerFallbackSprite;
+
+    if (activeSprite.complete && activeSprite.naturalWidth) {
 
         gameCtx.drawImage(
-            playerSprite,
+            activeSprite,
             frame * 32,
             row * 48,
             32,
@@ -1728,10 +1807,14 @@ function drawLe() {
     const frame = le.moving ? Math.floor(le.animationTime / 0.14) % 4 : 0;
     const row = directionRows[le.direction];
 
-    if (leSprite.complete && leSprite.naturalWidth) {
+    const activeSprite = leSprite.complete && leSprite.naturalWidth
+        ? leSprite
+        : leFallbackSprite;
+
+    if (activeSprite.complete && activeSprite.naturalWidth) {
 
         gameCtx.drawImage(
-            leSprite,
+            activeSprite,
             frame * 32,
             row * 48,
             32,
@@ -1754,19 +1837,33 @@ function drawCat(cat) {
     const tailWag = Math.round(Math.sin(cat.animationTime * 5 + (cat.id === "dazhi" ? 1 : 0)) * 3);
     const grooming = cat.behaviour === "groom" && Math.sin(cat.animationTime * 9) > 0;
 
-    if (catSpriteSheet.complete && catSpriteSheet.naturalWidth) {
+    const catSprite = catSprites[cat.id];
 
-        const sourceX = cat.id === "tuotuo" ? 370 : 990;
+    if (catSprite.complete && catSprite.naturalWidth) {
+
         const bob = cat.behaviour === "run" ? Math.sin(cat.animationTime * 12) * 2 : 0;
+        const directionRows = { down: 4, up: 3, left: 1, right: 2 };
+        const stateRow = cat.behaviour === "sit" || cat.behaviour === "groom"
+            ? 5
+            : directionRows[cat.direction] ?? 0;
+        const frame = cat.moving ? Math.floor(cat.animationTime / 0.16) % 4 : 0;
 
         gameCtx.fillStyle = "rgba(26, 31, 39, 0.25)";
         gameCtx.fillRect(cat.x - 8, cat.y + cat.height - 3, 34, 5);
         gameCtx.drawImage(
-            catSpriteSheet,
-            sourceX, 170, 420, 510,
-            Math.round(cat.x - 4), Math.round(cat.y - 27 + bob), 30, 36
+            catSprite,
+            frame * 32, stateRow * 32, 32, 32,
+            Math.round(cat.x - 16), Math.round(cat.y - 34 + bob), 56, 56
         );
 
+        return;
+
+    }
+
+    if (catFallbackSpriteSheet.complete && catFallbackSpriteSheet.naturalWidth) {
+
+        const sourceX = cat.id === "tuotuo" ? 370 : 990;
+        gameCtx.drawImage(catFallbackSpriteSheet, sourceX, 170, 420, 510, cat.x - 4, cat.y - 27, 30, 36);
         return;
 
     }
@@ -1855,9 +1952,9 @@ function drawGame() {
     drawWorldAtmosphere();
 
     [
-        { y: player.y, draw: drawPlayer },
-        { y: le.y, draw: drawLe },
-        ...cats.filter(cat => hiddenCatEvent.discovered || !cat.following).map(cat => ({ y: cat.y, draw: () => drawCat(cat) }))
+        { y: player.y + player.height, draw: drawPlayer },
+        { y: le.y + le.height, draw: drawLe },
+        ...cats.filter(cat => hiddenCatEvent.discovered || !cat.following).map(cat => ({ y: cat.y + cat.height, draw: () => drawCat(cat) }))
     ].sort((first, second) => first.y - second.y).forEach(character => character.draw());
 
     drawInteractionPrompt();
@@ -1868,7 +1965,7 @@ function drawGame() {
 
 function updatePlayer(deltaTime) {
 
-    if (cameraIntro.active || meetingState.dialogueOpen || gameplayPauseRemaining > 0) {
+    if (cameraIntro.active || meetingState.dialogueOpen || characterPanelOpen || gameplayPauseRemaining > 0) {
 
         player.moving = false;
         return;
@@ -1960,12 +2057,19 @@ startButton.addEventListener("click",()=>{
     dialog.classList.add("hidden");
     gameViewport.classList.remove("hidden");
     chapterLocation.classList.remove("hidden");
-    partyFrames.classList.remove("hidden");
+    characterMenuButton.classList.remove("hidden");
     mobileControls.classList.remove("hidden");
     spawnPlayer();
     startCameraIntro();
     previousGameTime = performance.now();
     requestAnimationFrame(gameLoop);
+
+});
+
+characterMenuButton.addEventListener("pointerdown", event => {
+
+    event.preventDefault();
+    toggleCharacterPanel();
 
 });
 
@@ -1978,7 +2082,7 @@ function triggerMobileAction() {
 
     }
 
-    if (!gameStarted || cameraIntro.active) return;
+    if (!gameStarted || characterPanelOpen || cameraIntro.active) return;
 
     if (nearbyInteractable || nearbyCatEvent) tryInteraction();
 
@@ -2026,7 +2130,7 @@ mobileControls.querySelectorAll("button[data-control]").forEach(button => {
 
         }
 
-        if (!gameStarted || meetingState.dialogueOpen || cameraIntro.active) return;
+        if (!gameStarted || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active) return;
 
         activeControlPointers.set(event.pointerId, control);
         pressedKeys.add(mobileControlKeys[control]);
@@ -2057,6 +2161,14 @@ mobileControls.querySelectorAll("button[data-control]").forEach(button => {
 
 window.addEventListener("keydown", event => {
 
+    if (event.code === "Escape" && characterPanelOpen) {
+
+        event.preventDefault();
+        setCharacterPanelOpen(false);
+        return;
+
+    }
+
     if (meetingState.dialogueOpen) {
 
         if (event.code === "Enter" || event.code === "Space") {
@@ -2071,6 +2183,16 @@ window.addEventListener("keydown", event => {
     }
 
     if (!gameStarted) return;
+
+    if (event.code === "KeyB" && !isTypingInField(event.target)) {
+
+        event.preventDefault();
+        toggleCharacterPanel();
+        return;
+
+    }
+
+    if (characterPanelOpen) return;
 
     if ((event.code === "KeyE" || event.code === "Enter" || event.code === "Space") && (nearbyInteractable || nearbyCatEvent)) {
 

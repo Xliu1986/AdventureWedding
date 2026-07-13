@@ -444,95 +444,182 @@ body{
 
 }
 
-#partyFrames{
+#characterMenuButton{
 
+    display:none;
     position:fixed;
-    top:max(18px, env(safe-area-inset-top));
-    right:18px;
-    z-index:18;
-    width:176px;
-    padding:8px;
+    top:max(14px, env(safe-area-inset-top));
+    right:max(14px, env(safe-area-inset-right));
+    z-index:35;
+    min-width:54px;
+    min-height:48px;
+    padding:8px 10px;
     color:#fff3d4;
     background:#09162a;
     border:3px solid #d8aa54;
-    box-shadow:inset 0 0 0 2px #26385a, 4px 4px 0 rgba(0,0,0,.32);
-    font:14px "Fusion Pixel 12px Monospaced JP", "PingFang SC", monospace;
+    box-shadow:inset 0 0 0 2px #26385a, 3px 3px 0 rgba(0,0,0,.32);
+    font:16px "Fusion Pixel 12px Monospaced JP", "PingFang SC", monospace;
+    touch-action:none;
+    user-select:none;
+    -webkit-user-select:none;
+    -webkit-touch-callout:none;
 
 }
 
-#partyFrames.hidden,
-.partyFrame.hidden{
+body.touchMode #characterMenuButton:not(.hidden){
+
+    display:block;
+
+}
+
+#characterMenuButton.hidden,
+#characterPanel.hidden{
 
     display:none;
+
+}
+
+#characterPanel{
+
+    position:fixed;
+    inset:0;
+    z-index:30;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:max(28px, env(safe-area-inset-top)) max(28px, env(safe-area-inset-right)) max(28px, env(safe-area-inset-bottom)) max(28px, env(safe-area-inset-left));
+    background:rgba(3, 10, 24, .78);
+    overflow:auto;
+    overscroll-behavior:contain;
+    touch-action:pan-y;
+
+}
+
+.characterPanelBox{
+
+    width:min(760px, 100%);
+    max-height:calc(100vh - 56px);
+    padding:24px;
+    color:#fff8e7;
+    background:#0b172b;
+    border:4px solid #d8aa54;
+    box-shadow:inset 0 0 0 4px #26385a, 8px 8px 0 rgba(0,0,0,.45), 0 0 0 2px #72512d;
+    font-family:"Fusion Pixel 12px Monospaced JP", "PingFang SC", monospace;
+    image-rendering:pixelated;
+
+}
+
+.characterPanelHeader{
+
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:16px;
+    margin-bottom:18px;
+    padding-bottom:12px;
+    border-bottom:2px solid #72512d;
+
+}
+
+.characterPanelHeader h2{
+
+    margin:0;
+    color:#f4cf7a;
+    font-size:28px;
+
+}
+
+.characterPanelHint{
+
+    margin:0;
+    color:#d8c9a4;
+    font-size:14px;
+
+}
+
+.mobileHint{
+
+    display:none;
+
+}
+
+.characterGrid{
+
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:14px;
+
+}
+
+.characterCard{
+
+    display:flex;
+    align-items:center;
+    min-height:148px;
+    gap:14px;
+    padding:12px;
+    background:#111d35;
+    border:2px solid #72512d;
+    box-shadow:inset 0 0 0 2px #1e2e4b;
+
+}
+
+.characterPortrait{
+
+    position:relative;
+    flex:0 0 112px;
+    width:112px;
+    height:112px;
+    overflow:hidden;
+    background:#09162a;
+    border:2px solid #d8aa54;
+    image-rendering:pixelated;
+
+}
+
+.characterPortrait img{
+
+    display:block;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    image-rendering:pixelated;
+
+}
+
+.characterPortrait.portraitFallback::after{
+
+    content:"◆";
+    position:absolute;
+    inset:0;
+    display:grid;
+    place-items:center;
+    color:#d8aa54;
+    background:#09162a;
+    font-size:42px;
+
+}
+
+.characterCard h3{
+
+    margin:0 0 10px;
+    color:#f4cf7a;
+    font-size:22px;
+
+}
+
+.characterCard p{
+
+    margin:0;
+    color:#fff8e7;
+    font-size:15px;
+    line-height:1.65;
 
 }
 
 #mobileControls{
 
     display:none;
-
-}
-
-.partyTitle{
-
-    margin:0 0 6px;
-    padding-bottom:5px;
-    color:#f4cf7a;
-    border-bottom:1px solid #72512d;
-
-}
-
-.partyFrame{
-
-    display:flex;
-    align-items:center;
-    min-height:42px;
-    gap:8px;
-    margin-top:5px;
-    padding:4px 6px;
-    background:rgba(17, 29, 53, .82);
-    border:1px solid #72512d;
-
-}
-
-.partyPortrait{
-
-    width:36px;
-    height:38px;
-    flex:0 0 36px;
-    background-repeat:no-repeat;
-    image-rendering:pixelated;
-
-}
-
-.partyFrame[data-party="mori"] .partyPortrait{
-
-    background-image:url("assets/player-mori-sprite-sheet-32x48.png");
-    background-size:168px 252px;
-    background-position:-42px 0;
-
-}
-
-.partyFrame[data-party="le"] .partyPortrait{
-
-    background-image:url("assets/player-le-sprite-sheet-32x48.png");
-    background-size:168px 252px;
-    background-position:-42px 0;
-
-}
-
-.partyFrame[data-party="tuotuo"] .partyPortrait,
-.partyFrame[data-party="dazhi"] .partyPortrait{
-
-    background-image:url("assets/cat-companions-pixel.png");
-    background-size:180px 90px;
-    background-position:-36px -18px;
-
-}
-
-.partyFrame[data-party="dazhi"] .partyPortrait{
-
-    background-position:-98px -18px;
 
 }
 
@@ -628,32 +715,32 @@ body{
 
 #gameDialogue[data-speaker="森"] .gameDialoguePortrait{
 
-    background-image:url("assets/player-mori-sprite-sheet-32x48.png");
-    background-size:312px 468px;
-    background-position:-78px 0;
+    background-image:url("assets/portraits/mori-portrait.png?v=0.7.1");
+    background-size:cover;
+    background-position:center;
 
 }
 
 #gameDialogue[data-speaker="乐乐"] .gameDialoguePortrait{
 
-    background-image:url("assets/player-le-sprite-sheet-32x48.png");
-    background-size:312px 468px;
-    background-position:-78px 0;
+    background-image:url("assets/portraits/lele-portrait.png?v=0.7.1");
+    background-size:cover;
+    background-position:center;
 
 }
 
 #gameDialogue[data-speaker="坨坨"] .gameDialoguePortrait,
 #gameDialogue[data-speaker="大痣"] .gameDialoguePortrait{
 
-    background-image:url("assets/cat-companions-pixel.png");
-    background-size:342px 171px;
-    background-position:-68px -30px;
+    background-image:url("assets/portraits/tuotuo-portrait.png?v=0.7.1");
+    background-size:cover;
+    background-position:center;
 
 }
 
 #gameDialogue[data-speaker="大痣"] .gameDialoguePortrait{
 
-    background-position:-185px -30px;
+    background-image:url("assets/portraits/dazhi-portrait.png?v=0.7.1");
 
 }
 
@@ -705,13 +792,52 @@ body{
 
     }
 
-    #partyFrames{
+    .characterPanelBox{
 
-        top:max(58px, calc(env(safe-area-inset-top) + 52px));
-        right:12px;
-        bottom:auto;
-        width:142px;
-        font-size:12px;
+        max-height:calc(100vh - 28px);
+        padding:16px;
+
+    }
+
+    .characterPanelHeader{
+
+        margin-bottom:12px;
+        padding-bottom:9px;
+
+    }
+
+    .characterPanelHeader h2{
+
+        font-size:24px;
+
+    }
+
+    .characterCard{
+
+        min-height:112px;
+        padding:8px;
+        gap:10px;
+
+    }
+
+    .characterPortrait{
+
+        flex-basis:88px;
+        width:88px;
+        height:88px;
+
+    }
+
+    .characterCard h3{
+
+        margin-bottom:6px;
+        font-size:19px;
+
+    }
+
+    .characterCard p{
+
+        font-size:13px;
 
     }
 
@@ -760,6 +886,28 @@ body{
     .gameDialogueText{
 
         font-size:16px;
+
+    }
+
+}
+
+@media (orientation:portrait){
+
+    body.touchMode .characterGrid{
+
+        grid-template-columns:1fr;
+
+    }
+
+    body.touchMode .desktopHint{
+
+        display:none;
+
+    }
+
+    body.touchMode .mobileHint{
+
+        display:inline;
 
     }
 
