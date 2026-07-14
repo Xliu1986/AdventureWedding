@@ -2691,18 +2691,52 @@ function drawSydneyLookout() {
     gameCtx.fillStyle = "#030916";
     gameCtx.fillRect(0, 0, gameViewportState.width, gameViewportState.height);
 
+    let sceneFrame = {
+        x: 0,
+        y: 0,
+        width: gameViewportState.width,
+        height: gameViewportState.height
+    };
+
     if (sydneyMap.complete && sydneyMap.naturalWidth) {
 
         const sourceHeight = Math.min(665, sydneyMap.naturalHeight);
         const sourceWidth = sydneyMap.naturalWidth;
-        const scale = gameViewportState.portrait
-            ? Math.max(gameViewportState.width / sourceWidth, gameViewportState.height / sourceHeight)
-            : Math.min(gameViewportState.width / sourceWidth, gameViewportState.height / sourceHeight);
-        const drawWidth = sourceWidth * scale;
-        const drawHeight = sourceHeight * scale;
-        const drawX = (gameViewportState.width - drawWidth) / 2;
-        const drawY = (gameViewportState.height - drawHeight) / 2;
-        gameCtx.drawImage(sydneyMap, 0, 0, sourceWidth, sourceHeight, drawX, drawY, drawWidth, drawHeight);
+
+        if (gameViewportState.isMobile && gameViewportState.portrait) {
+
+            // iPhone portrait: use a deliberate wide observatory frame instead
+            // of cover-cropping the scene into a narrow, unreadable slice.
+            const sourceX = Math.max(0, Math.round((sourceWidth - 1120) / 2));
+            const portraitSourceWidth = Math.min(1120, sourceWidth - sourceX);
+            const scale = gameViewportState.width / portraitSourceWidth;
+            const drawWidth = gameViewportState.width;
+            const drawHeight = Math.round(sourceHeight * scale);
+            const drawY = Math.max(20, Math.round(gameViewportState.height * 0.055));
+            sceneFrame = { x: 0, y: drawY, width: drawWidth, height: drawHeight };
+
+            gameCtx.fillStyle = "#071225";
+            gameCtx.fillRect(0, drawY - 8, gameViewportState.width, drawHeight + 16);
+            gameCtx.drawImage(
+                sydneyMap,
+                sourceX, 0, portraitSourceWidth, sourceHeight,
+                0, drawY, drawWidth, drawHeight
+            );
+            gameCtx.strokeStyle = "rgba(221, 174, 94, .82)";
+            gameCtx.lineWidth = 2;
+            gameCtx.strokeRect(1, drawY - 7, gameViewportState.width - 2, drawHeight + 14);
+
+        } else {
+
+            const scale = Math.min(gameViewportState.width / sourceWidth, gameViewportState.height / sourceHeight);
+            const drawWidth = sourceWidth * scale;
+            const drawHeight = sourceHeight * scale;
+            const drawX = (gameViewportState.width - drawWidth) / 2;
+            const drawY = (gameViewportState.height - drawHeight) / 2;
+            sceneFrame = { x: drawX, y: drawY, width: drawWidth, height: drawHeight };
+            gameCtx.drawImage(sydneyMap, 0, 0, sourceWidth, sourceHeight, drawX, drawY, drawWidth, drawHeight);
+
+        }
 
     }
 
@@ -2710,7 +2744,12 @@ function drawSydneyLookout() {
 
         gameCtx.globalAlpha = Math.max(0, particle.life / particle.maxLife);
         gameCtx.fillStyle = particle.color;
-        gameCtx.fillRect(Math.round(particle.x * gameViewportState.width), Math.round(particle.y * gameViewportState.height), 3, 3);
+        gameCtx.fillRect(
+            Math.round(sceneFrame.x + particle.x * sceneFrame.width),
+            Math.round(sceneFrame.y + particle.y * sceneFrame.height),
+            gameViewportState.portrait ? 2 : 3,
+            gameViewportState.portrait ? 2 : 3
+        );
 
     });
     gameCtx.globalAlpha = 1;
