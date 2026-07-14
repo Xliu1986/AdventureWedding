@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.8.2 — Chapter 2: Sydney / Coles
+   Version 0.8.3 — Coles: A Taste of Home
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -573,74 +573,35 @@ const achievements = {
 let nearbyCatEvent = false;
 let activeInteraction = null;
 let gameplayPauseRemaining = 0;
-let piaoziMemoryUnlocked = false;
-let colesArrivalSeen = false;
-let colesArrivalPending = false;
+const storyFlags = { gansuPiaozi: false };
+let activeColesInspectable = null;
 
 const piaoziState = {
     introSeen: false,
-    objectiveActive: false,
     completed: false,
-    nearby: null,
-    goalNoticeTime: 0
+    nearby: false
 };
 
 const piaoziIntroZone = { x: 764, y: 664, width: 72, height: 58 };
-const fruitDisplays = [
-    {
-        id: "strawberries", x: 620, y: 742,
-        pages: [{ speaker: "森", text: "鲜红的草莓，\n看起来很甜。" }]
-    },
-    {
-        id: "whiteGrapes", x: 456, y: 720,
-        pages: [{ speaker: "森", text: "不是瓢子，\n只是白葡萄。" }]
-    },
-    {
-        id: "piaozi", x: 782, y: 684,
-        pages: [
-            { speaker: "森", text: "找到了。\n是这个吗？" },
-            { speaker: "乐乐", text: "对。\n就是瓢子。" },
-            { speaker: "森", text: "那今天的甜点，\n就决定是它了。" },
-            { speaker: "乐乐", text: "没想到在悉尼，\n还能找到家乡的味道。" },
-            { speaker: "森", text: "以后，\n我们还会一起找到更多。" },
-            { speaker: "坨坨", text: "喵～" },
-            { speaker: "大痣", text: "喵喵～" }
-        ]
-    }
-];
 
 const colesInspectables = [
-    { id: "vegetables", x: 282, y: 724, pages: [{ speaker: "乐乐", text: "蔬菜的颜色，\n总让人觉得生活很新鲜。" }] },
-    { id: "fruit", x: 610, y: 740, pages: [{ speaker: "森", text: "水果区总有一种，\n刚刚晒过太阳的味道。" }] },
-    { id: "bread", x: 588, y: 236, pages: [{ speaker: "乐乐", text: "刚出炉的面包，\n闻起来好温暖。" }] },
-    { id: "milk", x: 1108, y: 238, pages: [{ speaker: "森", text: "牛奶和果汁，\n是新生活的小日常。" }] },
-    { id: "yogurt", x: 864, y: 238, pages: [{ speaker: "乐乐", text: "酸奶的口味好多，\n下次慢慢选。" }] },
-    { id: "snacks", x: 1270, y: 240, pages: [{ speaker: "森", text: "零食架看起来，\n比地图还复杂。" }] },
-    { id: "checkout", x: 1160, y: 584, pages: [{ speaker: "乐乐", text: "结账以后，\n就是带着好吃的回家。" }] }
+    { id: "vegetables", x: 282, y: 724, completed: false, pages: [{ speaker: "森", text: "这里的蔬菜都好新鲜。" }, { speaker: "乐乐", text: "以后我们可以一起做饭。" }] },
+    { id: "bread", x: 588, y: 236, completed: false, pages: [{ speaker: "森", text: "好香。" }, { speaker: "乐乐", text: "澳洲人很喜欢每天买新鲜面包。" }] },
+    { id: "milk", x: 1108, y: 238, completed: false, pages: [{ speaker: "森", text: "牛奶好多。" }, { speaker: "乐乐", text: "哈哈。\n第一次来我也挑了好久。" }] },
+    { id: "snacks", x: 1270, y: 240, completed: false, pages: [{ speaker: "森", text: "这个包装挺可爱的。" }, { speaker: "乐乐", text: "以后可以买一点回家。" }] },
+    { id: "checkout", x: 1160, y: 584, completed: false, pages: [{ speaker: "森", text: "这里都是自助结账。" }, { speaker: "乐乐", text: "很快你就会习惯。" }] }
 ];
 let nearbyColesInspectable = null;
 
 const piaoziIntroPages = [
-    { speaker: "森", text: "这个白色的小果子，\n好像草莓。" },
-    { speaker: "乐乐", text: "这个叫瓢子。" },
-    { speaker: "森", text: "瓢子？" },
-    { speaker: "乐乐", text: "这是甘肃陇南很特别的一种小浆果。\n小时候，\n夏天来了，\n就会去摘。" },
-    { speaker: "森", text: "原来。\n这是家乡的味道。" },
-    { speaker: "乐乐", text: "嗯。\n没想到。\n会在悉尼再次遇见它。" },
-    { speaker: "森", text: "那今天。\n就把它带回家吧。" },
-    { speaker: "乐乐", text: "好呀。" },
-    { speaker: "坨坨", text: "喵～" },
-    { speaker: "大痣", text: "喵呜～" }
-];
-
-const colesArrivalPages = [
-    { speaker: "森", text: "新的一年请多多关照：）" },
-    { speaker: "乐乐", text: "嘻嘻，\n没想到我们已经成为了一家人。" },
-    { speaker: "坨坨", text: "还有我和痣宝～\n喵～" },
+    { speaker: "森", text: "这个好可爱，\n是白草莓么？" },
+    { speaker: "坨坨", text: "No 喵！" },
+    { speaker: "乐乐", text: "嘿嘿。\n这是我家乡甘肃陇南特有的一种天然浆果。\n初夏成熟。\n是一种只有在我们当地才能吃到的天然美味。\n也是陪伴我成长的重要回忆。" },
     { speaker: "大痣", text: "喵呜～" },
-    { speaker: "森", text: "那咱们就一起去探索新的生活吧，\n当然要从好吃的开始啦。" },
-    { speaker: "乐乐", text: "耶～" },
-    { speaker: "坨坨、大痣", text: "喵喵～" }
+    { speaker: "森", text: "原来是这样。\n我看到你的很多作品，\n都和瓢子有关。\n希望以后，\n可以去你的家乡，\n亲口尝尝它。" },
+    { speaker: "乐乐", text: "一定会的。\n到时候，\n我带你回家。\n一起去摘真正的瓢子。" },
+    { speaker: "坨坨", text: "喵～" },
+    { speaker: "大痣", text: "喵喵～" }
 ];
 
 const TOKYO_WORLD_PROMPT = "Warm 16-bit top-down Tokyo spring neighborhood: Tokyo Station entrance at the top center, park and pond at upper left, shrine at upper right, shopping street on the left, sakura avenue on the right, road and crosswalk below, and a river with wooden bridges along the bottom. Use dense handcrafted pixel-art detail, clear walkable stone paths, no labels, no UI, and no NPCs.";
@@ -1140,12 +1101,11 @@ function closeMeetingDialogue() {
 
     if (dialoguePurpose === "piaoziIntro") {
 
-        piaoziState.objectiveActive = false;
         piaoziState.completed = true;
-        piaoziState.nearby = null;
-        piaoziMemoryUnlocked = true;
-        faceToward(le, fruitDisplays[2]);
-        faceToward(player, fruitDisplays[2]);
+        piaoziState.nearby = false;
+        storyFlags.gansuPiaozi = true;
+        faceToward(le, piaoziIntroZone);
+        faceToward(player, piaoziIntroZone);
         cats.forEach(cat => {
             cat.behaviour = "sit";
             cat.behaviourTime = 1;
@@ -1154,24 +1114,10 @@ function closeMeetingDialogue() {
 
     }
 
-    if (dialoguePurpose === "piaoziFound") {
-
-        piaoziState.objectiveActive = false;
-        piaoziState.completed = true;
-        piaoziState.nearby = null;
-        piaoziMemoryUnlocked = true;
-        // A quiet one-second tableau: Lele faces the fruit, the cats rest nearby.
-        faceToward(le, fruitDisplays[2]);
-        faceToward(player, fruitDisplays[2]);
-        cats.forEach(cat => {
-            cat.behaviour = "sit";
-            cat.behaviourTime = 1;
-        });
-        gameplayPauseRemaining = 1;
-
-    }
+    if (dialoguePurpose === "colesInspect" && activeColesInspectable) activeColesInspectable.completed = true;
 
     activeInteraction = null;
+    activeColesInspectable = null;
 
 }
 
@@ -1216,13 +1162,6 @@ function openPiaoziDialogue(pages, purpose) {
     cats.forEach(cat => cat.moving = false);
     setDialoguePage(0);
     gameDialogue.classList.remove("hidden");
-
-}
-
-function openColesArrivalDialogue() {
-
-    colesArrivalSeen = true;
-    openPiaoziDialogue(colesArrivalPages, "colesArrival");
 
 }
 
@@ -1553,27 +1492,15 @@ function updateNearbySceneExit() {
 
 function updateNearbyPiaozi() {
 
-    piaoziState.nearby = null;
+    piaoziState.nearby = false;
     if (currentChapter !== "coles" || meetingState.dialogueOpen || piaoziState.completed) return;
 
     const playerCenterX = player.x + player.width / 2;
     const playerCenterY = player.y + player.height / 2;
 
-    if (!piaoziState.introSeen) {
-
-        const closestX = Math.max(piaoziIntroZone.x, Math.min(playerCenterX, piaoziIntroZone.x + piaoziIntroZone.width));
-        const closestY = Math.max(piaoziIntroZone.y, Math.min(playerCenterY, piaoziIntroZone.y + piaoziIntroZone.height));
-        if (Math.hypot(playerCenterX - closestX, playerCenterY - closestY) <= 92) piaoziState.nearby = "intro";
-        return;
-
-    }
-
-    if (!piaoziState.objectiveActive) return;
-
-    piaoziState.nearby = fruitDisplays
-        .map(display => ({ display, distance: Math.hypot(playerCenterX - display.x, playerCenterY - display.y) }))
-        .filter(entry => entry.distance <= 92)
-        .sort((first, second) => first.distance - second.distance)[0]?.display || null;
+    const closestX = Math.max(piaoziIntroZone.x, Math.min(playerCenterX, piaoziIntroZone.x + piaoziIntroZone.width));
+    const closestY = Math.max(piaoziIntroZone.y, Math.min(playerCenterY, piaoziIntroZone.y + piaoziIntroZone.height));
+    if (Math.hypot(playerCenterX - closestX, playerCenterY - closestY) <= 92) piaoziState.nearby = true;
 
 }
 
@@ -1584,6 +1511,7 @@ function updateNearbyColesInspectable() {
     const playerCenterX = player.x + player.width / 2;
     const playerCenterY = player.y + player.height / 2;
     nearbyColesInspectable = colesInspectables
+        .filter(item => !item.completed)
         .map(item => ({ item, distance: Math.hypot(playerCenterX - item.x, playerCenterY - item.y) }))
         .filter(entry => entry.distance <= 86)
         .sort((first, second) => first.distance - second.distance)[0]?.item || null;
@@ -1617,7 +1545,6 @@ function placePartyInColes() {
     player.direction = "up";
     le.direction = "up";
     cats.forEach(cat => cat.direction = "up");
-    colesArrivalPending = !colesArrivalSeen;
     seedPartyHistory();
     centerCameraOnPlayer();
 
@@ -1679,13 +1606,6 @@ function updateSceneTransition(deltaTime) {
         sceneTransition.target = null;
         sceneTransition.elapsed = 0;
 
-        if (colesArrivalPending) {
-
-            colesArrivalPending = false;
-            openColesArrivalDialogue();
-
-        }
-
     }
 
 }
@@ -1708,18 +1628,14 @@ function tryInteraction() {
 
         openCatDialogue();
 
-    } else if (piaoziState.nearby === "intro" && !meetingState.dialogueOpen) {
+    } else if (piaoziState.nearby && !meetingState.dialogueOpen) {
 
         piaoziState.introSeen = true;
         openPiaoziDialogue(piaoziIntroPages, "piaoziIntro");
 
-    } else if (piaoziState.nearby && !piaoziState.completed && !meetingState.dialogueOpen) {
-
-        const display = piaoziState.nearby;
-        openPiaoziDialogue(display.pages, display.id === "piaozi" ? "piaoziFound" : "piaoziInspect");
-
     } else if (nearbyColesInspectable && !meetingState.dialogueOpen) {
 
+        activeColesInspectable = nearbyColesInspectable;
         openPiaoziDialogue(nearbyColesInspectable.pages, "colesInspect");
 
     }
@@ -1781,10 +1697,8 @@ function drawInteractionPrompt() {
     if ((!nearbyInteractable && !nearbyCatEvent && !nearbyStation && !nearbySceneExit && !piaoziState.nearby && !nearbyColesInspectable) || meetingState.dialogueOpen) return;
 
     const mobilePrompt = mobileControls.classList.contains("isTouchMode");
-    const promptText = piaoziState.nearby === "intro"
+    const promptText = piaoziState.nearby
         ? (mobilePrompt ? "好像发现了特别的水果…… 点击 A 查看" : "好像发现了特别的水果…… 按 E 查看")
-        : piaoziState.nearby
-        ? (mobilePrompt ? "点击 A 查看" : "按 E 查看")
         : nearbyColesInspectable
         ? (mobilePrompt ? "点击 A 查看" : "按 E 查看")
         : nearbySceneExit === "coles"
@@ -1796,7 +1710,7 @@ function drawInteractionPrompt() {
         : nearbyCatEvent
         ? (mobilePrompt ? "发现了什么…… 点击 A 互动" : "发现了什么…… 按 E 互动")
         : (mobilePrompt ? "点击 A 互动" : "按 E / 点击互动");
-    const promptWidth = piaoziState.nearby === "intro" ? 240 : piaoziState.nearby ? 116 : nearbySceneExit ? 170 : nearbyStation ? 156 : nearbyCatEvent ? 164 : 112;
+    const promptWidth = piaoziState.nearby ? 240 : nearbySceneExit ? 170 : nearbyStation ? 156 : nearbyCatEvent ? 164 : 112;
 
     gameCtx.fillStyle = "rgba(10, 20, 38, 0.86)";
     gameCtx.fillRect(player.x - 44, player.y - 58, promptWidth, 28);
@@ -2985,26 +2899,6 @@ function drawSceneTransitionOverlay() {
 
 }
 
-function drawPiaoziGoalNotice() {
-
-    if (piaoziState.goalNoticeTime <= 0) return;
-    const alpha = Math.min(1, piaoziState.goalNoticeTime * 2, (2.5 - piaoziState.goalNoticeTime) * 3);
-    const width = 226;
-    const x = Math.round((gameViewportState.width - width) / 2);
-    gameCtx.fillStyle = `rgba(8, 21, 40, ${0.9 * alpha})`;
-    gameCtx.fillRect(x, 38, width, 56);
-    gameCtx.strokeStyle = `rgba(244, 207, 122, ${alpha})`;
-    gameCtx.lineWidth = 2;
-    gameCtx.strokeRect(x + 1, 39, width - 2, 54);
-    gameCtx.fillStyle = `rgba(244, 207, 122, ${alpha})`;
-    gameCtx.font = "14px Fusion Pixel, monospace";
-    gameCtx.fillText("新的小目标", x + 75, 61);
-    gameCtx.fillStyle = `rgba(255, 249, 230, ${alpha})`;
-    gameCtx.font = "13px Fusion Pixel, monospace";
-    gameCtx.fillText("在水果区找到一盒瓢子", x + 34, 83);
-
-}
-
 function drawGame() {
 
     if (gameState === GameState.SYDNEY_LOOKOUT) {
@@ -3069,7 +2963,6 @@ function drawGame() {
 
     drawChapterTransitionOverlay();
     drawSceneTransitionOverlay();
-    drawPiaoziGoalNotice();
 
 }
 
@@ -3133,7 +3026,6 @@ function gameLoop(timestamp) {
     previousGameTime = timestamp;
 
     if (gameplayPauseRemaining > 0) gameplayPauseRemaining = Math.max(0, gameplayPauseRemaining - deltaTime);
-    if (piaoziState.goalNoticeTime > 0) piaoziState.goalNoticeTime = Math.max(0, piaoziState.goalNoticeTime - deltaTime);
 
     updateChapterTransition(deltaTime);
     updateSceneTransition(deltaTime);
