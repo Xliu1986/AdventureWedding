@@ -588,11 +588,11 @@ const piaoziState = {
 const piaoziIntroZone = { x: 1208, y: 206, width: 46, height: 32 };
 
 const colesInspectables = [
-    { id: "vegetables", x: 282, y: 724, completed: false, pages: [{ speaker: "森", text: "这里的蔬菜都好新鲜。" }, { speaker: "乐乐", text: "以后我们可以一起做饭。" }] },
+    { id: "vegetables", x: 282, y: 724, completed: false, pages: [{ speaker: "森", text: "有很多不同种类的蔬菜\n肉类那边也很丰富。" }, { speaker: "乐乐", text: "正好可以让你尝尝\n乐乐的三板斧 ： P" }] },
     { id: "bread", x: 588, y: 236, completed: false, pages: [{ speaker: "森", text: "好香。" }, { speaker: "乐乐", text: "澳洲人很喜欢每天买新鲜面包。" }] },
-    { id: "milk", x: 1108, y: 238, completed: false, pages: [{ speaker: "森", text: "牛奶好多。" }, { speaker: "乐乐", text: "哈哈。\n第一次来我也挑了好久。" }] },
-    { id: "snacks", x: 1270, y: 240, completed: false, pages: [{ speaker: "森", text: "这个包装挺可爱的。" }, { speaker: "乐乐", text: "以后可以买一点回家。" }] },
-    { id: "checkout", x: 1160, y: 584, completed: false, pages: [{ speaker: "森", text: "这里都是自助结账。" }, { speaker: "乐乐", text: "很快你就会习惯。" }] }
+    { id: "milk", x: 1108, y: 238, completed: false, pages: [{ speaker: "乐乐", text: "牛奶好多。" }, { speaker: "森", text: "哈哈。\n第一次来我也挑了好久。" }] },
+    { id: "snacks", x: 1270, y: 240, completed: false, pages: [{ speaker: "森", text: "这个包装挺可爱的。" }, { speaker: "乐乐", text: "每个都想买回家尝尝。" }] },
+    { id: "checkout", x: 1160, y: 584, completed: false, pages: [{ speaker: "森", text: "今天看来客人不是很多。" }, { speaker: "乐乐", text: "那我们可以好好的在这里\n溜达溜达。" }] }
 ];
 let nearbyColesInspectable = null;
 
