@@ -579,7 +579,9 @@ let activeColesInspectable = null;
 const piaoziState = {
     introSeen: false,
     completed: false,
-    nearby: false
+    nearby: false,
+    cgActive: false,
+    cgRevealTime: 0
 };
 
 // A quiet side display immediately to the left of the snacks shelf.
@@ -627,6 +629,9 @@ sydneyExplorationMap.src = "assets/sydney/sydney-harbour-night.png?v=0.8.0";
 
 const colesInteriorMap = new Image();
 colesInteriorMap.src = "assets/maps/coles-interior-v0.8.2.png?v=0.8.2";
+
+const piaoziStoryCG = new Image();
+piaoziStoryCG.src = "assets/cg/coles-piaozi-story.png?v=0.8.3";
 
 const SYDNEY_WORLD_WIDTH = 1920;
 const SYDNEY_WORLD_HEIGHT = 1080;
@@ -1104,6 +1109,7 @@ function closeMeetingDialogue() {
 
         piaoziState.completed = true;
         piaoziState.nearby = false;
+        piaoziState.cgActive = false;
         storyFlags.gansuPiaozi = true;
         faceToward(le, piaoziIntroZone);
         faceToward(player, piaoziIntroZone);
@@ -1163,6 +1169,28 @@ function openPiaoziDialogue(pages, purpose) {
     cats.forEach(cat => cat.moving = false);
     setDialoguePage(0);
     gameDialogue.classList.remove("hidden");
+
+}
+
+function startPiaoziStoryCG() {
+
+    if (piaoziState.cgActive || piaoziState.completed) return;
+    piaoziState.introSeen = true;
+    piaoziState.cgActive = true;
+    piaoziState.cgRevealTime = 0.65;
+    pressedKeys.clear();
+    clearMobileControls();
+    player.moving = false;
+    le.moving = false;
+    cats.forEach(cat => cat.moving = false);
+
+}
+
+function updatePiaoziStoryCG(deltaTime) {
+
+    if (!piaoziState.cgActive || piaoziState.cgRevealTime <= 0) return;
+    piaoziState.cgRevealTime = Math.max(0, piaoziState.cgRevealTime - deltaTime);
+    if (piaoziState.cgRevealTime === 0) openPiaoziDialogue(piaoziIntroPages, "piaoziIntro");
 
 }
 
@@ -1631,8 +1659,7 @@ function tryInteraction() {
 
     } else if (piaoziState.nearby && !meetingState.dialogueOpen) {
 
-        piaoziState.introSeen = true;
-        openPiaoziDialogue(piaoziIntroPages, "piaoziIntro");
+        startPiaoziStoryCG();
 
     } else if (nearbyColesInspectable && !meetingState.dialogueOpen) {
 
@@ -1645,7 +1672,7 @@ function tryInteraction() {
 
 function updateLeCompanion(deltaTime) {
 
-    if (!le.companion || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active || gameplayPauseRemaining > 0 || chapterTransition.active || sceneTransition.active) {
+    if (!le.companion || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active || gameplayPauseRemaining > 0 || chapterTransition.active || sceneTransition.active || piaoziState.cgActive) {
 
         le.moving = false;
         return;
@@ -1723,7 +1750,7 @@ function drawInteractionPrompt() {
 
 function updateCatCompanion(cat, index, deltaTime) {
 
-    if (!cat.following || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active || gameplayPauseRemaining > 0 || chapterTransition.active || sceneTransition.active) {
+    if (!cat.following || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active || gameplayPauseRemaining > 0 || chapterTransition.active || sceneTransition.active || piaoziState.cgActive) {
 
         cat.moving = false;
         cat.animationTime += deltaTime;
@@ -2671,6 +2698,43 @@ function drawSydneyLookout() {
 
 }
 
+function drawPiaoziStoryCG() {
+
+    gameCtx.fillStyle = "#02070d";
+    gameCtx.fillRect(0, 0, gameViewportState.width, gameViewportState.height);
+
+    if (!piaoziStoryCG.complete || !piaoziStoryCG.naturalWidth) return;
+
+    // The supplied CG already contains its own illustrated framing. Crop out its
+    // baked dialogue section so the live, accessible JRPG dialogue UI stays in charge.
+    const sourceHeight = 602;
+
+    if (gameViewportState.isMobile && gameViewportState.portrait) {
+
+        const sourceX = 200;
+        const sourceWidth = 1136;
+        const drawWidth = gameViewportState.width;
+        const drawHeight = Math.round(sourceHeight * drawWidth / sourceWidth);
+        const drawY = Math.max(22, Math.round(gameViewportState.height * 0.05));
+        gameCtx.drawImage(piaoziStoryCG, sourceX, 0, sourceWidth, sourceHeight, 0, drawY, drawWidth, drawHeight);
+
+    } else {
+
+        const scale = Math.min(gameViewportState.width / piaoziStoryCG.naturalWidth, gameViewportState.height / sourceHeight);
+        const drawWidth = Math.round(piaoziStoryCG.naturalWidth * scale);
+        const drawHeight = Math.round(sourceHeight * scale);
+        gameCtx.drawImage(
+            piaoziStoryCG,
+            0, 0, piaoziStoryCG.naturalWidth, sourceHeight,
+            Math.round((gameViewportState.width - drawWidth) / 2),
+            Math.max(0, Math.round((gameViewportState.height - drawHeight) / 2)),
+            drawWidth, drawHeight
+        );
+
+    }
+
+}
+
 function drawColesShelf(x, y, width, label, colors) {
 
     gameCtx.fillStyle = "#6f4931";
@@ -2910,6 +2974,14 @@ function drawGame() {
 
     }
 
+    if (piaoziState.cgActive) {
+
+        drawPiaoziStoryCG();
+        drawSceneTransitionOverlay();
+        return;
+
+    }
+
     gameCtx.fillStyle = "#91ad6d";
     gameCtx.fillRect(0, 0, gameViewportState.width, gameViewportState.height);
 
@@ -2969,7 +3041,7 @@ function drawGame() {
 
 function updatePlayer(deltaTime) {
 
-    if (cameraIntro.active || meetingState.dialogueOpen || characterPanelOpen || gameplayPauseRemaining || chapterTransition.active || sceneTransition.active || ![GameState.TOKYO, GameState.SYDNEY, GameState.COLES].includes(gameState)) {
+    if (cameraIntro.active || meetingState.dialogueOpen || characterPanelOpen || gameplayPauseRemaining || chapterTransition.active || sceneTransition.active || piaoziState.cgActive || ![GameState.TOKYO, GameState.SYDNEY, GameState.COLES].includes(gameState)) {
 
         player.moving = false;
         return;
@@ -3030,6 +3102,7 @@ function gameLoop(timestamp) {
 
     updateChapterTransition(deltaTime);
     updateSceneTransition(deltaTime);
+    updatePiaoziStoryCG(deltaTime);
     updatePlayer(deltaTime);
     if (currentChapter === "tokyo") checkFirstMeeting();
     moriPositionHistory.push({ x: player.x, y: player.y });
