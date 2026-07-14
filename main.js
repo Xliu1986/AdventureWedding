@@ -582,7 +582,8 @@ const piaoziState = {
     nearby: false
 };
 
-const piaoziIntroZone = { x: 764, y: 664, width: 72, height: 58 };
+// A quiet side display immediately to the left of the snacks shelf.
+const piaoziIntroZone = { x: 1208, y: 206, width: 46, height: 32 };
 
 const colesInspectables = [
     { id: "vegetables", x: 282, y: 724, completed: false, pages: [{ speaker: "森", text: "这里的蔬菜都好新鲜。" }, { speaker: "乐乐", text: "以后我们可以一起做饭。" }] },
@@ -2708,7 +2709,7 @@ function drawColesMap() {
         drawColesSign("FRESH FRUIT", 560, 484, 136);
         drawColesSign("CEREAL", 884, 258, 94);
         drawColesSign("PASTA", 1026, 258, 88);
-        drawColesPunnet(774, 672);
+        drawColesPunnet(1208, 206);
         // Gentle refrigerator shimmer and a tiny cart-handle bob make the room feel lived in.
         const refrigeratorGlow = 0.12 + (Math.sin(windTime * 3) + 1) * 0.035;
         gameCtx.fillStyle = `rgba(210, 237, 255, ${refrigeratorGlow})`;
