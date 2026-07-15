@@ -648,19 +648,24 @@ const storyCGs = {
         src: "assets/cg/pixel/sydney-cooking.png",
         focalX: 0.55,
         focalY: 0.42,
-        sourceHeight: 620
+        sourceHeight: 941,
+        // This approved image includes its own authored JRPG dialogue panel.
+        // On iPhone keep the complete composition rather than cropping it.
+        mobileDisplay: "contain"
     },
     sydneyWatchingTheSea: {
         src: "assets/cg/pixel/sydney-watching-the-sea.png",
         focalX: 0.51,
         focalY: 0.45,
-        sourceHeight: 580
+        sourceHeight: 1024,
+        mobileDisplay: "contain"
     },
     tasmaniaAdventure: {
         src: "assets/cg/pixel/tasmania-adventure.png",
         focalX: 0.53,
         focalY: 0.47,
-        sourceHeight: 640
+        sourceHeight: 941,
+        mobileDisplay: "contain"
     }
 };
 
@@ -2839,7 +2844,7 @@ function drawStoryCG() {
     const focalX = config.focalX ?? 0.5;
     const focalY = config.focalY ?? 0.5;
 
-    if (gameViewportState.isMobile && gameViewportState.portrait) {
+    if (gameViewportState.isMobile && gameViewportState.portrait && config.mobileDisplay !== "contain") {
 
         // Portrait uses a focal crop rather than vertical distortion. Each CG can
         // configure focalX/focalY so real people and landmarks stay visible.
@@ -2853,6 +2858,8 @@ function drawStoryCG() {
 
     } else {
 
+        // Approved full-frame CGs use contain on iPhone too: no stretching and
+        // no loss of the image's authored dialogue panel or composition.
         const scale = Math.min(gameViewportState.width / sourceWidth, gameViewportState.height / sourceHeight);
         const drawWidth = Math.round(sourceWidth * scale);
         const drawHeight = Math.round(sourceHeight * scale);
