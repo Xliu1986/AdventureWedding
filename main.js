@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.8.3 — Coles: A Taste of Home
+   Version 0.8.5 — Sydney to Longnan
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -573,7 +573,14 @@ const achievements = {
 let nearbyCatEvent = false;
 let activeInteraction = null;
 let gameplayPauseRemaining = 0;
-const storyFlags = { gansuPiaozi: false };
+const storyFlags = {
+    gansuPiaozi: false,
+    sydneyCooking: false,
+    sydneySeaside: false,
+    tasmaniaAdventure: false,
+    sydneyChapterComplete: false,
+    longnanChapterStarted: false
+};
 let activeColesInspectable = null;
 
 const piaoziState = {
@@ -604,6 +611,50 @@ const piaoziIntroPages = [
     { speaker: "坨坨", text: "喵～" },
     { speaker: "大痣", text: "喵喵～" }
 ];
+
+const sydneyLifeSequence = [
+    { id: "sydneyCooking", cg: "sydneyCooking", flag: "sydneyCooking", hold: 0.8, pages: [
+        { speaker: "乐乐", text: "嘿嘿，\n今天晚餐超级丰富！" },
+        { speaker: "森", text: "原来一起做饭，\n比想象中还开心。" },
+        { speaker: "乐乐", text: "你也有帮忙呀。" },
+        { speaker: "森", text: "以后，\n我负责洗碗。" },
+        { speaker: "坨坨", text: "喵～" },
+        { speaker: "大痣", text: "喵呜～" }
+    ] },
+    { id: "sydneySeaside", cg: "sydneyWatchingTheSea", flag: "sydneySeaside", hold: 1, pages: [
+        { speaker: "森", text: "和你在一起，\n去哪里都很开心！" },
+        { speaker: "乐乐", text: "以后，\n还有很多地方，\n我们一起去。" },
+        { speaker: "坨坨", text: "喵～" },
+        { speaker: "大痣", text: "喵喵～" }
+    ] },
+    { id: "tasmaniaAdventure", cg: "tasmaniaAdventure", flag: "tasmaniaAdventure", hold: 0.8, pages: [
+        { speaker: "森", text: "澳洲还有很多地方，\n想带你去。" },
+        { speaker: "乐乐", text: "那以后，\n我们一个一个地方，\n慢慢去看。" },
+        { speaker: "森", text: "和你在一起，\n去哪里都很漂亮。" },
+        { speaker: "坨坨", text: "喵～" },
+        { speaker: "大痣", text: "喵呜～" }
+    ] }
+];
+const sydneyAirportPages = [
+    { speaker: "森", text: "在悉尼的这些日子，\n好像一下子就过去了。" },
+    { speaker: "乐乐", text: "因为每天，\n都过得很开心呀。" },
+    { speaker: "森", text: "你带我认识了你的回忆。" },
+    { speaker: "森", text: "下一站，\n轮到你带我回家了。" },
+    { speaker: "乐乐", text: "好呀。\n这次，\n我带你去看看我长大的地方。" },
+    { speaker: "坨坨", text: "回家喵～" },
+    { speaker: "大痣", text: "喵呜～" },
+    { speaker: "森", text: "走吧。\n去甘肃陇南。" }
+];
+const longnanOpeningPages = [
+    { speaker: "乐乐", text: "欢迎来到陇南。\n这里，\n是我长大的地方。" },
+    { speaker: "森", text: "终于来了。" },
+    { speaker: "森", text: "这里和我想象中的，\n很不一样。" },
+    { speaker: "乐乐", text: "走吧。\n我带你们回家。" },
+    { speaker: "坨坨", text: "回家喵～" },
+    { speaker: "大痣", text: "喵呜～" }
+];
+let sydneyLifeIndex = -1;
+let longnanTitleTimer = 0;
 
 const TOKYO_WORLD_PROMPT = "Warm 16-bit top-down Tokyo spring neighborhood: Tokyo Station entrance at the top center, park and pond at upper left, shrine at upper right, shopping street on the left, sakura avenue on the right, road and crosswalk below, and a river with wooden bridges along the bottom. Use dense handcrafted pixel-art detail, clear walkable stone paths, no labels, no UI, and no NPCs.";
 const STORY_MAP_SCALE = 2;
@@ -645,7 +696,7 @@ const storyCGs = {
         sourceHeight: 602
     },
     sydneyCooking: {
-        src: "assets/cg/pixel/sydney-cooking.png",
+        src: "assets/cg/sydney/cg-cooking-together.png",
         focalX: 0.55,
         focalY: 0.42,
         sourceHeight: 941,
@@ -654,18 +705,24 @@ const storyCGs = {
         mobileDisplay: "contain"
     },
     sydneyWatchingTheSea: {
-        src: "assets/cg/pixel/sydney-watching-the-sea.png",
+        src: "assets/cg/sydney/cg-seaside-jump.png",
         focalX: 0.51,
         focalY: 0.45,
         sourceHeight: 1024,
         mobileDisplay: "contain"
     },
     tasmaniaAdventure: {
-        src: "assets/cg/pixel/tasmania-adventure.png",
+        src: "assets/cg/sydney/cg-tasmania-trip.png",
         focalX: 0.53,
         focalY: 0.47,
         sourceHeight: 941,
         mobileDisplay: "contain"
+    },
+    sydneyAirport: {
+        // The approved airport CG is optional until its supplied file is placed here.
+        // The player intentionally falls back to a dark cinematic background if absent.
+        focalX: 0.5,
+        focalY: 0.48
     }
 };
 
@@ -711,7 +768,11 @@ const GameState = Object.freeze({
     SYDNEY: "sydney",
     TRANSITION_TO_COLES: "transitionToColes",
     TRANSITION_TO_SYDNEY: "transitionToSydney",
-    COLES: "coles"
+    COLES: "coles",
+    SYDNEY_MEMORY: "sydneyMemory",
+    SYDNEY_AIRPORT: "sydneyAirport",
+    LONGNAN_TITLE: "longnanTitle",
+    LONGNAN_INTRO: "longnanIntro"
 });
 
 let currentChapter = "tokyo";
@@ -1189,6 +1250,16 @@ function closeMeetingDialogue() {
 
     }
 
+    if (dialoguePurpose === "sydneyLife") finishSydneyLifeScene();
+
+    if (dialoguePurpose === "sydneyAirport") {
+
+        storyCGOverlay.onComplete = startLongnanTitle;
+        storyCGOverlay.phase = "endingHold";
+        storyCGOverlay.revealDelay = 1;
+
+    }
+
     if (dialoguePurpose === "colesInspect" && activeColesInspectable) activeColesInspectable.completed = true;
 
     activeInteraction = null;
@@ -1253,6 +1324,71 @@ function startPiaoziStoryCG() {
 
 }
 
+function startSydneyLifeSequence() {
+
+    if (!storyFlags.gansuPiaozi || storyFlags.sydneyChapterComplete || storyCGOverlay.active) return;
+    sydneyLifeIndex = 0;
+    characterMenuButton.classList.add("hidden");
+    chapterLocation.classList.add("hidden");
+    playSydneyLifeScene();
+
+}
+
+function playSydneyLifeScene() {
+
+    const scene = sydneyLifeSequence[sydneyLifeIndex];
+    if (!scene) {
+
+        startSydneyAirportSequence();
+        return;
+
+    }
+
+    gameState = GameState.SYDNEY_MEMORY;
+    showStoryCG({ id: scene.cg, dialogue: scene.pages, dialoguePurpose: "sydneyLife", revealDelay: 0.55 });
+
+}
+
+function finishSydneyLifeScene() {
+
+    const scene = sydneyLifeSequence[sydneyLifeIndex];
+    if (!scene) return;
+    storyFlags[scene.flag] = true;
+    storyCGOverlay.onComplete = () => {
+
+        sydneyLifeIndex += 1;
+        playSydneyLifeScene();
+
+    };
+    storyCGOverlay.phase = "endingHold";
+    storyCGOverlay.revealDelay = scene.hold;
+
+}
+
+function startSydneyAirportSequence() {
+
+    gameState = GameState.SYDNEY_AIRPORT;
+    showStoryCG({ id: "sydneyAirport", dialogue: sydneyAirportPages, dialoguePurpose: "sydneyAirport", revealDelay: 0.7 });
+
+}
+
+function startLongnanTitle() {
+
+    storyFlags.sydneyChapterComplete = true;
+    gameState = GameState.LONGNAN_TITLE;
+    longnanTitleTimer = 0;
+
+}
+
+function startLongnanOpening() {
+
+    gameState = GameState.LONGNAN_INTRO;
+    storyFlags.longnanChapterStarted = true;
+    chapterLocation.textContent = "甘肃 · 陇南";
+    openPiaoziDialogue(longnanOpeningPages, "longnanOpening");
+
+}
+
 function showStoryCG({ id, image, dialogue = null, dialoguePurpose = "storyCG", onComplete = null, revealDelay = 0.35 }) {
 
     const config = storyCGs[id] || (image ? { image, focalX: 0.5, focalY: 0.5 } : null);
@@ -1305,6 +1441,13 @@ function updateStoryCG(deltaTime) {
             if (storyCGOverlay.dialogue?.length) openPiaoziDialogue(storyCGOverlay.dialogue, storyCGOverlay.dialoguePurpose);
 
         }
+
+    }
+
+    if (storyCGOverlay.phase === "endingHold") {
+
+        storyCGOverlay.revealDelay = Math.max(0, storyCGOverlay.revealDelay - deltaTime);
+        if (storyCGOverlay.revealDelay === 0) hideStoryCG();
 
     }
 
@@ -1645,7 +1788,9 @@ function updateNearbySceneExit() {
     const closestY = Math.max(exit.y, Math.min(player.y + player.height / 2, exit.y + exit.height));
     if (Math.hypot(player.x + player.width / 2 - closestX, player.y + player.height / 2 - closestY) <= 100) {
 
-        nearbySceneExit = gameState === GameState.SYDNEY ? "coles" : "sydney";
+        nearbySceneExit = gameState === GameState.SYDNEY
+            ? "coles"
+            : (storyFlags.gansuPiaozi && !storyFlags.sydneyChapterComplete ? "sydneyLife" : "sydney");
 
     }
 
@@ -1773,7 +1918,11 @@ function updateSceneTransition(deltaTime) {
 
 function tryInteraction() {
 
-    if (nearbySceneExit && !meetingState.dialogueOpen && !cameraIntro.active) {
+    if (nearbySceneExit === "sydneyLife" && !meetingState.dialogueOpen && !cameraIntro.active) {
+
+        startSydneyLifeSequence();
+
+    } else if (nearbySceneExit && !meetingState.dialogueOpen && !cameraIntro.active) {
 
         startSceneTransition(nearbySceneExit);
 
@@ -1865,12 +2014,14 @@ function drawInteractionPrompt() {
         ? (mobilePrompt ? "点击 A 前往 Coles" : "按 E 前往 Coles")
         : nearbySceneExit === "sydney"
         ? (mobilePrompt ? "点击 A 返回悉尼街区" : "按 E 返回悉尼街区")
+        : nearbySceneExit === "sydneyLife"
+        ? (mobilePrompt ? "点击 A 结束今天的采购" : "按 E 结束今天的采购")
         : nearbyStation
         ? (mobilePrompt ? "点击 A 进入东京站" : "按 E 进入东京站")
         : nearbyCatEvent
         ? (mobilePrompt ? "发现了什么…… 点击 A 互动" : "发现了什么…… 按 E 互动")
         : (mobilePrompt ? "点击 A 互动" : "按 E / 点击互动");
-    const promptWidth = piaoziState.nearby ? 240 : nearbySceneExit ? 170 : nearbyStation ? 156 : nearbyCatEvent ? 164 : 112;
+    const promptWidth = piaoziState.nearby ? 240 : nearbySceneExit === "sydneyLife" ? 220 : nearbySceneExit ? 170 : nearbyStation ? 156 : nearbyCatEvent ? 164 : 112;
 
     gameCtx.fillStyle = "rgba(10, 20, 38, 0.86)";
     gameCtx.fillRect(player.x - 44, player.y - 58, promptWidth, 28);
@@ -3107,6 +3258,59 @@ function drawSceneTransitionOverlay() {
 
 }
 
+function drawLongnanTitle() {
+
+    gameCtx.fillStyle = "#07152a";
+    gameCtx.fillRect(0, 0, gameViewportState.width, gameViewportState.height);
+    gameCtx.fillStyle = "#18394a";
+    for (let x = -80; x < gameViewportState.width + 80; x += 120) {
+
+        gameCtx.beginPath();
+        gameCtx.moveTo(x, gameViewportState.height * 0.76);
+        gameCtx.lineTo(x + 95, gameViewportState.height * 0.38);
+        gameCtx.lineTo(x + 205, gameViewportState.height * 0.76);
+        gameCtx.fill();
+
+    }
+    gameCtx.textAlign = "center";
+    gameCtx.fillStyle = "#f4cf7a";
+    gameCtx.font = "24px Fusion Pixel, monospace";
+    gameCtx.fillText("Chapter 2", gameViewportState.width / 2, gameViewportState.height * 0.32);
+    gameCtx.font = "34px Fusion Pixel, monospace";
+    gameCtx.fillText("悉尼", gameViewportState.width / 2, gameViewportState.height * 0.41);
+    gameCtx.font = "20px Fusion Pixel, monospace";
+    gameCtx.fillText("Completed", gameViewportState.width / 2, gameViewportState.height * 0.48);
+    if (longnanTitleTimer > 2) {
+
+        gameCtx.font = "24px Fusion Pixel, monospace";
+        gameCtx.fillText("Chapter 3", gameViewportState.width / 2, gameViewportState.height * 0.61);
+        gameCtx.font = "34px Fusion Pixel, monospace";
+        gameCtx.fillText("甘肃 · 陇南", gameViewportState.width / 2, gameViewportState.height * 0.70);
+        gameCtx.font = "16px Fusion Pixel, monospace";
+        gameCtx.fillText("回到乐乐长大的地方", gameViewportState.width / 2, gameViewportState.height * 0.76);
+
+    }
+    gameCtx.textAlign = "left";
+
+}
+
+function drawLongnanOpening() {
+
+    gameCtx.fillStyle = "#9bc8d1";
+    gameCtx.fillRect(0, 0, gameViewportState.width, gameViewportState.height);
+    gameCtx.fillStyle = "#6a9b70";
+    gameCtx.fillRect(0, gameViewportState.height * 0.54, gameViewportState.width, gameViewportState.height * 0.46);
+    gameCtx.fillStyle = "rgba(239, 247, 235, 0.64)";
+    gameCtx.fillRect(0, gameViewportState.height * 0.48, gameViewportState.width, 26);
+    gameCtx.fillStyle = "#d9ba82";
+    gameCtx.fillRect(gameViewportState.width * 0.34, gameViewportState.height * 0.58, gameViewportState.width * 0.32, gameViewportState.height * 0.42);
+    gameCtx.fillStyle = "#876044";
+    for (let x = 30; x < gameViewportState.width; x += 110) gameCtx.fillRect(x, gameViewportState.height * 0.54, 72, 34);
+    gameCtx.fillStyle = "#f7f4d5";
+    for (let i = 0; i < 20; i++) gameCtx.fillRect(24 + (i * 97) % gameViewportState.width, gameViewportState.height * 0.5 + (i % 3) * 27, 5, 5);
+
+}
+
 function drawGame() {
 
     if (gameState === GameState.SYDNEY_LOOKOUT) {
@@ -3121,6 +3325,20 @@ function drawGame() {
 
         drawStoryCG();
         drawSceneTransitionOverlay();
+        return;
+
+    }
+
+    if (gameState === GameState.LONGNAN_TITLE) {
+
+        drawLongnanTitle();
+        return;
+
+    }
+
+    if (gameState === GameState.LONGNAN_INTRO) {
+
+        drawLongnanOpening();
         return;
 
     }
@@ -3246,6 +3464,12 @@ function gameLoop(timestamp) {
     updateChapterTransition(deltaTime);
     updateSceneTransition(deltaTime);
     updateStoryCG(deltaTime);
+    if (gameState === GameState.LONGNAN_TITLE) {
+
+        longnanTitleTimer += deltaTime;
+        if (longnanTitleTimer >= 4.5) startLongnanOpening();
+
+    }
     updatePlayer(deltaTime);
     if (currentChapter === "tokyo") checkFirstMeeting();
     moriPositionHistory.push({ x: player.x, y: player.y });
@@ -3274,7 +3498,7 @@ function gameLoop(timestamp) {
     updateDialogueTypewriter(deltaTime);
     updateWorldAtmosphere(deltaTime);
     updateSydneyFireworks(deltaTime);
-    mobileControls.classList.toggle("isDialogueOpen", meetingState.dialogueOpen);
+    mobileControls.classList.toggle("isDialogueOpen", meetingState.dialogueOpen || storyCGOverlay.active || gameState === GameState.LONGNAN_TITLE);
 
     if (player.moving) playerAnimationTime += deltaTime;
 
