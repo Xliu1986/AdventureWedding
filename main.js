@@ -643,6 +643,24 @@ const storyCGs = {
         // The current legacy file includes an authored dialogue area at its base.
         // Crop it so the live JRPG dialogue UI remains the single text layer.
         sourceHeight: 602
+    },
+    sydneyCooking: {
+        src: "assets/cg/pixel/sydney-cooking.png",
+        focalX: 0.55,
+        focalY: 0.42,
+        sourceHeight: 620
+    },
+    sydneyWatchingTheSea: {
+        src: "assets/cg/pixel/sydney-watching-the-sea.png",
+        focalX: 0.51,
+        focalY: 0.45,
+        sourceHeight: 580
+    },
+    tasmaniaAdventure: {
+        src: "assets/cg/pixel/tasmania-adventure.png",
+        focalX: 0.53,
+        focalY: 0.47,
+        sourceHeight: 640
     }
 };
 
