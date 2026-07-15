@@ -579,9 +579,7 @@ let activeColesInspectable = null;
 const piaoziState = {
     introSeen: false,
     completed: false,
-    nearby: false,
-    cgActive: false,
-    cgRevealTime: 0
+    nearby: false
 };
 
 // A quiet side display immediately to the left of the snacks shelf.
@@ -632,6 +630,51 @@ colesInteriorMap.src = "assets/maps/coles-interior-v0.8.2.png?v=0.8.2";
 
 const piaoziStoryCG = new Image();
 piaoziStoryCG.src = "assets/cg/coles-piaozi-story.png?v=0.8.3";
+
+// Every future real-photo CG belongs in assets/cg/source/ (the approved photo)
+// and assets/cg/pixel/ (its faithful pixel-art rendering). The source photo is
+// never altered by this runtime; this table only plays approved pixel CG files.
+const storyCGs = {
+    colesPiaozi: {
+        src: "assets/cg/coles-piaozi-story.png?v=0.8.3",
+        image: piaoziStoryCG,
+        focalX: 0.54,
+        focalY: 0.42,
+        // The current legacy file includes an authored dialogue area at its base.
+        // Crop it so the live JRPG dialogue UI remains the single text layer.
+        sourceHeight: 602
+    }
+};
+
+const storyCGOverlay = {
+    active: false,
+    id: null,
+    config: null,
+    phase: "idle",
+    opacity: 0,
+    revealDelay: 0,
+    dialogue: null,
+    dialoguePurpose: "",
+    dialogueStarted: false,
+    onComplete: null
+};
+
+function preloadStoryCGs() {
+
+    Object.values(storyCGs).forEach(config => {
+
+        if (!config.image) {
+
+            config.image = new Image();
+            config.image.src = config.src;
+
+        }
+
+    });
+
+}
+
+preloadStoryCGs();
 
 const SYDNEY_WORLD_WIDTH = 1920;
 const SYDNEY_WORLD_HEIGHT = 1080;
@@ -1107,17 +1150,19 @@ function closeMeetingDialogue() {
 
     if (dialoguePurpose === "piaoziIntro") {
 
-        piaoziState.completed = true;
-        piaoziState.nearby = false;
-        piaoziState.cgActive = false;
-        storyFlags.gansuPiaozi = true;
-        faceToward(le, piaoziIntroZone);
-        faceToward(player, piaoziIntroZone);
-        cats.forEach(cat => {
-            cat.behaviour = "sit";
-            cat.behaviourTime = 1;
-        });
-        gameplayPauseRemaining = 1;
+        hideStoryCG();
+        storyCGOverlay.onComplete = () => {
+            piaoziState.completed = true;
+            piaoziState.nearby = false;
+            storyFlags.gansuPiaozi = true;
+            faceToward(le, piaoziIntroZone);
+            faceToward(player, piaoziIntroZone);
+            cats.forEach(cat => {
+                cat.behaviour = "sit";
+                cat.behaviourTime = 1;
+            });
+            gameplayPauseRemaining = 1;
+        };
 
     }
 
@@ -1174,23 +1219,87 @@ function openPiaoziDialogue(pages, purpose) {
 
 function startPiaoziStoryCG() {
 
-    if (piaoziState.cgActive || piaoziState.completed) return;
+    if (storyCGOverlay.active || piaoziState.completed) return;
     piaoziState.introSeen = true;
-    piaoziState.cgActive = true;
-    piaoziState.cgRevealTime = 0.65;
+    showStoryCG({
+        id: "colesPiaozi",
+        dialogue: piaoziIntroPages,
+        dialoguePurpose: "piaoziIntro",
+        revealDelay: 0.65
+    });
+
+}
+
+function showStoryCG({ id, image, dialogue = null, dialoguePurpose = "storyCG", onComplete = null, revealDelay = 0.35 }) {
+
+    const config = storyCGs[id] || (image ? { image, focalX: 0.5, focalY: 0.5 } : null);
+    if (storyCGOverlay.active || !config) return false;
+
+    storyCGOverlay.active = true;
+    storyCGOverlay.id = id || "custom";
+    storyCGOverlay.config = config;
+    storyCGOverlay.phase = "fadeIn";
+    storyCGOverlay.opacity = 0;
+    storyCGOverlay.revealDelay = revealDelay;
+    storyCGOverlay.dialogue = dialogue;
+    storyCGOverlay.dialoguePurpose = dialoguePurpose;
+    storyCGOverlay.dialogueStarted = false;
+    storyCGOverlay.onComplete = onComplete;
     pressedKeys.clear();
     clearMobileControls();
     player.moving = false;
     le.moving = false;
     cats.forEach(cat => cat.moving = false);
+    return true;
 
 }
 
-function updatePiaoziStoryCG(deltaTime) {
+function hideStoryCG() {
 
-    if (!piaoziState.cgActive || piaoziState.cgRevealTime <= 0) return;
-    piaoziState.cgRevealTime = Math.max(0, piaoziState.cgRevealTime - deltaTime);
-    if (piaoziState.cgRevealTime === 0) openPiaoziDialogue(piaoziIntroPages, "piaoziIntro");
+    if (!storyCGOverlay.active || storyCGOverlay.phase === "fadeOut") return;
+    storyCGOverlay.phase = "fadeOut";
+
+}
+
+function updateStoryCG(deltaTime) {
+
+    if (!storyCGOverlay.active) return;
+
+    if (storyCGOverlay.phase === "fadeIn") {
+
+        storyCGOverlay.opacity = Math.min(1, storyCGOverlay.opacity + deltaTime / 0.4);
+        if (storyCGOverlay.opacity < 1) return;
+        storyCGOverlay.phase = "hold";
+
+    }
+
+    if (storyCGOverlay.phase === "hold" && !storyCGOverlay.dialogueStarted) {
+
+        storyCGOverlay.revealDelay = Math.max(0, storyCGOverlay.revealDelay - deltaTime);
+        if (storyCGOverlay.revealDelay === 0) {
+
+            storyCGOverlay.dialogueStarted = true;
+            if (storyCGOverlay.dialogue?.length) openPiaoziDialogue(storyCGOverlay.dialogue, storyCGOverlay.dialoguePurpose);
+
+        }
+
+    }
+
+    if (storyCGOverlay.phase === "fadeOut") {
+
+        storyCGOverlay.opacity = Math.max(0, storyCGOverlay.opacity - deltaTime / 0.4);
+        if (storyCGOverlay.opacity > 0) return;
+
+        const onComplete = storyCGOverlay.onComplete;
+        storyCGOverlay.active = false;
+        storyCGOverlay.id = null;
+        storyCGOverlay.config = null;
+        storyCGOverlay.phase = "idle";
+        storyCGOverlay.dialogue = null;
+        storyCGOverlay.onComplete = null;
+        if (onComplete) onComplete();
+
+    }
 
 }
 
@@ -1672,7 +1781,7 @@ function tryInteraction() {
 
 function updateLeCompanion(deltaTime) {
 
-    if (!le.companion || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active || gameplayPauseRemaining > 0 || chapterTransition.active || sceneTransition.active || piaoziState.cgActive) {
+    if (!le.companion || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active || gameplayPauseRemaining > 0 || chapterTransition.active || sceneTransition.active || storyCGOverlay.active) {
 
         le.moving = false;
         return;
@@ -1750,7 +1859,7 @@ function drawInteractionPrompt() {
 
 function updateCatCompanion(cat, index, deltaTime) {
 
-    if (!cat.following || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active || gameplayPauseRemaining > 0 || chapterTransition.active || sceneTransition.active || piaoziState.cgActive) {
+    if (!cat.following || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active || gameplayPauseRemaining > 0 || chapterTransition.active || sceneTransition.active || storyCGOverlay.active) {
 
         cat.moving = false;
         cat.animationTime += deltaTime;
@@ -2698,40 +2807,49 @@ function drawSydneyLookout() {
 
 }
 
-function drawPiaoziStoryCG() {
+function drawStoryCG() {
 
     gameCtx.fillStyle = "#02070d";
     gameCtx.fillRect(0, 0, gameViewportState.width, gameViewportState.height);
 
-    if (!piaoziStoryCG.complete || !piaoziStoryCG.naturalWidth) return;
+    const config = storyCGOverlay.config;
+    const image = config?.image;
+    if (!image?.complete || !image.naturalWidth) return;
 
-    // The supplied CG already contains its own illustrated framing. Crop out its
-    // baked dialogue section so the live, accessible JRPG dialogue UI stays in charge.
-    const sourceHeight = 602;
+    const sourceWidth = image.naturalWidth;
+    const sourceHeight = Math.min(config.sourceHeight || image.naturalHeight, image.naturalHeight);
+    const focalX = config.focalX ?? 0.5;
+    const focalY = config.focalY ?? 0.5;
 
     if (gameViewportState.isMobile && gameViewportState.portrait) {
 
-        const sourceX = 200;
-        const sourceWidth = 1136;
-        const drawWidth = gameViewportState.width;
-        const drawHeight = Math.round(sourceHeight * drawWidth / sourceWidth);
-        const drawY = Math.max(22, Math.round(gameViewportState.height * 0.05));
-        gameCtx.drawImage(piaoziStoryCG, sourceX, 0, sourceWidth, sourceHeight, 0, drawY, drawWidth, drawHeight);
+        // Portrait uses a focal crop rather than vertical distortion. Each CG can
+        // configure focalX/focalY so real people and landmarks stay visible.
+        const targetAspect = gameViewportState.width / gameViewportState.height;
+        const cropWidth = Math.min(sourceWidth, sourceHeight * targetAspect);
+        const cropHeight = Math.min(sourceHeight, cropWidth / targetAspect);
+        const sourceX = Math.max(0, Math.min(sourceWidth - cropWidth, sourceWidth * focalX - cropWidth / 2));
+        const sourceY = Math.max(0, Math.min(sourceHeight - cropHeight, sourceHeight * focalY - cropHeight / 2));
+        gameCtx.globalAlpha = storyCGOverlay.opacity;
+        gameCtx.drawImage(image, sourceX, sourceY, cropWidth, cropHeight, 0, 0, gameViewportState.width, gameViewportState.height);
 
     } else {
 
-        const scale = Math.min(gameViewportState.width / piaoziStoryCG.naturalWidth, gameViewportState.height / sourceHeight);
-        const drawWidth = Math.round(piaoziStoryCG.naturalWidth * scale);
+        const scale = Math.min(gameViewportState.width / sourceWidth, gameViewportState.height / sourceHeight);
+        const drawWidth = Math.round(sourceWidth * scale);
         const drawHeight = Math.round(sourceHeight * scale);
+        gameCtx.globalAlpha = storyCGOverlay.opacity;
         gameCtx.drawImage(
-            piaoziStoryCG,
-            0, 0, piaoziStoryCG.naturalWidth, sourceHeight,
+            image,
+            0, 0, sourceWidth, sourceHeight,
             Math.round((gameViewportState.width - drawWidth) / 2),
             Math.max(0, Math.round((gameViewportState.height - drawHeight) / 2)),
             drawWidth, drawHeight
         );
 
     }
+
+    gameCtx.globalAlpha = 1;
 
 }
 
@@ -2974,9 +3092,9 @@ function drawGame() {
 
     }
 
-    if (piaoziState.cgActive) {
+    if (storyCGOverlay.active) {
 
-        drawPiaoziStoryCG();
+        drawStoryCG();
         drawSceneTransitionOverlay();
         return;
 
@@ -3041,7 +3159,7 @@ function drawGame() {
 
 function updatePlayer(deltaTime) {
 
-    if (cameraIntro.active || meetingState.dialogueOpen || characterPanelOpen || gameplayPauseRemaining || chapterTransition.active || sceneTransition.active || piaoziState.cgActive || ![GameState.TOKYO, GameState.SYDNEY, GameState.COLES].includes(gameState)) {
+    if (cameraIntro.active || meetingState.dialogueOpen || characterPanelOpen || gameplayPauseRemaining || chapterTransition.active || sceneTransition.active || storyCGOverlay.active || ![GameState.TOKYO, GameState.SYDNEY, GameState.COLES].includes(gameState)) {
 
         player.moving = false;
         return;
@@ -3102,7 +3220,7 @@ function gameLoop(timestamp) {
 
     updateChapterTransition(deltaTime);
     updateSceneTransition(deltaTime);
-    updatePiaoziStoryCG(deltaTime);
+    updateStoryCG(deltaTime);
     updatePlayer(deltaTime);
     if (currentChapter === "tokyo") checkFirstMeeting();
     moriPositionHistory.push({ x: player.x, y: player.y });
