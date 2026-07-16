@@ -325,12 +325,17 @@ const gameDialogueContinue = document.querySelector(".gameDialogueContinue");
 let gameStarted = false;
 let characterPanelOpen = false;
 
-const portraitSources = [
-    "assets/portraits/mori-portrait.png?v=0.7.1",
-    "assets/portraits/lele-portrait.png?v=0.7.1",
-    "assets/portraits/tuotuo-portrait.png?v=0.7.1b",
-    "assets/portraits/dazhi-portrait.png?v=0.8.0-dazhi3"
-];
+// The single canonical location for every playable-character visual.
+const CHARACTERS = Object.freeze({
+    mori: { sprite: "assets/characters/mori/sprite-sheet.png", portrait: "assets/characters/mori/portrait.png" },
+    lele: { sprite: "assets/characters/lele/sprite-sheet.png", portrait: "assets/characters/lele/portrait.png" },
+    tuotuo: { portrait: "assets/characters/tuotuo/portrait.png", sprite: "assets/characters/tuotuo/sprite-sheet.png" },
+    dazhi: { portrait: "assets/characters/dazhi/portrait.png", sprite: "assets/characters/dazhi/sprite-sheet.png" }
+});
+
+const portraitSources = Object.values(CHARACTERS)
+    .map(character => character.portrait)
+    .filter(Boolean);
 
 portraitSources.forEach(source => {
 
@@ -404,11 +409,10 @@ const player = {
 };
 
 const playerSprite = new Image();
-playerSprite.src = "assets/characters/mori/mori-sprite-sheet.png?v=0.7.1";
+playerSprite.src = CHARACTERS.mori.sprite;
 
 const playerFallbackSprite = new Image();
-playerFallbackSprite.src = "assets/player-mori-sprite-sheet-32x48.png?v=2";
-playerSprite.addEventListener("error", () => console.warn("[AdventureWedding] Mori character asset could not load; using the existing sprite fallback."), { once: true });
+playerFallbackSprite.src = CHARACTERS.mori.sprite;
 
 const le = {
     x: 1950,
@@ -423,24 +427,17 @@ const le = {
 };
 
 const leSprite = new Image();
-leSprite.src = "assets/characters/lele/lele-sprite-sheet.png?v=0.7.1";
+leSprite.src = CHARACTERS.lele.sprite;
 
 const leFallbackSprite = new Image();
-leFallbackSprite.src = "assets/player-le-sprite-sheet-32x48.png?v=1";
-leSprite.addEventListener("error", () => console.warn("[AdventureWedding] Lele character asset could not load; using the existing sprite fallback."), { once: true });
+leFallbackSprite.src = CHARACTERS.lele.sprite;
 
-const catSprites = {
+const catSpriteSheets = {
     tuotuo: new Image(),
     dazhi: new Image()
 };
-catSprites.tuotuo.src = "assets/characters/tuotuo/tuotuo-sprite-sheet.png?v=0.7.1b";
-catSprites.dazhi.src = "assets/characters/dazhi/dazhi-sprite-sheet.png?v=0.8.0-dazhi3";
-Object.entries(catSprites).forEach(([id, image]) => {
-    image.addEventListener("error", () => console.warn(`[AdventureWedding] ${id} character asset could not load; using the existing sprite fallback.`), { once: true });
-});
-
-const catFallbackSpriteSheet = new Image();
-catFallbackSpriteSheet.src = "assets/cat-companions-pixel.png?v=1";
+catSpriteSheets.tuotuo.src = CHARACTERS.tuotuo.sprite;
+catSpriteSheets.dazhi.src = CHARACTERS.dazhi.sprite;
 
 const DEBUG_COLLISIONS = false;
 
@@ -2648,7 +2645,10 @@ function drawPlayer() {
 
     const directionRows = { down: 0, up: 1, left: 2, right: 3 };
     const frame = player.moving ? Math.floor(playerAnimationTime / 0.14) % 4 : 0;
-    const row = directionRows[player.direction];
+    const animationOffset = !player.moving
+        ? 0
+        : (pressedKeys.has("ShiftLeft") || pressedKeys.has("ShiftRight") ? 8 : 4);
+    const row = directionRows[player.direction] + animationOffset;
 
     const activeSprite = playerSprite.complete && playerSprite.naturalWidth
         ? playerSprite
@@ -2683,7 +2683,7 @@ function drawLe() {
 
     const directionRows = { down: 0, up: 1, left: 2, right: 3 };
     const frame = le.moving ? Math.floor(le.animationTime / 0.14) % 4 : 0;
-    const row = directionRows[le.direction];
+    const row = directionRows[le.direction] + (le.moving ? 4 : 0);
 
     const activeSprite = leSprite.complete && leSprite.naturalWidth
         ? leSprite
@@ -2715,40 +2715,21 @@ function drawCat(cat) {
     const tailWag = Math.round(Math.sin(cat.animationTime * 5 + (cat.id === "dazhi" ? 1 : 0)) * 3);
     const grooming = cat.behaviour === "groom" && Math.sin(cat.animationTime * 9) > 0;
 
-    const catSprite = catSprites[cat.id];
+    const catSpriteSheet = catSpriteSheets[cat.id];
+    if (catSpriteSheet.complete && catSpriteSheet.naturalWidth) {
 
-    if (catSprite.complete && catSprite.naturalWidth) {
-
-        const bob = cat.behaviour === "run" ? Math.sin(cat.animationTime * 12) * 2 : 0;
-        const directionRows = { down: 4, up: 3, left: 1, right: 2 };
-        const stateRow = cat.behaviour === "sit" || cat.behaviour === "groom"
-            ? 5
-            : directionRows[cat.direction] ?? 0;
+        const directionRows = { down: 0, up: 1, left: 2, right: 3 };
+        const animationOffset = !cat.moving ? 0 : (cat.behaviour === "run" ? 8 : 4);
         const frame = cat.moving ? Math.floor(cat.animationTime / 0.16) % 4 : 0;
-
+        const row = directionRows[cat.direction] + animationOffset;
+        const bob = cat.behaviour === "run" ? Math.sin(cat.animationTime * 12) * 2 : 0;
         gameCtx.fillStyle = "rgba(26, 31, 39, 0.25)";
         gameCtx.fillRect(cat.x - 8, cat.y + cat.height - 3, 34, 5);
         gameCtx.drawImage(
-            catSprite,
-            frame * 32, stateRow * 32, 32, 32,
+            catSpriteSheet,
+            frame * 32, row * 32, 32, 32,
             Math.round(cat.x - 16), Math.round(cat.y - 34 + bob), 56, 56
         );
-
-        if (cat.id === "dazhi") {
-
-            gameCtx.fillStyle = "#fff4e5";
-            gameCtx.fillRect(Math.round(cat.x + 26), Math.round(cat.y + 13 + bob), 4, 4);
-
-        }
-
-        return;
-
-    }
-
-    if (catFallbackSpriteSheet.complete && catFallbackSpriteSheet.naturalWidth) {
-
-        const sourceX = cat.id === "tuotuo" ? 370 : 990;
-        gameCtx.drawImage(catFallbackSpriteSheet, sourceX, 170, 420, 510, cat.x - 4, cat.y - 27, 30, 36);
         return;
 
     }
