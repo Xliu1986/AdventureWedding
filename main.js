@@ -719,10 +719,12 @@ const storyCGs = {
         mobileDisplay: "contain"
     },
     sydneyAirport: {
-        // The approved airport CG is optional until its supplied file is placed here.
-        // The player intentionally falls back to a dark cinematic background if absent.
+        // Approved airport departure CG: preserved as supplied.
+        src: "assets/cg/sydney/cg-sydney-airport.png",
         focalX: 0.5,
-        focalY: 0.48
+        focalY: 0.48,
+        sourceHeight: 941,
+        mobileDisplay: "contain"
     }
 };
 
