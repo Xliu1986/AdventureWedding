@@ -330,6 +330,45 @@ let characterPanelOpen = false;
 const CHARACTERS = window.CHARACTERS;
 if (!CHARACTERS) throw new Error("Missing canonical data/characters.js manifest.");
 
+// Story-facing chapter metadata. Scene identifiers such as "longnanTown" and
+// "coles" remain implementation details; chapter copy comes from this map.
+const CHAPTERS = {
+
+    prologue: {
+        title: "Prologue",
+        subtitle: "Adventure Wedding"
+    },
+
+    tokyo: {
+        number: 1,
+        title: "东京",
+        english: "Tokyo",
+        theme: "相遇"
+    },
+
+    sydney: {
+        number: 2,
+        title: "悉尼",
+        english: "Sydney",
+        theme: "相伴"
+    },
+
+    longnan: {
+        number: 3,
+        title: "甘肃 · 陇南",
+        english: "Longnan",
+        theme: "回家"
+    },
+
+    wedding: {
+        number: "Final",
+        title: "北京 · 晓园",
+        english: "Wedding",
+        theme: "相守"
+    }
+
+};
+
 const portraitSources = Object.values(CHARACTERS)
     .map(character => character.portrait)
     .filter(Boolean);
@@ -653,7 +692,9 @@ const storyFlags = {
     tasmaniaAdventure: false,
     sydneyChapterComplete: false,
     longnanChapterStarted: false,
-    longnanMemoryAlbumViewed: false
+    longnanMemoryAlbumViewed: false,
+    weddingChapterStarted: false,
+    weddingMapEntered: false
 };
 let activeColesInspectable = null;
 
@@ -731,6 +772,8 @@ let sydneyLifeIndex = -1;
 let longnanTitleTimer = 0;
 let longnanSequenceTimer = 0;
 let longnanCGIndex = -1;
+let activeChapterIntro = null;
+let activeChapterComplete = null;
 let nearbyLongnanInteraction = null;
 let nearbyLongnanExit = false;
 let nearbyLongnanMemoryAlbum = false;
@@ -806,6 +849,14 @@ longnanLookoutPixelMap.src = "assets/maps/longnan-lookout-pixel.png?v=0.8.6";
 const longnanChildhoodTownPixelMap = new Image();
 longnanChildhoodTownPixelMap.src = "assets/maps/longnan/longnan-town.png?v=0.8.7";
 
+const weddingXiaoyuanMap = new Image();
+weddingXiaoyuanMap.src = "assets/maps/wedding/xiaoyuan-wedding-map.png?v=0.9.0";
+weddingXiaoyuanMap.addEventListener("load", () => {
+
+    if (currentChapter === "weddingXiaoyuan") storyFlags.weddingMapEntered = true;
+
+});
+
 const piaoziStoryCG = new Image();
 piaoziStoryCG.src = "assets/cg/coles-piaozi-story.png?v=0.8.3";
 
@@ -879,12 +930,33 @@ const storyCGs = {
         focalX: 0.5,
         focalY: 0.42
     },
-    longnanMemoryAlbum: {
+    longnanAlbumWildFruit: {
+        src: "assets/cg/memory-album/tokyo-wild-fruit.png?v=0.8.7",
+        focalX: 0.5,
+        focalY: 0.5,
+        mobileDisplay: "contain",
+        autoCloseAfter: 2.5
+    },
+    longnanAlbumPiaozi: {
         src: "assets/cg/memory-album/longnan-piaozi.png?v=0.8.7",
         focalX: 0.5,
         focalY: 0.5,
         mobileDisplay: "contain",
-        autoCloseAfter: 2.4
+        autoCloseAfter: 2.5
+    },
+    longnanAlbumMoment: {
+        src: "assets/cg/memory-album/sydney-moment.png?v=0.8.7",
+        focalX: 0.5,
+        focalY: 0.5,
+        mobileDisplay: "contain",
+        autoCloseAfter: 2.5
+    },
+    longnanAlbumWedding: {
+        src: "assets/cg/memory-album/wedding-portrait.png?v=0.8.7",
+        focalX: 0.5,
+        focalY: 0.5,
+        mobileDisplay: "contain",
+        autoCloseAfter: 2.5
     }
 };
 
@@ -926,6 +998,8 @@ const LONGNAN_LOOKOUT_WIDTH = 1624;
 const LONGNAN_LOOKOUT_HEIGHT = 969;
 const LONGNAN_TOWN_WIDTH = 1536;
 const LONGNAN_TOWN_HEIGHT = 1024;
+const WEDDING_XIAOYUAN_WIDTH = 1448;
+const WEDDING_XIAOYUAN_HEIGHT = 1086;
 // The supplied town artwork is treated as a compact memory route. Only these
 // connected street-level paths are walkable; every building mass, school
 // interior, sports ground and river area remains blocked.
@@ -936,6 +1010,49 @@ const longnanTownWalkableZones = [
     { x: 0, y: 654, width: 1536, height: 82 }, // riverside paths
     { x: 0, y: 736, width: 1536, height: 226 } // lower road / bus stop
 ];
+// The approved Xiaoyuan artwork remains unchanged. These connected zones only
+// describe paths, lawn circulation and patios; furniture and ceremony décor
+// are removed with the blocked rectangles below.
+const weddingXiaoyuanWalkableZones = [
+    { x: 610, y: 200, width: 230, height: 520 }, // entrance and ceremony aisle
+    { x: 110, y: 420, width: 1230, height: 300 }, // lawn paths / circulation
+    { x: 95, y: 270, width: 330, height: 170 }, // courtyard patio
+    { x: 880, y: 390, width: 430, height: 320 } // photo and floral side paths
+];
+const weddingXiaoyuanBlockedRects = [
+    { x: 0, y: 0, width: WEDDING_XIAOYUAN_WIDTH, height: 78 },
+    { x: 0, y: 0, width: 74, height: 790 },
+    { x: 1370, y: 0, width: 78, height: 790 },
+    { x: 0, y: 735, width: WEDDING_XIAOYUAN_WIDTH, height: 351 },
+    { x: 82, y: 92, width: 344, height: 178 }, // courtyard building
+    { x: 118, y: 290, width: 258, height: 104 }, // patio furniture
+    { x: 640, y: 140, width: 170, height: 120 }, // floral arch
+    { x: 520, y: 294, width: 135, height: 180 }, // left chair rows
+    { x: 790, y: 294, width: 140, height: 180 }, // right chair rows
+    { x: 1068, y: 112, width: 250, height: 185 }, // tent and refreshments
+    { x: 180, y: 505, width: 200, height: 132 }, // sign-in table and chairs
+    { x: 1035, y: 490, width: 265, height: 125 }, // floral photo backdrop / bench
+    { x: 885, y: 630, width: 280, height: 80 } // floral-decoration tables
+];
+const weddingInteractables = [
+    {
+        id: "weddingSignIn", label: "签到区", x: 270, y: 570, repeatable: true,
+        pages: [{ speaker: "坨坨", text: "欢迎各位来宾～\n\n请大家到达后，\n先在这里签到喵！" }]
+    },
+    {
+        id: "weddingPhotoArea", label: "合影区", x: 1160, y: 545, repeatable: true,
+        pages: [{ speaker: "大痣", text: "请大家来这里拍照留念。\n\n希望能和大家，\n留下许多美好的瞬间，喵呜～" }]
+    },
+    {
+        id: "weddingCeremonyArea", label: "仪式区", x: 720, y: 285, repeatable: true,
+        pages: [
+            { speaker: "坨坨", text: "这里就是森和乐乐，\n举行婚礼仪式的地方喵～" },
+            { speaker: "大痣", text: "请各位来宾，\n在仪式开始前入座。" },
+            { speaker: "大痣", text: "一起见证他们，\n最重要的时刻，喵呜～" }
+        ]
+    }
+];
+let nearbyWeddingInteraction = null;
 const GameState = Object.freeze({
     TOKYO: "tokyo",
     TOKYO_STATION_CUTSCENE: "tokyoStationCutscene",
@@ -954,7 +1071,8 @@ const GameState = Object.freeze({
     LONGNAN_MEMORY_ALBUM: "longnanMemoryAlbum",
     LONGNAN_CG: "longnanCG",
     LONGNAN_COMPLETE: "longnanComplete",
-    WEDDING_INTRO: "weddingIntro"
+    WEDDING_INTRO: "weddingIntro",
+    WEDDING_XIAOYUAN: "weddingXiaoyuan"
 });
 
 let currentChapter = "tokyo";
@@ -1202,6 +1320,7 @@ function getWorldWidth() {
     if (currentChapter === "coles") return COLES_WORLD_WIDTH;
     if (currentChapter === "longnanLookout") return LONGNAN_LOOKOUT_WIDTH;
     if (currentChapter === "longnanTown") return LONGNAN_TOWN_WIDTH;
+    if (currentChapter === "weddingXiaoyuan") return WEDDING_XIAOYUAN_WIDTH;
 
     return exteriorMap.naturalWidth
         ? exteriorMap.naturalWidth * STORY_MAP_SCALE
@@ -1215,6 +1334,7 @@ function getWorldHeight() {
     if (currentChapter === "coles") return COLES_WORLD_HEIGHT;
     if (currentChapter === "longnanLookout") return LONGNAN_LOOKOUT_HEIGHT;
     if (currentChapter === "longnanTown") return LONGNAN_TOWN_HEIGHT;
+    if (currentChapter === "weddingXiaoyuan") return WEDDING_XIAOYUAN_HEIGHT;
 
     return exteriorMap.naturalHeight
         ? exteriorMap.naturalHeight * STORY_MAP_SCALE
@@ -1279,6 +1399,18 @@ function canActorMoveOnOfficialMap(actor, x, y) {
             centerX >= zone.x && centerX <= zone.x + zone.width
             && centerY >= zone.y && centerY <= zone.y + zone.height
         );
+
+    }
+
+    if (currentChapter === "weddingXiaoyuan") {
+
+        const centerX = x + actor.width / 2;
+        const centerY = y + actor.height / 2;
+        const destination = { x, y, width: actor.width, height: actor.height };
+        return weddingXiaoyuanWalkableZones.some(zone =>
+            centerX >= zone.x && centerX <= zone.x + zone.width
+            && centerY >= zone.y && centerY <= zone.y + zone.height
+        ) && !weddingXiaoyuanBlockedRects.some(rect => rectanglesOverlap(destination, rect));
 
     }
 
@@ -1642,8 +1774,23 @@ function startSydneyAirportSequence() {
 function startLongnanTitle() {
 
     storyFlags.sydneyChapterComplete = true;
+    showChapterIntro(CHAPTERS.longnan);
+
+}
+
+function showChapterIntro(chapter) {
+
+    activeChapterIntro = chapter;
     gameState = GameState.LONGNAN_TITLE;
     longnanTitleTimer = 0;
+
+}
+
+function showChapterComplete(chapter) {
+
+    activeChapterComplete = chapter;
+    gameState = GameState.LONGNAN_COMPLETE;
+    longnanSequenceTimer = 0;
 
 }
 
@@ -1701,6 +1848,45 @@ function placePartyInLongnanTown() {
 
 }
 
+const weddingOpeningPages = [
+    { speaker: "乐乐", text: "终于来到这里了。" },
+    { speaker: "森", text: "我们一路从东京，\n走到了今天。" },
+    { speaker: "坨坨", text: "婚礼开始喵～" },
+    { speaker: "大痣", text: "大家快进来喵呜～" }
+];
+
+function enterWeddingXiaoyuan() {
+
+    currentChapter = "weddingXiaoyuan";
+    gameState = GameState.WEDDING_XIAOYUAN;
+    storyFlags.weddingChapterStarted = true;
+    storyFlags.weddingMapEntered = weddingXiaoyuanMap.complete && weddingXiaoyuanMap.naturalWidth > 0;
+    chapterLocation.textContent = "北京 · 晓园 · 婚礼现场";
+    chapterLocation.classList.remove("hidden");
+
+    // Just inside the main gate: Mori leads, with a clear, non-overlapping party.
+    player.x = 710;
+    player.y = 674;
+    le.x = 674;
+    le.y = 704;
+    cats[0].x = 638;
+    cats[0].y = 726;
+    cats[1].x = 766;
+    cats[1].y = 726;
+    player.direction = "up";
+    le.direction = "up";
+    cats.forEach(cat => {
+        cat.direction = "up";
+        cat.following = true;
+        cat.moving = false;
+    });
+    le.companion = true;
+    seedPartyHistory();
+    centerCameraOnPlayer();
+    openPiaoziDialogue(weddingOpeningPages, "weddingXiaoyuanOpening");
+
+}
+
 function startLongnanCGSequence() {
 
     if (storyCGOverlay.active) return;
@@ -1714,8 +1900,7 @@ function playLongnanCG() {
     const scene = longnanCGSequence[longnanCGIndex];
     if (!scene) {
 
-        gameState = GameState.LONGNAN_COMPLETE;
-        longnanSequenceTimer = 0;
+        showChapterComplete(CHAPTERS.longnan);
         return;
 
     }
@@ -1745,6 +1930,33 @@ function showStoryCG({ id, image, dialogue = null, dialoguePurpose = "storyCG", 
     le.moving = false;
     cats.forEach(cat => cat.moving = false);
     return true;
+
+}
+
+const longnanMemoryAlbumPages = [
+    "longnanAlbumWildFruit",
+    "longnanAlbumPiaozi",
+    "longnanAlbumMoment",
+    "longnanAlbumWedding"
+];
+
+function showLongnanMemoryAlbum(pageIndex = 0) {
+
+    const id = longnanMemoryAlbumPages[pageIndex];
+    if (!id) {
+
+        storyFlags.longnanMemoryAlbumViewed = true;
+        gameState = GameState.LONGNAN_TOWN;
+        return;
+
+    }
+
+    showStoryCG({
+        id,
+        dialoguePurpose: "longnanMemoryAlbum",
+        revealDelay: 0.45,
+        onComplete: () => showLongnanMemoryAlbum(pageIndex + 1)
+    });
 
 }
 
@@ -2199,6 +2411,20 @@ function updateNearbyLongnan() {
 
 }
 
+function updateNearbyWedding() {
+
+    nearbyWeddingInteraction = null;
+    if (gameState !== GameState.WEDDING_XIAOYUAN || meetingState.dialogueOpen || storyCGOverlay.active) return;
+
+    const centerX = player.x + player.width / 2;
+    const centerY = player.y + player.height / 2;
+    nearbyWeddingInteraction = weddingInteractables
+        .map(item => ({ item, distance: Math.hypot(centerX - item.x, centerY - item.y) }))
+        .filter(entry => entry.distance <= 108)
+        .sort((first, second) => first.distance - second.distance)[0]?.item || null;
+
+}
+
 function seedPartyHistory() {
 
     moriPositionHistory.length = 0;
@@ -2294,7 +2520,12 @@ function updateSceneTransition(deltaTime) {
 
 function tryInteraction() {
 
-    if (nearbyLongnanInteraction?.id === "railing") {
+    if (nearbyWeddingInteraction && !meetingState.dialogueOpen) {
+
+        activeInteraction = nearbyWeddingInteraction;
+        openPiaoziDialogue(nearbyWeddingInteraction.pages, "weddingGuide");
+
+    } else if (nearbyLongnanInteraction?.id === "railing") {
 
         showStoryCG({
             id: "longnanHometownView",
@@ -2306,15 +2537,7 @@ function tryInteraction() {
     } else if (nearbyLongnanMemoryAlbum) {
 
         gameState = GameState.LONGNAN_MEMORY_ALBUM;
-        showStoryCG({
-            id: "longnanMemoryAlbum",
-            dialoguePurpose: "longnanMemoryAlbum",
-            revealDelay: 1.35,
-            onComplete: () => {
-                storyFlags.longnanMemoryAlbumViewed = true;
-                gameState = GameState.LONGNAN_TOWN;
-            }
-        });
+        showLongnanMemoryAlbum();
 
     } else if (nearbyLongnanExit) {
 
@@ -2413,11 +2636,13 @@ function updateLeCompanion(deltaTime) {
 
 function drawInteractionPrompt() {
 
-    if ((!nearbyInteractable && !nearbyCatEvent && !nearbyStation && !nearbySceneExit && !piaoziState.nearby && !nearbyColesInspectable && !nearbyLongnanInteraction && !nearbyLongnanExit && !nearbyLongnanMemoryAlbum) || meetingState.dialogueOpen) return;
+    if ((!nearbyInteractable && !nearbyCatEvent && !nearbyStation && !nearbySceneExit && !piaoziState.nearby && !nearbyColesInspectable && !nearbyLongnanInteraction && !nearbyLongnanExit && !nearbyLongnanMemoryAlbum && !nearbyWeddingInteraction) || meetingState.dialogueOpen) return;
 
     const mobilePrompt = mobileControls.classList.contains("isTouchMode");
     const promptText = nearbyLongnanExit
         ? (mobilePrompt ? "点击 A 前往童年小镇" : "按 E 前往童年小镇")
+        : nearbyWeddingInteraction
+        ? `${nearbyWeddingInteraction.label}\n${mobilePrompt ? "点击 A 查看" : "按 E 查看"}`
         : nearbyLongnanMemoryAlbum
         ? (mobilePrompt ? "点击 A 打开回忆" : "按 E 打开回忆")
         : nearbyLongnanInteraction?.id === "final"
@@ -2441,13 +2666,13 @@ function drawInteractionPrompt() {
         : nearbyInteractable?.prompt
         ? (mobilePrompt ? `点击 A ${nearbyInteractable.prompt}` : `按 E 查看 ${nearbyInteractable.prompt}`)
         : (mobilePrompt ? "点击 A 互动" : "按 E / 点击互动");
-    const promptWidth = nearbyLongnanExit ? 190 : nearbyLongnanMemoryAlbum ? 160 : nearbyLongnanInteraction ? 190 : piaoziState.nearby ? 240 : nearbySceneExit === "sydneyLife" ? 220 : nearbySceneExit ? 170 : nearbyStation ? 156 : nearbyCatEvent ? 164 : nearbyInteractable?.prompt ? 158 : 112;
+    const promptWidth = nearbyWeddingInteraction ? 126 : nearbyLongnanExit ? 190 : nearbyLongnanMemoryAlbum ? 160 : nearbyLongnanInteraction ? 190 : piaoziState.nearby ? 240 : nearbySceneExit === "sydneyLife" ? 220 : nearbySceneExit ? 170 : nearbyStation ? 156 : nearbyCatEvent ? 164 : nearbyInteractable?.prompt ? 158 : 112;
 
     gameCtx.fillStyle = "rgba(10, 20, 38, 0.86)";
-    gameCtx.fillRect(player.x - 44, player.y - 58, promptWidth, 28);
+    gameCtx.fillRect(player.x - 44, player.y - (nearbyWeddingInteraction ? 76 : 58), promptWidth, nearbyWeddingInteraction ? 46 : 28);
     gameCtx.fillStyle = "#f4cf7a";
     gameCtx.font = "14px Fusion Pixel 12px Monospaced JP";
-    gameCtx.fillText(promptText, player.x - 38, player.y - 39);
+    gameCtx.fillText(promptText, player.x - 38, player.y - (nearbyWeddingInteraction ? 55 : 39));
 
 }
 
@@ -3748,6 +3973,8 @@ function drawSceneTransitionOverlay() {
 
 function drawLongnanTitle() {
 
+    const chapter = activeChapterIntro || CHAPTERS.longnan;
+
     gameCtx.fillStyle = "#07152a";
     gameCtx.fillRect(0, 0, gameViewportState.width, gameViewportState.height);
     gameCtx.fillStyle = "#18394a";
@@ -3771,11 +3998,11 @@ function drawLongnanTitle() {
     if (longnanTitleTimer > 2) {
 
         gameCtx.font = "24px Fusion Pixel, monospace";
-        gameCtx.fillText("Chapter 3", gameViewportState.width / 2, gameViewportState.height * 0.61);
+        gameCtx.fillText(`Chapter ${chapter.number}`, gameViewportState.width / 2, gameViewportState.height * 0.61);
         gameCtx.font = "34px Fusion Pixel, monospace";
-        gameCtx.fillText("甘肃 · 陇南", gameViewportState.width / 2, gameViewportState.height * 0.70);
+        gameCtx.fillText(chapter.title, gameViewportState.width / 2, gameViewportState.height * 0.70);
         gameCtx.font = "16px Fusion Pixel, monospace";
-        gameCtx.fillText("回到乐乐长大的地方", gameViewportState.width / 2, gameViewportState.height * 0.76);
+        gameCtx.fillText(chapter.theme, gameViewportState.width / 2, gameViewportState.height * 0.76);
 
     }
     gameCtx.textAlign = "left";
@@ -3815,14 +4042,16 @@ function drawLongnanOpening() {
 
 function drawLongnanComplete() {
 
+    const chapter = activeChapterComplete || CHAPTERS.longnan;
+
     gameCtx.fillStyle = "#07152a";
     gameCtx.fillRect(0, 0, gameViewportState.width, gameViewportState.height);
     gameCtx.textAlign = "center";
     gameCtx.fillStyle = "#f4cf7a";
     gameCtx.font = "26px Fusion Pixel, monospace";
-    gameCtx.fillText("Chapter 3", gameViewportState.width / 2, gameViewportState.height * 0.40);
+    gameCtx.fillText(`Chapter ${chapter.number}`, gameViewportState.width / 2, gameViewportState.height * 0.40);
     gameCtx.font = "34px Fusion Pixel, monospace";
-    gameCtx.fillText("Longnan", gameViewportState.width / 2, gameViewportState.height * 0.49);
+    gameCtx.fillText(chapter.english, gameViewportState.width / 2, gameViewportState.height * 0.49);
     gameCtx.font = "24px Fusion Pixel, monospace";
     gameCtx.fillText("Completed", gameViewportState.width / 2, gameViewportState.height * 0.57);
     gameCtx.textAlign = "left";
