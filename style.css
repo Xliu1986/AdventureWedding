@@ -701,6 +701,8 @@ body.touchMode #characterMenuButton:not(.hidden){
     width:78px;
     height:86px;
     background-repeat:no-repeat;
+    background-size:contain;
+    background-position:center bottom;
     image-rendering:pixelated;
 
 }
@@ -716,32 +718,26 @@ body.touchMode #characterMenuButton:not(.hidden){
 
 #gameDialogue[data-speaker="森"] .gameDialoguePortrait{
 
-    background-image:url("assets/characters/mori/portrait.png");
-    background-size:cover;
-    background-position:center;
+    background-image:url("assets/characters/mori/portrait.png?v=0.9.1");
 
 }
 
 #gameDialogue[data-speaker="乐乐"] .gameDialoguePortrait{
 
-    background-image:url("assets/characters/lele/portrait.png");
-    background-size:cover;
-    background-position:center;
+    background-image:url("assets/characters/lele/portrait.png?v=0.9.1");
 
 }
 
 #gameDialogue[data-speaker="坨坨"] .gameDialoguePortrait,
 #gameDialogue[data-speaker="大痣"] .gameDialoguePortrait{
 
-    background-image:url("assets/characters/tuotuo/portrait.png");
-    background-size:cover;
-    background-position:center;
+    background-image:url("assets/characters/tuotuo/portrait.png?v=0.9.1");
 
 }
 
 #gameDialogue[data-speaker="大痣"] .gameDialoguePortrait{
 
-    background-image:url("assets/characters/dazhi/portrait.png");
+    background-image:url("assets/characters/dazhi/portrait.png?v=0.9.1");
 
 }
 
