@@ -768,6 +768,12 @@ const storyCGs = {
         sourceHeight: 941,
         mobileDisplay: "contain"
     },
+    sydneyLongnanHometown: {
+        src: "assets/cg/sydney/cg-longnan-hometown.png?v=0.8.6",
+        focalX: 0.5,
+        focalY: 0.48,
+        mobileDisplay: "contain"
+    },
     longnanChildhoodDrawing: {
         src: "assets/cg/longnan/cg-lele-childhood-drawing.png?v=0.8.6",
         focalX: 0.5,
@@ -1060,7 +1066,18 @@ const chapterTransition = {
 // both desktop and touch devices.
 const sydneyToColesExit = { x: 790, y: 900, width: 280, height: 150 };
 const colesToSydneyExit = { x: 600, y: 760, width: 330, height: 180 };
+// Sydney is a single lookout tableau. The stone terrace is walkable; water,
+// gardens and stairs remain outside the playable space.
+const sydneyLookoutWalkableZone = { x: 118, y: 738, width: 1684, height: 270 };
+const sydneyHometownViewpoint = { x: 1440, y: 780, radius: 104 };
+const sydneyHometownPages = [
+    { speaker: "森", text: "哇，这就是你长大的地方吗？" },
+    { speaker: "乐乐", text: "是的，这就是我的家乡，一个承载我所有童年记忆的地方，有陪着我长大的F4，酸甜的瓢子，还有别的地方吃不到的“三层楼”还有坨坨宝和痣宝～" },
+    { speaker: "坨坨", text: "喵～💗" },
+    { speaker: "大痣", text: "喵呜～💗" }
+];
 let nearbySceneExit = null;
+let nearbySydneyHometown = false;
 const sceneTransition = { active: false, phase: "idle", target: null, elapsed: 0 };
 
 const colesCollisionRects = [
@@ -1185,6 +1202,22 @@ function faceToward(actor, target) {
     } else {
 
         actor.direction = vertical >= 0 ? "down" : "up";
+
+    }
+
+}
+
+function faceMovementDirection(actor, horizontal, vertical) {
+
+    if (!horizontal && !vertical) return;
+
+    if (Math.abs(horizontal) > Math.abs(vertical)) {
+
+        actor.direction = horizontal > 0 ? "right" : "left";
+
+    } else {
+
+        actor.direction = vertical > 0 ? "down" : "up";
 
     }
 
@@ -1973,6 +2006,18 @@ function updateNearbySceneExit() {
 
 }
 
+function updateNearbySydneyHometown() {
+
+    nearbySydneyHometown = false;
+    if (gameState !== GameState.SYDNEY || meetingState.dialogueOpen || storyCGOverlay.active) return;
+
+    nearbySydneyHometown = Math.hypot(
+        player.x + player.width / 2 - sydneyHometownViewpoint.x,
+        player.y + player.height / 2 - sydneyHometownViewpoint.y
+    ) <= sydneyHometownViewpoint.radius;
+
+}
+
 function updateNearbyPiaozi() {
 
     piaoziState.nearby = false;
@@ -2121,7 +2166,16 @@ function updateSceneTransition(deltaTime) {
 
 function tryInteraction() {
 
-    if (nearbyLongnanExit) {
+    if (nearbySydneyHometown) {
+
+        showStoryCG({
+            id: "sydneyLongnanHometown",
+            dialogue: sydneyHometownPages,
+            dialoguePurpose: "sydneyHometown",
+            revealDelay: 0.35
+        });
+
+    } else if (nearbyLongnanExit) {
 
         enterLongnanTown();
 
@@ -2378,8 +2432,10 @@ function getCameraFollowZoom() {
     // keeps the Opera House and Harbour Bridge present while the party walks.
     if (currentChapter === "sydney") {
 
-        if (!gameViewportState.isMobile) return 0.84;
-        return gameViewportState.portrait ? 0.55 : 0.64;
+        return Math.min(
+            gameViewportState.width / SYDNEY_WORLD_WIDTH,
+            gameViewportState.height / SYDNEY_WORLD_HEIGHT
+        );
 
     }
     if (!gameViewportState.isMobile) return 1;
@@ -3740,6 +3796,10 @@ function updatePlayer(deltaTime) {
 
     }
 
+    // Direction comes from the movement vector every frame, so keyboard and
+    // touch movement always choose the matching front, back or side sprite.
+    faceMovementDirection(player, horizontal, vertical);
+
     const isSprinting = pressedKeys.has("ShiftLeft") || pressedKeys.has("ShiftRight");
     const movementSpeed = player.speed * (isSprinting ? player.sprintMultiplier : 1);
 
@@ -3753,7 +3813,11 @@ function updatePlayer(deltaTime) {
     );
 
     const canMove = currentChapter === "sydney"
-        || (exteriorMap.complete && exteriorMap.naturalWidth
+        ? destinationX >= sydneyLookoutWalkableZone.x
+            && destinationX + player.width <= sydneyLookoutWalkableZone.x + sydneyLookoutWalkableZone.width
+            && destinationY >= sydneyLookoutWalkableZone.y
+            && destinationY + player.height <= sydneyLookoutWalkableZone.y + sydneyLookoutWalkableZone.height
+        : (exteriorMap.complete && exteriorMap.naturalWidth
             ? canMoveOnOfficialMap(destinationX, destinationY)
             : canMoveTo(destinationX, destinationY));
 
