@@ -694,7 +694,8 @@ const storyFlags = {
     longnanChapterStarted: false,
     longnanMemoryAlbumViewed: false,
     weddingChapterStarted: false,
-    weddingMapEntered: false
+    weddingMapEntered: false,
+    weddingIntroShown: false
 };
 let activeColesInspectable = null;
 
@@ -1866,13 +1867,13 @@ function enterWeddingXiaoyuan() {
 
     // Just inside the main gate: Mori leads, with a clear, non-overlapping party.
     player.x = 710;
-    player.y = 674;
+    player.y = 660;
     le.x = 674;
-    le.y = 704;
-    cats[0].x = 638;
-    cats[0].y = 726;
+    le.y = 684;
+    cats[0].x = 640;
+    cats[0].y = 698;
     cats[1].x = 766;
-    cats[1].y = 726;
+    cats[1].y = 698;
     player.direction = "up";
     le.direction = "up";
     cats.forEach(cat => {
@@ -1946,7 +1947,9 @@ function showLongnanMemoryAlbum(pageIndex = 0) {
     if (!id) {
 
         storyFlags.longnanMemoryAlbumViewed = true;
-        gameState = GameState.LONGNAN_TOWN;
+        // Build 0.9.0 continues naturally from Longnan's completed album to
+        // the existing chapter-complete card, then into the wedding opening.
+        showChapterComplete(CHAPTERS.longnan);
         return;
 
     }
@@ -2672,7 +2675,16 @@ function drawInteractionPrompt() {
     gameCtx.fillRect(player.x - 44, player.y - (nearbyWeddingInteraction ? 76 : 58), promptWidth, nearbyWeddingInteraction ? 46 : 28);
     gameCtx.fillStyle = "#f4cf7a";
     gameCtx.font = "14px Fusion Pixel 12px Monospaced JP";
-    gameCtx.fillText(promptText, player.x - 38, player.y - (nearbyWeddingInteraction ? 55 : 39));
+    if (nearbyWeddingInteraction) {
+
+        gameCtx.fillText(nearbyWeddingInteraction.label, player.x - 38, player.y - 57);
+        gameCtx.fillText(mobilePrompt ? "点击 A 查看" : "按 E 查看", player.x - 38, player.y - 38);
+
+    } else {
+
+        gameCtx.fillText(promptText, player.x - 38, player.y - 39);
+
+    }
 
 }
 
@@ -4060,6 +4072,8 @@ function drawLongnanComplete() {
 
 function drawWeddingIntro() {
 
+    const chapter = CHAPTERS.wedding;
+
     gameCtx.fillStyle = "#dcebd5";
     gameCtx.fillRect(0, 0, gameViewportState.width, gameViewportState.height);
     gameCtx.fillStyle = "#f9f6eb";
@@ -4074,11 +4088,15 @@ function drawWeddingIntro() {
         gameCtx.textAlign = "center";
         gameCtx.fillStyle = "rgba(7, 21, 42, .9)";
         gameCtx.font = "24px Fusion Pixel, monospace";
-        gameCtx.fillText("Final Chapter", gameViewportState.width / 2, gameViewportState.height * 0.40);
+        gameCtx.fillText(`${chapter.number} Chapter`, gameViewportState.width / 2, gameViewportState.height * 0.34);
         gameCtx.font = "34px Fusion Pixel, monospace";
-        gameCtx.fillText("Wedding", gameViewportState.width / 2, gameViewportState.height * 0.48);
+        gameCtx.fillText(chapter.english, gameViewportState.width / 2, gameViewportState.height * 0.43);
         gameCtx.font = "21px Fusion Pixel, monospace";
-        gameCtx.fillText("北京 · 晓园", gameViewportState.width / 2, gameViewportState.height * 0.55);
+        gameCtx.fillText(chapter.title, gameViewportState.width / 2, gameViewportState.height * 0.50);
+        gameCtx.font = "18px Fusion Pixel, monospace";
+        gameCtx.fillText(chapter.theme, gameViewportState.width / 2, gameViewportState.height * 0.56);
+        gameCtx.fillText("今天，", gameViewportState.width / 2, gameViewportState.height * 0.66);
+        gameCtx.fillText("我们成为一家人。", gameViewportState.width / 2, gameViewportState.height * 0.71);
         gameCtx.textAlign = "left";
 
     }
@@ -4150,6 +4168,10 @@ function drawGame() {
 
         gameCtx.drawImage(longnanChildhoodTownPixelMap, 0, 0, LONGNAN_TOWN_WIDTH, LONGNAN_TOWN_HEIGHT);
 
+    } else if (currentChapter === "weddingXiaoyuan" && weddingXiaoyuanMap.complete && weddingXiaoyuanMap.naturalWidth) {
+
+        gameCtx.drawImage(weddingXiaoyuanMap, 0, 0, WEDDING_XIAOYUAN_WIDTH, WEDDING_XIAOYUAN_HEIGHT);
+
     } else if (currentChapter === "sydney" && sydneyExplorationMap.complete && sydneyExplorationMap.naturalWidth) {
 
         gameCtx.drawImage(sydneyExplorationMap, 0, 0, getWorldWidth(), getWorldHeight());
@@ -4199,7 +4221,7 @@ function drawGame() {
 
 function updatePlayer(deltaTime) {
 
-    if (cameraIntro.active || meetingState.dialogueOpen || characterPanelOpen || gameplayPauseRemaining || chapterTransition.active || sceneTransition.active || storyCGOverlay.active || ![GameState.TOKYO, GameState.SYDNEY, GameState.COLES, GameState.LONGNAN_LOOKOUT, GameState.LONGNAN_TOWN].includes(gameState)) {
+    if (cameraIntro.active || meetingState.dialogueOpen || characterPanelOpen || gameplayPauseRemaining || chapterTransition.active || sceneTransition.active || storyCGOverlay.active || ![GameState.TOKYO, GameState.SYDNEY, GameState.COLES, GameState.LONGNAN_LOOKOUT, GameState.LONGNAN_TOWN, GameState.WEDDING_XIAOYUAN].includes(gameState)) {
 
         player.moving = false;
         return;
@@ -4290,13 +4312,10 @@ function gameLoop(timestamp) {
     if (gameState === GameState.WEDDING_INTRO && !storyFlags.weddingIntroShown) {
 
         longnanSequenceTimer += deltaTime;
-        if (longnanSequenceTimer >= 1.8) {
+        if (longnanSequenceTimer >= 3.2) {
 
             storyFlags.weddingIntroShown = true;
-            openPiaoziDialogue([
-                { speaker: "森", text: "终于，\n走到了这里。" },
-                { speaker: "乐乐", text: "谢谢大家，\n陪我们走过这段旅程。" }
-            ], "weddingIntro");
+            enterWeddingXiaoyuan();
 
         }
 
@@ -4324,6 +4343,7 @@ function gameLoop(timestamp) {
         updateNearbyPiaozi();
         updateNearbyColesInspectable();
         updateNearbyLongnan();
+        updateNearbyWedding();
 
     }
     updateCatCompanions(deltaTime);
@@ -4371,7 +4391,7 @@ function triggerMobileAction() {
 
     if (!gameStarted || characterPanelOpen || cameraIntro.active) return;
 
-    if (nearbyInteractable || nearbyCatEvent || nearbyStation || nearbySceneExit || piaoziState.nearby || nearbyColesInspectable || nearbyLongnanInteraction || nearbyLongnanExit || nearbyLongnanMemoryAlbum) tryInteraction();
+    if (nearbyInteractable || nearbyCatEvent || nearbyStation || nearbySceneExit || piaoziState.nearby || nearbyColesInspectable || nearbyLongnanInteraction || nearbyLongnanExit || nearbyLongnanMemoryAlbum || nearbyWeddingInteraction) tryInteraction();
 
 }
 
@@ -4481,7 +4501,7 @@ window.addEventListener("keydown", event => {
 
     if (characterPanelOpen) return;
 
-    if ((event.code === "KeyE" || event.code === "Enter" || event.code === "Space") && (nearbyInteractable || nearbyCatEvent || nearbyStation || nearbySceneExit || piaoziState.nearby || nearbyColesInspectable || nearbyLongnanInteraction || nearbyLongnanExit || nearbyLongnanMemoryAlbum)) {
+    if ((event.code === "KeyE" || event.code === "Enter" || event.code === "Space") && (nearbyInteractable || nearbyCatEvent || nearbyStation || nearbySceneExit || piaoziState.nearby || nearbyColesInspectable || nearbyLongnanInteraction || nearbyLongnanExit || nearbyLongnanMemoryAlbum || nearbyWeddingInteraction)) {
 
         event.preventDefault();
         tryInteraction();
