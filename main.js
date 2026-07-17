@@ -316,6 +316,7 @@ const chapterLocation = document.getElementById("chapterLocation");
 const mobileControls = document.getElementById("mobileControls");
 const characterPanel = document.getElementById("characterPanel");
 const characterMenuButton = document.getElementById("characterMenuButton");
+const memoryAlbumBridgePiaozi = document.getElementById("memoryAlbumBridgePiaozi");
 
 const gameDialogue = document.getElementById("gameDialogue");
 const gameDialogueName = document.querySelector(".gameDialogueName");
@@ -369,7 +370,7 @@ function isTypingInField(target) {
 
 function setCharacterPanelOpen(open) {
 
-    if (meetingState.dialogueOpen || !gameStarted || ![GameState.TOKYO, GameState.SYDNEY, GameState.COLES].includes(gameState)) return;
+    if (meetingState.dialogueOpen || !gameStarted || ![GameState.TOKYO, GameState.SYDNEY, GameState.COLES, GameState.LONGNAN_TOWN].includes(gameState)) return;
 
     characterPanelOpen = open;
     characterPanel.classList.toggle("hidden", !open);
@@ -379,6 +380,7 @@ function setCharacterPanelOpen(open) {
 
     if (open) {
 
+        refreshMemoryAlbum();
         pressedKeys.clear();
         clearMobileControls();
         player.moving = false;
@@ -386,6 +388,17 @@ function setCharacterPanelOpen(open) {
         cats.forEach(cat => cat.moving = false);
 
     }
+
+}
+
+function refreshMemoryAlbum() {
+
+    if (!memoryAlbumBridgePiaozi) return;
+    const bridgePiaozi = memoryAlbum.longnanBridgePiaozi;
+    memoryAlbumBridgePiaozi.textContent = bridgePiaozi.unlocked
+        ? "桥上的瓢子 · 陇南"
+        : "尚未发现新的记忆。";
+    memoryAlbumBridgePiaozi.classList.toggle("isLocked", !bridgePiaozi.unlocked);
 
 }
 
@@ -581,6 +594,12 @@ const achievements = {
     walkingTogether: { unlocked: false, name: "与你同行" }
 };
 
+// Story memories are intentionally lightweight: unlocking one records it for
+// the future album without introducing inventory or reward mechanics.
+const memoryAlbum = {
+    longnanBridgePiaozi: { unlocked: false, title: "桥上的瓢子" }
+};
+
 let nearbyCatEvent = false;
 let activeInteraction = null;
 let gameplayPauseRemaining = 0;
@@ -682,11 +701,11 @@ const longnanHometownPages = [
 ];
 const longnanLookoutRailing = { id: "railing", x: 740, y: 345, text: "远眺乐乐的家", completed: false };
 const longnanTownMemories = [
-    { id: "schoolEntrance", label: "学校门口", x: 830, y: 640, completed: false, pages: [{ speaker: "乐乐", text: "小时候，\n每天都会从这里回家。" }, { speaker: "森", text: "真想早点认识小时候的你。" }] },
-    { id: "bridge", label: "桥边", x: 1120, y: 790, completed: false, pages: [{ speaker: "乐乐", text: "很多地方，\n已经和以前不一样了。" }] },
-    { id: "riverWalk", label: "河边步道", x: 520, y: 810, completed: false, pages: [{ speaker: "乐乐", text: "夏天的时候，\n我们都会来这里玩。" }] },
-    { id: "busStop", label: "公交站", x: 310, y: 710, completed: false, pages: [{ speaker: "乐乐", text: "放学以后，\n我会从这里慢慢回家。" }] },
-    { id: "schoolSquare", label: "学校广场", x: 1380, y: 720, completed: false, pages: [{ speaker: "森", text: "但你的回忆，\n还在这里。" }] }
+    { id: "schoolEntrance", label: "学校门口", x: 770, y: 330, completed: false, pages: [{ speaker: "乐乐", text: "小时候，\n每天都会从这里回家。" }, { speaker: "森", text: "真想早点认识小时候的你。" }] },
+    { id: "oldRoad", label: "旧街道", x: 420, y: 400, completed: false, pages: [{ speaker: "乐乐", text: "很多地方，\n已经和以前不一样了。" }] },
+    { id: "bridge", label: "桥上的瓢子", x: 720, y: 565, memoryId: "longnanBridgePiaozi", completed: false, pages: [{ speaker: "乐乐", text: "第一次摘到瓢子，\n也是在这里。" }] },
+    { id: "busStop", label: "公交站", x: 1040, y: 820, completed: false, pages: [{ speaker: "乐乐", text: "放学以后，\n我会从这里慢慢回家。" }] },
+    { id: "schoolSquare", label: "学校广场", x: 720, y: 400, completed: false, pages: [{ speaker: "森", text: "但你的回忆，\n还在这里。" }] }
 ];
 const longnanCGSequence = [
     { id: "longnanChildhoodDrawing", pages: [{ speaker: "乐乐", text: "小时候，\n我最喜欢画这些山。" }] },
@@ -835,17 +854,16 @@ const COLES_WORLD_WIDTH = 1536;
 const COLES_WORLD_HEIGHT = 1024;
 const LONGNAN_LOOKOUT_WIDTH = 1624;
 const LONGNAN_LOOKOUT_HEIGHT = 969;
-const LONGNAN_TOWN_WIDTH = 1672;
-const LONGNAN_TOWN_HEIGHT = 941;
+const LONGNAN_TOWN_WIDTH = 1536;
+const LONGNAN_TOWN_HEIGHT = 1024;
 // The supplied town artwork is treated as a compact memory route. Only these
 // connected street-level paths are walkable; every building mass, school
 // interior, sports ground and river area remains blocked.
 const longnanTownWalkableZones = [
-    { x: 180, y: 650, width: 420, height: 160 }, // bus stop / river walk
-    { x: 440, y: 740, width: 820, height: 140 }, // lower riverside street
-    { x: 700, y: 570, width: 250, height: 260 }, // school entrance approach
-    { x: 1040, y: 660, width: 250, height: 190 }, // bridge approach
-    { x: 1260, y: 640, width: 250, height: 160 } // school square
+    { x: 0, y: 346, width: 1536, height: 116 }, // school-side road
+    { x: 650, y: 280, width: 236, height: 110 }, // school entrance only
+    { x: 666, y: 450, width: 104, height: 286 }, // central bridge
+    { x: 0, y: 736, width: 1536, height: 226 } // south road and bus stop
 ];
 const GameState = Object.freeze({
     TOKYO: "tokyo",
@@ -1417,6 +1435,11 @@ function closeMeetingDialogue() {
     if (dialoguePurpose === "longnanMemory" && activeInteraction) {
 
         activeInteraction.completed = true;
+        if (activeInteraction.memoryId && memoryAlbum[activeInteraction.memoryId]) {
+
+            memoryAlbum[activeInteraction.memoryId].unlocked = true;
+
+        }
         if (longnanTownMemories.every(memory => memory.completed)) startLongnanCGSequence();
 
     }
@@ -3261,6 +3284,28 @@ function drawSydneyLookout() {
             sceneFrame = { x: drawX, y: drawY, width: drawWidth, height: drawHeight };
             gameCtx.drawImage(sydneyMap, 0, 0, sourceWidth, sourceHeight, drawX, drawY, drawWidth, drawHeight);
 
+            // Replace only the baked-in lookout title and version label. The
+            // harbour artwork, character label and all other CG details stay
+            // exactly as supplied.
+            const titleScale = drawWidth / sourceWidth;
+            const titleX = drawX + 14 * titleScale;
+            const titleY = drawY + 10 * titleScale;
+            const titleWidth = 218 * titleScale;
+            const titleHeight = 55 * titleScale;
+            gameCtx.fillStyle = "#061426";
+            gameCtx.fillRect(titleX, titleY, titleWidth, titleHeight);
+            gameCtx.strokeStyle = "#d7982b";
+            gameCtx.lineWidth = Math.max(1, 2 * titleScale);
+            gameCtx.strokeRect(titleX + 1, titleY + 1, titleWidth - 2, titleHeight - 2);
+            gameCtx.fillStyle = "#fff0d6";
+            gameCtx.font = `${Math.max(12, 21 * titleScale)}px Fusion Pixel, monospace`;
+            gameCtx.fillText("悉尼跨年夜", titleX + 27 * titleScale, titleY + 35 * titleScale);
+
+            // The nearby “人物” plaque remains untouched; only the version
+            // text to its right is covered with the same night-sky tone.
+            gameCtx.fillStyle = "#061426";
+            gameCtx.fillRect(drawX + 1360 * titleScale, drawY + 12 * titleScale, 176 * titleScale, 56 * titleScale);
+
         }
 
     }
@@ -3548,6 +3593,23 @@ function drawColesPunnet(x, y) {
 
 }
 
+function drawLongnanBridgePiaozi() {
+
+    const x = 718;
+    const y = 556;
+    const unlocked = memoryAlbum.longnanBridgePiaozi.unlocked;
+    gameCtx.fillStyle = unlocked ? "rgba(244, 207, 122, .34)" : "rgba(255, 248, 224, .62)";
+    gameCtx.fillRect(x - 9, y - 9, 27, 25);
+    gameCtx.fillStyle = "#5f964d";
+    gameCtx.fillRect(x + 4, y - 3, 7, 5);
+    gameCtx.fillStyle = "#fff3df";
+    gameCtx.fillRect(x, y + 2, 10, 10);
+    gameCtx.fillStyle = "#efa6af";
+    gameCtx.fillRect(x + 3, y + 6, 2, 2);
+    gameCtx.fillRect(x + 7, y + 4, 1, 2);
+
+}
+
 function drawSceneTransitionOverlay() {
 
     if (!sceneTransition.active) return;
@@ -3762,6 +3824,7 @@ function drawGame() {
     }
 
     if (currentChapter === "tokyo") drawCollisionDebug();
+    if (currentChapter === "longnanTown") drawLongnanBridgePiaozi();
     drawWorldAtmosphere();
 
     [

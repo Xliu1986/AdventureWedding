@@ -551,6 +551,38 @@ body.touchMode #characterMenuButton:not(.hidden){
 
 }
 
+.memoryAlbumSection{
+
+    margin-top:18px;
+    padding-top:14px;
+    border-top:2px solid #72512d;
+
+}
+
+.memoryAlbumSection h3{
+
+    margin:0 0 8px;
+    color:#f4cf7a;
+    font-size:18px;
+
+}
+
+.memoryAlbumEntry{
+
+    margin:0;
+    padding:10px 12px;
+    border:1px solid #72512d;
+    color:#fff0c7;
+    background:#12213a;
+
+}
+
+.memoryAlbumEntry.isLocked{
+
+    color:#9ea4ab;
+
+}
+
 .characterCard{
 
     display:grid;
