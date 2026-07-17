@@ -674,10 +674,13 @@ const longnanLookoutPages = [
     { speaker: "乐乐", text: "欢迎来到陇南。\n这里，\n就是我长大的地方。" },
     { speaker: "森", text: "真漂亮。\n难怪，\n你的作品里，\n总会出现这些山。" }
 ];
-const longnanLookoutRailing = { id: "railing", x: 740, y: 345, text: "看看远方", completed: false, pages: [
-    { speaker: "森", text: "这里真的很美。" },
-    { speaker: "乐乐", text: "小时候，\n我经常一个人站在这里。" }
-] };
+const longnanHometownPages = [
+    { speaker: "森", text: "哇，这就是你长大的地方吗？" },
+    { speaker: "乐乐", text: "是的，这就是我的家乡，一个承载我所有童年记忆的地方，有陪着我长大的F4，酸甜的瓢子，还有别的地方吃不到的“三层楼”还有坨坨宝和痣宝～" },
+    { speaker: "坨坨", text: "喵～💗" },
+    { speaker: "大痣", text: "喵呜～💗" }
+];
+const longnanLookoutRailing = { id: "railing", x: 740, y: 345, text: "远眺乐乐的家", completed: false };
 const longnanTownMemories = [
     { id: "schoolEntrance", label: "学校门口", x: 830, y: 640, completed: false, pages: [{ speaker: "乐乐", text: "小时候，\n每天都会从这里回家。" }, { speaker: "森", text: "真想早点认识小时候的你。" }] },
     { id: "bridge", label: "桥边", x: 1120, y: 790, completed: false, pages: [{ speaker: "乐乐", text: "很多地方，\n已经和以前不一样了。" }] },
@@ -768,8 +771,8 @@ const storyCGs = {
         sourceHeight: 941,
         mobileDisplay: "contain"
     },
-    sydneyLongnanHometown: {
-        src: "assets/cg/sydney/cg-longnan-hometown.png?v=0.8.6",
+    longnanHometownView: {
+        src: "assets/cg/longnan/cg-kangxian-hometown.png?v=0.8.6",
         focalX: 0.5,
         focalY: 0.48,
         mobileDisplay: "contain"
@@ -834,6 +837,16 @@ const LONGNAN_LOOKOUT_WIDTH = 1624;
 const LONGNAN_LOOKOUT_HEIGHT = 969;
 const LONGNAN_TOWN_WIDTH = 1672;
 const LONGNAN_TOWN_HEIGHT = 941;
+// The supplied town artwork is treated as a compact memory route. Only these
+// connected street-level paths are walkable; every building mass, school
+// interior, sports ground and river area remains blocked.
+const longnanTownWalkableZones = [
+    { x: 180, y: 650, width: 420, height: 160 }, // bus stop / river walk
+    { x: 440, y: 740, width: 820, height: 140 }, // lower riverside street
+    { x: 700, y: 570, width: 250, height: 260 }, // school entrance approach
+    { x: 1040, y: 660, width: 250, height: 190 }, // bridge approach
+    { x: 1260, y: 640, width: 250, height: 160 } // school square
+];
 const GameState = Object.freeze({
     TOKYO: "tokyo",
     TOKYO_STATION_CUTSCENE: "tokyoStationCutscene",
@@ -1069,15 +1082,7 @@ const colesToSydneyExit = { x: 600, y: 760, width: 330, height: 180 };
 // Sydney is a single lookout tableau. The stone terrace is walkable; water,
 // gardens and stairs remain outside the playable space.
 const sydneyLookoutWalkableZone = { x: 118, y: 738, width: 1684, height: 270 };
-const sydneyHometownViewpoint = { x: 1440, y: 780, radius: 104 };
-const sydneyHometownPages = [
-    { speaker: "森", text: "哇，这就是你长大的地方吗？" },
-    { speaker: "乐乐", text: "是的，这就是我的家乡，一个承载我所有童年记忆的地方，有陪着我长大的F4，酸甜的瓢子，还有别的地方吃不到的“三层楼”还有坨坨宝和痣宝～" },
-    { speaker: "坨坨", text: "喵～💗" },
-    { speaker: "大痣", text: "喵呜～💗" }
-];
 let nearbySceneExit = null;
-let nearbySydneyHometown = false;
 const sceneTransition = { active: false, phase: "idle", target: null, elapsed: 0 };
 
 const colesCollisionRects = [
@@ -1176,7 +1181,16 @@ function canActorMoveOnOfficialMap(actor, x, y) {
 
     }
 
-    if (currentChapter === "longnanTown") return true;
+    if (currentChapter === "longnanTown") {
+
+        const centerX = x + actor.width / 2;
+        const centerY = y + actor.height / 2;
+        return longnanTownWalkableZones.some(zone =>
+            centerX >= zone.x && centerX <= zone.x + zone.width
+            && centerY >= zone.y && centerY <= zone.y + zone.height
+        );
+
+    }
 
     const destination = { x, y, width: actor.width, height: actor.height };
 
@@ -1380,7 +1394,7 @@ function closeMeetingDialogue() {
 
     }
 
-    if (dialoguePurpose === "sydneyHometown") {
+    if (dialoguePurpose === "longnanHometown") {
 
         storyCGOverlay.phase = "endingHold";
         storyCGOverlay.revealDelay = 0.45;
@@ -1400,7 +1414,12 @@ function closeMeetingDialogue() {
 
     }
 
-    if (dialoguePurpose === "longnanMemory" && activeInteraction) activeInteraction.completed = true;
+    if (dialoguePurpose === "longnanMemory" && activeInteraction) {
+
+        activeInteraction.completed = true;
+        if (longnanTownMemories.every(memory => memory.completed)) startLongnanCGSequence();
+
+    }
 
     if (dialoguePurpose === "weddingIntro") {
 
@@ -2013,18 +2032,6 @@ function updateNearbySceneExit() {
 
 }
 
-function updateNearbySydneyHometown() {
-
-    nearbySydneyHometown = false;
-    if (gameState !== GameState.SYDNEY || meetingState.dialogueOpen || storyCGOverlay.active) return;
-
-    nearbySydneyHometown = Math.hypot(
-        player.x + player.width / 2 - sydneyHometownViewpoint.x,
-        player.y + player.height / 2 - sydneyHometownViewpoint.y
-    ) <= sydneyHometownViewpoint.radius;
-
-}
-
 function updateNearbyPiaozi() {
 
     piaoziState.nearby = false;
@@ -2173,23 +2180,18 @@ function updateSceneTransition(deltaTime) {
 
 function tryInteraction() {
 
-    if (nearbySydneyHometown) {
+    if (nearbyLongnanInteraction?.id === "railing") {
 
         showStoryCG({
-            id: "sydneyLongnanHometown",
-            dialogue: sydneyHometownPages,
-            dialoguePurpose: "sydneyHometown",
+            id: "longnanHometownView",
+            dialogue: longnanHometownPages,
+            dialoguePurpose: "longnanHometown",
             revealDelay: 0.35
         });
 
     } else if (nearbyLongnanExit) {
 
         enterLongnanTown();
-
-    } else if (nearbyLongnanInteraction?.id === "final") {
-
-        nearbyLongnanInteraction.completed = true;
-        startLongnanCGSequence();
 
     } else if (nearbyLongnanInteraction) {
 
@@ -2281,17 +2283,15 @@ function updateLeCompanion(deltaTime) {
 
 function drawInteractionPrompt() {
 
-    if ((!nearbyInteractable && !nearbyCatEvent && !nearbyStation && !nearbySceneExit && !nearbySydneyHometown && !piaoziState.nearby && !nearbyColesInspectable && !nearbyLongnanInteraction && !nearbyLongnanExit) || meetingState.dialogueOpen) return;
+    if ((!nearbyInteractable && !nearbyCatEvent && !nearbyStation && !nearbySceneExit && !piaoziState.nearby && !nearbyColesInspectable && !nearbyLongnanInteraction && !nearbyLongnanExit) || meetingState.dialogueOpen) return;
 
     const mobilePrompt = mobileControls.classList.contains("isTouchMode");
     const promptText = nearbyLongnanExit
         ? (mobilePrompt ? "点击 A 前往童年小镇" : "按 E 前往童年小镇")
-        : nearbySydneyHometown
-        ? (mobilePrompt ? "点击 A 看看乐乐的家乡" : "按 E 看看乐乐的家乡")
         : nearbyLongnanInteraction?.id === "final"
         ? (mobilePrompt ? "点击 A 回想这些日子" : "按 E 回想这些日子")
         : nearbyLongnanInteraction
-        ? (mobilePrompt ? `点击 A ${nearbyLongnanInteraction.text || "回忆"}` : `按 E ${nearbyLongnanInteraction.text || "回忆"}`)
+        ? (mobilePrompt ? `点击 A ${nearbyLongnanInteraction.label || "回忆"}` : `按 E ${nearbyLongnanInteraction.label || "回忆"}`)
         : piaoziState.nearby
         ? (mobilePrompt ? "好像发现了特别的水果…… 点击 A 查看" : "好像发现了特别的水果…… 按 E 查看")
         : nearbyColesInspectable
@@ -2309,7 +2309,7 @@ function drawInteractionPrompt() {
         : nearbyInteractable?.prompt
         ? (mobilePrompt ? `点击 A ${nearbyInteractable.prompt}` : `按 E 查看 ${nearbyInteractable.prompt}`)
         : (mobilePrompt ? "点击 A 互动" : "按 E / 点击互动");
-    const promptWidth = nearbyLongnanExit ? 190 : nearbySydneyHometown ? 196 : nearbyLongnanInteraction ? 190 : piaoziState.nearby ? 240 : nearbySceneExit === "sydneyLife" ? 220 : nearbySceneExit ? 170 : nearbyStation ? 156 : nearbyCatEvent ? 164 : nearbyInteractable?.prompt ? 158 : 112;
+    const promptWidth = nearbyLongnanExit ? 190 : nearbyLongnanInteraction ? 190 : piaoziState.nearby ? 240 : nearbySceneExit === "sydneyLife" ? 220 : nearbySceneExit ? 170 : nearbyStation ? 156 : nearbyCatEvent ? 164 : nearbyInteractable?.prompt ? 158 : 112;
 
     gameCtx.fillStyle = "rgba(10, 20, 38, 0.86)";
     gameCtx.fillRect(player.x - 44, player.y - 58, promptWidth, 28);
@@ -3903,7 +3903,6 @@ function gameLoop(timestamp) {
         nearbyCatEvent = false;
         nearbyStation = false;
         updateNearbySceneExit();
-        updateNearbySydneyHometown();
         updateNearbyPiaozi();
         updateNearbyColesInspectable();
         updateNearbyLongnan();
@@ -3961,7 +3960,7 @@ function triggerMobileAction() {
 
     if (!gameStarted || characterPanelOpen || cameraIntro.active) return;
 
-    if (nearbyInteractable || nearbyCatEvent || nearbyStation || nearbySceneExit || nearbySydneyHometown || piaoziState.nearby || nearbyColesInspectable || nearbyLongnanInteraction || nearbyLongnanExit) tryInteraction();
+    if (nearbyInteractable || nearbyCatEvent || nearbyStation || nearbySceneExit || piaoziState.nearby || nearbyColesInspectable || nearbyLongnanInteraction || nearbyLongnanExit) tryInteraction();
 
 }
 
@@ -4071,7 +4070,7 @@ window.addEventListener("keydown", event => {
 
     if (characterPanelOpen) return;
 
-    if ((event.code === "KeyE" || event.code === "Enter" || event.code === "Space") && (nearbyInteractable || nearbyCatEvent || nearbyStation || nearbySceneExit || nearbySydneyHometown || piaoziState.nearby || nearbyColesInspectable || nearbyLongnanInteraction || nearbyLongnanExit)) {
+    if ((event.code === "KeyE" || event.code === "Enter" || event.code === "Space") && (nearbyInteractable || nearbyCatEvent || nearbyStation || nearbySceneExit || piaoziState.nearby || nearbyColesInspectable || nearbyLongnanInteraction || nearbyLongnanExit)) {
 
         event.preventDefault();
         tryInteraction();
