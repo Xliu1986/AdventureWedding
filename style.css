@@ -19,6 +19,99 @@ body{
 
 }
 
+/* ================= Opening Prologue ================= */
+
+#openingPrologue{
+
+    position:fixed;
+    inset:0;
+    z-index:40;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+    color:#f4cf7a;
+    background:#050b16;
+    font-family:"Fusion Pixel 12px Monospaced JP", "PingFang SC", monospace;
+    text-align:center;
+
+}
+
+#openingPrologue.hidden{
+
+    display:none;
+
+}
+
+.openingPrologueText{
+
+    min-height:4em;
+    padding:24px;
+
+}
+
+.openingLine{
+
+    position:absolute;
+    left:50%;
+    top:50%;
+    width:min(88vw, 720px);
+    margin:0;
+    font-size:clamp(20px, 3.1vw, 34px);
+    line-height:1.7;
+    opacity:0;
+    transform:translate(-50%, -42%);
+    transition:opacity .34s ease, transform .34s ease;
+
+}
+
+.openingLine.isVisible{
+
+    opacity:1;
+    transform:translate(-50%, -50%);
+
+}
+
+.openingLine.isLeaving{
+
+    opacity:0;
+    transform:translate(-50%, -58%);
+
+}
+
+.openingPrologueCharacters{
+
+    position:absolute;
+    left:50%;
+    bottom:max(10vh, env(safe-area-inset-bottom));
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+    gap:clamp(12px, 3vw, 44px);
+    opacity:0;
+    transform:translate(-50%, 22px);
+    transition:opacity .5s ease, transform .5s ease;
+
+}
+
+.openingPrologueCharacters img{
+
+    display:block;
+    width:clamp(82px, 14vw, 150px);
+    max-height:42vh;
+    object-fit:contain;
+    image-rendering:pixelated;
+
+}
+
+#openingPrologue.showCharacters .openingPrologueCharacters{
+
+    opacity:1;
+    transform:translate(-50%, 0);
+
+}
+
 body{
 
     background:#06111d;
@@ -551,37 +644,6 @@ body.touchMode #characterMenuButton:not(.hidden){
 
 }
 
-.memoryAlbumSection{
-
-    margin-top:18px;
-    padding-top:14px;
-    border-top:2px solid #72512d;
-
-}
-
-.memoryAlbumSection h3{
-
-    margin:0 0 8px;
-    color:#f4cf7a;
-    font-size:18px;
-
-}
-
-.memoryAlbumEntry{
-
-    margin:0;
-    padding:10px 12px;
-    border:1px solid #72512d;
-    color:#fff0c7;
-    background:#12213a;
-
-}
-
-.memoryAlbumEntry.isLocked{
-
-    color:#9ea4ab;
-
-}
 
 .characterCard{
 
@@ -742,7 +804,8 @@ body.touchMode #characterMenuButton:not(.hidden){
 #gameDialogue[data-speaker="森"] .gameDialoguePortrait,
 #gameDialogue[data-speaker="乐乐"] .gameDialoguePortrait,
 #gameDialogue[data-speaker="坨坨"] .gameDialoguePortrait,
-#gameDialogue[data-speaker="大痣"] .gameDialoguePortrait{
+#gameDialogue[data-speaker="大痣"] .gameDialoguePortrait,
+#gameDialogue[data-speaker="森，乐乐"] .gameDialoguePortrait{
 
     display:block;
 
@@ -750,26 +813,35 @@ body.touchMode #characterMenuButton:not(.hidden){
 
 #gameDialogue[data-speaker="森"] .gameDialoguePortrait{
 
-    background-image:url("assets/characters/mori/portrait.png?v=0.9.1");
+    background-image:var(--portrait-mori);
 
 }
 
 #gameDialogue[data-speaker="乐乐"] .gameDialoguePortrait{
 
-    background-image:url("assets/characters/lele/portrait.png?v=0.9.1");
+    background-image:var(--portrait-lele);
 
 }
 
 #gameDialogue[data-speaker="坨坨"] .gameDialoguePortrait,
 #gameDialogue[data-speaker="大痣"] .gameDialoguePortrait{
 
-    background-image:url("assets/characters/tuotuo/portrait.png?v=0.9.1");
+    background-image:var(--portrait-tuotuo);
 
 }
 
 #gameDialogue[data-speaker="大痣"] .gameDialoguePortrait{
 
-    background-image:url("assets/characters/dazhi/portrait.png?v=0.9.1");
+    background-image:var(--portrait-dazhi);
+
+}
+
+#gameDialogue[data-speaker="森，乐乐"] .gameDialoguePortrait{
+
+    width:96px;
+    background-image:var(--portrait-mori), var(--portrait-lele);
+    background-size:50% auto, 50% auto;
+    background-position:left bottom, right bottom;
 
 }
 
@@ -777,10 +849,12 @@ body.touchMode #characterMenuButton:not(.hidden){
 #gameDialogue[data-speaker="乐乐"] .gameDialogueName,
 #gameDialogue[data-speaker="坨坨"] .gameDialogueName,
 #gameDialogue[data-speaker="大痣"] .gameDialogueName,
+#gameDialogue[data-speaker="森，乐乐"] .gameDialogueName,
 #gameDialogue[data-speaker="森"] .gameDialogueText,
 #gameDialogue[data-speaker="乐乐"] .gameDialogueText,
 #gameDialogue[data-speaker="坨坨"] .gameDialogueText,
-#gameDialogue[data-speaker="大痣"] .gameDialogueText{
+#gameDialogue[data-speaker="大痣"] .gameDialogueText,
+#gameDialogue[data-speaker="森，乐乐"] .gameDialogueText{
 
     margin-left:96px;
 

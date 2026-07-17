@@ -17,7 +17,7 @@
 
 <link href="https://cdn.jsdelivr.net/npm/@fontsource/fusion-pixel-12px-monospaced-jp@5.2.5/index.css" rel="stylesheet">
 
-<link rel="stylesheet" href="style.css?v=0.7.0">
+<link rel="stylesheet" href="style.css?v=0.8.7">
 
 </head>
 
@@ -60,31 +60,26 @@
 <div class="characterGrid">
 
 <article class="characterCard">
-<div class="characterPortrait"><img src="assets/characters/mori/portrait.png" alt="森的像素肖像"></div>
+<div class="characterPortrait"><img data-character-portrait="mori" alt="森的像素肖像"></div>
 <div><h3>森</h3><p>一个曾在当地较为不羁的厨师。</p></div>
 </article>
 
 <article class="characterCard">
-<div class="characterPortrait"><img src="assets/characters/lele/portrait.png" alt="乐乐的像素肖像"></div>
+<div class="characterPortrait"><img data-character-portrait="lele" alt="乐乐的像素肖像"></div>
 <div><h3>乐乐</h3><p>古灵精怪的乐乐宝。</p></div>
 </article>
 
 <article class="characterCard">
-<div class="characterPortrait"><img src="assets/characters/tuotuo/portrait.png" alt="坨坨的像素肖像"></div>
+<div class="characterPortrait"><img data-character-portrait="tuotuo" alt="坨坨的像素肖像"></div>
 <div><h3>坨坨</h3><p>面冷心热的贴心喵。</p></div>
 </article>
 
 <article class="characterCard">
-<div class="characterPortrait"><img src="assets/characters/dazhi/portrait.png" alt="大痣的像素肖像"></div>
+<div class="characterPortrait"><img data-character-portrait="dazhi" alt="大痣的像素肖像"></div>
 <div><h3>大痣</h3><p>神经大条的暖暖喵。</p></div>
 </article>
 
 </div>
-
-<section class="memoryAlbumSection" aria-label="记忆相册">
-<h3>记忆相册</h3>
-<p id="memoryAlbumBridgePiaozi" class="memoryAlbumEntry isLocked">尚未发现新的记忆。</p>
-</section>
 
 </div>
 
@@ -105,6 +100,19 @@
 </div>
 
 </div>
+
+<section id="openingPrologue" class="hidden" aria-live="polite" aria-label="故事开场">
+<div class="openingPrologueText">
+<p class="openingLine">一次奇妙的相遇</p>
+<p class="openingLine">两个素不相识的有趣灵魂</p>
+<p class="openingLine">三段美好的回忆</p>
+<p class="openingLine">森与乐乐爱的冒险旅程就此开始</p>
+</div>
+<div class="openingPrologueCharacters" aria-hidden="true">
+<img data-character-portrait="mori" alt="">
+<img data-character-portrait="lele" alt="">
+</div>
+</section>
 
 <main class="screen" id="titleScreen">
 
@@ -132,8 +140,8 @@ PRESS START
 
 <footer class="version">
 
-Version 0.8.6<br>
-Returning Home
+Version 0.8.7<br>
+Longnan Town Memories
 
 </footer>
 
@@ -167,7 +175,8 @@ Returning Home
 
 </div>
 
-<script src="main.js?v=0.7.0"></script>
+<script src="data/characters.js?v=0.8.7"></script>
+<script src="main.js?v=0.8.7"></script>
 
 </body>
 

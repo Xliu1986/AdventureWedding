@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.8.6 — Returning Home
+   Version 0.8.7 — Longnan Town Memories
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -316,23 +316,19 @@ const chapterLocation = document.getElementById("chapterLocation");
 const mobileControls = document.getElementById("mobileControls");
 const characterPanel = document.getElementById("characterPanel");
 const characterMenuButton = document.getElementById("characterMenuButton");
-const memoryAlbumBridgePiaozi = document.getElementById("memoryAlbumBridgePiaozi");
 
 const gameDialogue = document.getElementById("gameDialogue");
 const gameDialogueName = document.querySelector(".gameDialogueName");
 const gameDialogueText = document.querySelector(".gameDialogueText");
 const gameDialogueContinue = document.querySelector(".gameDialogueContinue");
+const openingPrologue = document.getElementById("openingPrologue");
 
 let gameStarted = false;
 let characterPanelOpen = false;
 
 // The single canonical location for every playable-character visual.
-const CHARACTERS = Object.freeze({
-    mori: { sprite: "assets/characters/mori/sprite-sheet.png?v=0.9.1", portrait: "assets/characters/mori/portrait.png?v=0.9.1" },
-    lele: { sprite: "assets/characters/lele/sprite-sheet.png?v=0.9.1", portrait: "assets/characters/lele/portrait.png?v=0.9.1" },
-    tuotuo: { portrait: "assets/characters/tuotuo/portrait.png?v=0.9.1", sprite: "assets/characters/tuotuo/sprite-sheet.png?v=0.9.1" },
-    dazhi: { portrait: "assets/characters/dazhi/portrait.png?v=0.9.1", sprite: "assets/characters/dazhi/sprite-sheet.png?v=0.9.1" }
-});
+const CHARACTERS = window.CHARACTERS;
+if (!CHARACTERS) throw new Error("Missing canonical data/characters.js manifest.");
 
 const portraitSources = Object.values(CHARACTERS)
     .map(character => character.portrait)
@@ -344,6 +340,65 @@ portraitSources.forEach(source => {
     portrait.src = source;
 
 });
+
+// Every visible character portrait is resolved from the canonical manifest.
+document.documentElement.style.setProperty("--portrait-mori", `url("${CHARACTERS.mori.portrait}")`);
+document.documentElement.style.setProperty("--portrait-lele", `url("${CHARACTERS.lele.portrait}")`);
+document.documentElement.style.setProperty("--portrait-tuotuo", `url("${CHARACTERS.tuotuo.portrait}")`);
+document.documentElement.style.setProperty("--portrait-dazhi", `url("${CHARACTERS.dazhi.portrait}")`);
+
+document.querySelectorAll("[data-character-portrait]").forEach(image => {
+
+    const character = CHARACTERS[image.dataset.characterPortrait];
+    if (character?.portrait) image.src = character.portrait;
+
+});
+
+function beginGameplay() {
+
+    openingPrologue.classList.add("hidden");
+    gameViewport.classList.remove("hidden");
+    chapterLocation.classList.remove("hidden");
+    characterMenuButton.classList.remove("hidden");
+    mobileControls.classList.remove("hidden");
+    spawnPlayer();
+    startCameraIntro();
+    previousGameTime = performance.now();
+    requestAnimationFrame(gameLoop);
+
+}
+
+function playOpeningPrologue() {
+
+    const lines = [...openingPrologue.querySelectorAll(".openingLine")];
+    openingPrologue.classList.remove("hidden", "showCharacters");
+    lines.forEach(line => line.classList.remove("isVisible", "isLeaving"));
+
+    let index = 0;
+    const showNextLine = () => {
+
+        if (index >= lines.length) {
+
+            openingPrologue.classList.add("showCharacters");
+            window.setTimeout(beginGameplay, 1200);
+            return;
+
+        }
+
+        const line = lines[index++];
+        line.classList.add("isVisible");
+        window.setTimeout(() => {
+
+            line.classList.add("isLeaving");
+            window.setTimeout(showNextLine, 380);
+
+        }, 950);
+
+    };
+
+    showNextLine();
+
+}
 
 document.querySelectorAll(".characterPortrait img").forEach(image => {
 
@@ -370,7 +425,7 @@ function isTypingInField(target) {
 
 function setCharacterPanelOpen(open) {
 
-    if (meetingState.dialogueOpen || !gameStarted || ![GameState.TOKYO, GameState.SYDNEY, GameState.COLES, GameState.LONGNAN_TOWN].includes(gameState)) return;
+    if (meetingState.dialogueOpen || !gameStarted || ![GameState.TOKYO, GameState.SYDNEY, GameState.COLES].includes(gameState)) return;
 
     characterPanelOpen = open;
     characterPanel.classList.toggle("hidden", !open);
@@ -380,7 +435,6 @@ function setCharacterPanelOpen(open) {
 
     if (open) {
 
-        refreshMemoryAlbum();
         pressedKeys.clear();
         clearMobileControls();
         player.moving = false;
@@ -388,17 +442,6 @@ function setCharacterPanelOpen(open) {
         cats.forEach(cat => cat.moving = false);
 
     }
-
-}
-
-function refreshMemoryAlbum() {
-
-    if (!memoryAlbumBridgePiaozi) return;
-    const bridgePiaozi = memoryAlbum.longnanBridgePiaozi;
-    memoryAlbumBridgePiaozi.textContent = bridgePiaozi.unlocked
-        ? "桥上的瓢子 · 陇南"
-        : "尚未发现新的记忆。";
-    memoryAlbumBridgePiaozi.classList.toggle("isLocked", !bridgePiaozi.unlocked);
 
 }
 
@@ -609,7 +652,8 @@ const storyFlags = {
     sydneySeaside: false,
     tasmaniaAdventure: false,
     sydneyChapterComplete: false,
-    longnanChapterStarted: false
+    longnanChapterStarted: false,
+    longnanMemoryAlbumViewed: false
 };
 let activeColesInspectable = null;
 
@@ -668,7 +712,7 @@ const sydneyLifeSequence = [
 const sydneyAirportPages = [
     { speaker: "森", text: "在悉尼的这些日子，\n好像一下子就过去了。" },
     { speaker: "乐乐", text: "因为每天，\n都过得很开心呀。" },
-    { speaker: "森", text: "你带我认识了你的回忆。" },
+    { speaker: "森", text: "这就是我在这座城市的故事与经历" },
     { speaker: "森", text: "下一站，\n轮到你带我回家了。" },
     { speaker: "乐乐", text: "好呀。\n这次，\n我带你去看看我长大的地方。" },
     { speaker: "坨坨", text: "回家喵～" },
@@ -689,6 +733,7 @@ let longnanSequenceTimer = 0;
 let longnanCGIndex = -1;
 let nearbyLongnanInteraction = null;
 let nearbyLongnanExit = false;
+let nearbyLongnanMemoryAlbum = false;
 const longnanLookoutPages = [
     { speaker: "乐乐", text: "欢迎来到陇南。\n这里，\n就是我长大的地方。" },
     { speaker: "森", text: "真漂亮。\n难怪，\n你的作品里，\n总会出现这些山。" }
@@ -701,12 +746,30 @@ const longnanHometownPages = [
 ];
 const longnanLookoutRailing = { id: "railing", x: 740, y: 345, text: "远眺乐乐的家", completed: false };
 const longnanTownMemories = [
-    { id: "schoolEntrance", label: "学校门口", x: 770, y: 330, completed: false, pages: [{ speaker: "乐乐", text: "小时候，\n每天都会从这里回家。" }, { speaker: "森", text: "真想早点认识小时候的你。" }] },
-    { id: "oldRoad", label: "旧街道", x: 420, y: 400, completed: false, pages: [{ speaker: "乐乐", text: "很多地方，\n已经和以前不一样了。" }] },
-    { id: "bridge", label: "桥上的瓢子", x: 720, y: 565, memoryId: "longnanBridgePiaozi", completed: false, pages: [{ speaker: "乐乐", text: "第一次摘到瓢子，\n也是在这里。" }] },
-    { id: "busStop", label: "公交站", x: 1040, y: 820, completed: false, pages: [{ speaker: "乐乐", text: "放学以后，\n我会从这里慢慢回家。" }] },
-    { id: "schoolSquare", label: "学校广场", x: 720, y: 400, completed: false, pages: [{ speaker: "森", text: "但你的回忆，\n还在这里。" }] }
+    { id: "schoolEntrance", label: "学校门口", x: 748, y: 330, repeatable: true, pages: [{ speaker: "乐乐", text: "我可是重点中学的尖子生哦。" }] },
+    { id: "bridgeFlood", label: "桥上的回忆", x: 718, y: 570, repeatable: true, pages: [{ speaker: "乐乐", text: "当年大暴雨，\n大到这条路被大水淹没了呢！" }] },
+    { id: "roadMemory", label: "路边的回忆", x: 1040, y: 405, repeatable: true, pages: [{ speaker: "乐乐", text: "每天在家就能看到学校。" }] },
+    { id: "busStop", label: "公交站", x: 1025, y: 700, repeatable: true, pages: [{ speaker: "乐乐", text: "这里的变化好大啊～" }] }
 ];
+const longnanTownPiaozi = {
+    id: "bridgePiaozi",
+    label: "查看瓢子",
+    x: 732,
+    y: 620,
+    memoryId: "longnanBridgePiaozi",
+    repeatable: true,
+    pages: [
+        { speaker: "乐乐", text: "看，在我们这里，\n野生的瓢子都会当天被人采摘，\n然后装盒售卖。" },
+        { speaker: "乐乐", text: "放几天瓢子就会烂掉，\n所以这是一种赏味期限十分短暂的\n美味小浆果。" },
+        { speaker: "森", text: "要不是认识了你，\n我可能都不会有机会吃到\n这么特别的东西～" },
+        { speaker: "乐乐", text: "所以命运是个奇妙的东西，\n让我们在东京相识，\n在悉尼相知，\n在陇南相伴。" },
+        { speaker: "乐乐", text: "相信以后，\n我们还会去更多的地方，\n一起体验不一样的人生💗" },
+        { speaker: "坨坨", text: "我也要一起喵～" },
+        { speaker: "大痣", text: "我也是喵呜～" },
+        { speaker: "森，乐乐", text: "（笑）" }
+    ]
+};
+const longnanMemoryAlbumTrigger = { x: 768, y: 915, radius: 96 };
 const longnanCGSequence = [
     { id: "longnanChildhoodDrawing", pages: [{ speaker: "乐乐", text: "小时候，\n我最喜欢画这些山。" }] },
     { id: "longnanPiaozi", pages: [{ speaker: "乐乐", text: "第一次摘到瓢子，\n也是在这里。" }] },
@@ -741,7 +804,7 @@ const longnanLookoutPixelMap = new Image();
 longnanLookoutPixelMap.src = "assets/maps/longnan-lookout-pixel.png?v=0.8.6";
 
 const longnanChildhoodTownPixelMap = new Image();
-longnanChildhoodTownPixelMap.src = "assets/maps/longnan-childhood-town-pixel.png?v=0.8.6";
+longnanChildhoodTownPixelMap.src = "assets/maps/longnan/longnan-town.png?v=0.8.7";
 
 const piaoziStoryCG = new Image();
 piaoziStoryCG.src = "assets/cg/coles-piaozi-story.png?v=0.8.3";
@@ -815,6 +878,13 @@ const storyCGs = {
         image: longnanLookoutPixelMap,
         focalX: 0.5,
         focalY: 0.42
+    },
+    longnanMemoryAlbum: {
+        src: "assets/cg/memory-album/longnan-piaozi.png?v=0.8.7",
+        focalX: 0.5,
+        focalY: 0.5,
+        mobileDisplay: "contain",
+        autoCloseAfter: 2.4
     }
 };
 
@@ -835,7 +905,7 @@ function preloadStoryCGs() {
 
     Object.values(storyCGs).forEach(config => {
 
-        if (!config.image) {
+        if (!config.image && config.src) {
 
             config.image = new Image();
             config.image.src = config.src;
@@ -860,10 +930,11 @@ const LONGNAN_TOWN_HEIGHT = 1024;
 // connected street-level paths are walkable; every building mass, school
 // interior, sports ground and river area remains blocked.
 const longnanTownWalkableZones = [
-    { x: 0, y: 346, width: 1536, height: 116 }, // school-side road
-    { x: 650, y: 280, width: 236, height: 110 }, // school entrance only
+    { x: 0, y: 346, width: 1536, height: 116 }, // upper road
+    { x: 650, y: 280, width: 236, height: 110 }, // school frontage only
     { x: 666, y: 450, width: 104, height: 286 }, // central bridge
-    { x: 0, y: 736, width: 1536, height: 226 } // south road and bus stop
+    { x: 0, y: 654, width: 1536, height: 82 }, // riverside paths
+    { x: 0, y: 736, width: 1536, height: 226 } // lower road / bus stop
 ];
 const GameState = Object.freeze({
     TOKYO: "tokyo",
@@ -880,6 +951,7 @@ const GameState = Object.freeze({
     LONGNAN_INTRO: "longnanIntro",
     LONGNAN_LOOKOUT: "longnanLookout",
     LONGNAN_TOWN: "longnanTown",
+    LONGNAN_MEMORY_ALBUM: "longnanMemoryAlbum",
     LONGNAN_CG: "longnanCG",
     LONGNAN_COMPLETE: "longnanComplete",
     WEDDING_INTRO: "weddingIntro"
@@ -1434,13 +1506,17 @@ function closeMeetingDialogue() {
 
     if (dialoguePurpose === "longnanMemory" && activeInteraction) {
 
-        activeInteraction.completed = true;
+        if (!activeInteraction.repeatable) activeInteraction.completed = true;
+
+    }
+
+    if (dialoguePurpose === "longnanPiaozi" && activeInteraction) {
+
         if (activeInteraction.memoryId && memoryAlbum[activeInteraction.memoryId]) {
 
             memoryAlbum[activeInteraction.memoryId].unlocked = true;
 
         }
-        if (longnanTownMemories.every(memory => memory.completed)) startLongnanCGSequence();
 
     }
 
@@ -1612,14 +1688,14 @@ function placePartyInLongnanTown() {
     currentChapter = "longnanTown";
     gameState = GameState.LONGNAN_TOWN;
     chapterLocation.textContent = "陇南 · 童年小镇";
-    player.x = 836;
-    player.y = 760;
-    le.x = 790;
-    le.y = 790;
-    cats[0].x = 752;
-    cats[0].y = 808;
-    cats[1].x = 722;
-    cats[1].y = 814;
+    le.x = 712;
+    le.y = 694;
+    player.x = 752;
+    player.y = 704;
+    cats[0].x = 680;
+    cats[0].y = 710;
+    cats[1].x = 648;
+    cats[1].y = 716;
     seedPartyHistory();
     centerCameraOnPlayer();
 
@@ -1697,7 +1773,16 @@ function updateStoryCG(deltaTime) {
         if (storyCGOverlay.revealDelay === 0) {
 
             storyCGOverlay.dialogueStarted = true;
-            if (storyCGOverlay.dialogue?.length) openPiaoziDialogue(storyCGOverlay.dialogue, storyCGOverlay.dialoguePurpose);
+            if (storyCGOverlay.dialogue?.length) {
+
+                openPiaoziDialogue(storyCGOverlay.dialogue, storyCGOverlay.dialoguePurpose);
+
+            } else if (storyCGOverlay.config?.placeholder || storyCGOverlay.config?.autoCloseAfter) {
+
+                storyCGOverlay.phase = "endingHold";
+                storyCGOverlay.revealDelay = storyCGOverlay.config.autoCloseAfter || 1.8;
+
+            }
 
         }
 
@@ -2087,6 +2172,7 @@ function updateNearbyLongnan() {
 
     nearbyLongnanInteraction = null;
     nearbyLongnanExit = false;
+    nearbyLongnanMemoryAlbum = false;
     if (meetingState.dialogueOpen || storyCGOverlay.active) return;
     const centerX = player.x + player.width / 2;
     const centerY = player.y + player.height / 2;
@@ -2098,11 +2184,16 @@ function updateNearbyLongnan() {
 
     } else if (gameState === GameState.LONGNAN_TOWN) {
 
-        nearbyLongnanInteraction = longnanTownMemories
-            .filter(item => !item.completed)
+        const candidates = [...longnanTownMemories, longnanTownPiaozi]
+            .filter(item => item.repeatable || !item.completed)
             .map(item => ({ item, distance: Math.hypot(centerX - item.x, centerY - item.y) }))
             .filter(entry => entry.distance < 115)
             .sort((a, b) => a.distance - b.distance)[0]?.item || null;
+        nearbyLongnanInteraction = candidates;
+        nearbyLongnanMemoryAlbum = Math.hypot(
+            centerX - longnanMemoryAlbumTrigger.x,
+            centerY - longnanMemoryAlbumTrigger.y
+        ) <= longnanMemoryAlbumTrigger.radius;
 
     }
 
@@ -2212,6 +2303,19 @@ function tryInteraction() {
             revealDelay: 0.35
         });
 
+    } else if (nearbyLongnanMemoryAlbum) {
+
+        gameState = GameState.LONGNAN_MEMORY_ALBUM;
+        showStoryCG({
+            id: "longnanMemoryAlbum",
+            dialoguePurpose: "longnanMemoryAlbum",
+            revealDelay: 1.35,
+            onComplete: () => {
+                storyFlags.longnanMemoryAlbumViewed = true;
+                gameState = GameState.LONGNAN_TOWN;
+            }
+        });
+
     } else if (nearbyLongnanExit) {
 
         enterLongnanTown();
@@ -2219,7 +2323,10 @@ function tryInteraction() {
     } else if (nearbyLongnanInteraction) {
 
         activeInteraction = nearbyLongnanInteraction;
-        openPiaoziDialogue(nearbyLongnanInteraction.pages, "longnanMemory");
+        openPiaoziDialogue(
+            nearbyLongnanInteraction.pages,
+            nearbyLongnanInteraction.id === "bridgePiaozi" ? "longnanPiaozi" : "longnanMemory"
+        );
 
     } else if (nearbySceneExit === "sydneyLife" && !meetingState.dialogueOpen && !cameraIntro.active) {
 
@@ -2306,11 +2413,13 @@ function updateLeCompanion(deltaTime) {
 
 function drawInteractionPrompt() {
 
-    if ((!nearbyInteractable && !nearbyCatEvent && !nearbyStation && !nearbySceneExit && !piaoziState.nearby && !nearbyColesInspectable && !nearbyLongnanInteraction && !nearbyLongnanExit) || meetingState.dialogueOpen) return;
+    if ((!nearbyInteractable && !nearbyCatEvent && !nearbyStation && !nearbySceneExit && !piaoziState.nearby && !nearbyColesInspectable && !nearbyLongnanInteraction && !nearbyLongnanExit && !nearbyLongnanMemoryAlbum) || meetingState.dialogueOpen) return;
 
     const mobilePrompt = mobileControls.classList.contains("isTouchMode");
     const promptText = nearbyLongnanExit
         ? (mobilePrompt ? "点击 A 前往童年小镇" : "按 E 前往童年小镇")
+        : nearbyLongnanMemoryAlbum
+        ? (mobilePrompt ? "点击 A 打开回忆" : "按 E 打开回忆")
         : nearbyLongnanInteraction?.id === "final"
         ? (mobilePrompt ? "点击 A 回想这些日子" : "按 E 回想这些日子")
         : nearbyLongnanInteraction
@@ -2332,7 +2441,7 @@ function drawInteractionPrompt() {
         : nearbyInteractable?.prompt
         ? (mobilePrompt ? `点击 A ${nearbyInteractable.prompt}` : `按 E 查看 ${nearbyInteractable.prompt}`)
         : (mobilePrompt ? "点击 A 互动" : "按 E / 点击互动");
-    const promptWidth = nearbyLongnanExit ? 190 : nearbyLongnanInteraction ? 190 : piaoziState.nearby ? 240 : nearbySceneExit === "sydneyLife" ? 220 : nearbySceneExit ? 170 : nearbyStation ? 156 : nearbyCatEvent ? 164 : nearbyInteractable?.prompt ? 158 : 112;
+    const promptWidth = nearbyLongnanExit ? 190 : nearbyLongnanMemoryAlbum ? 160 : nearbyLongnanInteraction ? 190 : piaoziState.nearby ? 240 : nearbySceneExit === "sydneyLife" ? 220 : nearbySceneExit ? 170 : nearbyStation ? 156 : nearbyCatEvent ? 164 : nearbyInteractable?.prompt ? 158 : 112;
 
     gameCtx.fillStyle = "rgba(10, 20, 38, 0.86)";
     gameCtx.fillRect(player.x - 44, player.y - 58, promptWidth, 28);
@@ -3333,6 +3442,23 @@ function drawStoryCG() {
 
     const config = storyCGOverlay.config;
     const image = config?.image;
+    if (config?.placeholder) {
+
+        gameCtx.globalAlpha = storyCGOverlay.opacity;
+        gameCtx.fillStyle = "#08172d";
+        gameCtx.fillRect(0, 0, gameViewportState.width, gameViewportState.height);
+        gameCtx.strokeStyle = "#d8aa54";
+        gameCtx.lineWidth = 3;
+        gameCtx.strokeRect(22, 22, gameViewportState.width - 44, gameViewportState.height - 44);
+        gameCtx.fillStyle = "#f4cf7a";
+        gameCtx.textAlign = "center";
+        gameCtx.font = "28px Fusion Pixel, monospace";
+        gameCtx.fillText("陇南 · 回忆", gameViewportState.width / 2, gameViewportState.height / 2);
+        gameCtx.textAlign = "left";
+        gameCtx.globalAlpha = 1;
+        return;
+
+    }
     if (!image?.complete || !image.naturalWidth) return;
 
     const sourceWidth = image.naturalWidth;
@@ -3595,8 +3721,8 @@ function drawColesPunnet(x, y) {
 
 function drawLongnanBridgePiaozi() {
 
-    const x = 718;
-    const y = 556;
+    const x = 732;
+    const y = 620;
     const unlocked = memoryAlbum.longnanBridgePiaozi.unlocked;
     gameCtx.fillStyle = unlocked ? "rgba(244, 207, 122, .34)" : "rgba(255, 248, 224, .62)";
     gameCtx.fillRect(x - 9, y - 9, 27, 25);
@@ -3994,14 +4120,7 @@ startButton.addEventListener("click",()=>{
     titleAnimationRunning = false;
     titleScreen.classList.add("hidden");
     dialog.classList.add("hidden");
-    gameViewport.classList.remove("hidden");
-    chapterLocation.classList.remove("hidden");
-    characterMenuButton.classList.remove("hidden");
-    mobileControls.classList.remove("hidden");
-    spawnPlayer();
-    startCameraIntro();
-    previousGameTime = performance.now();
-    requestAnimationFrame(gameLoop);
+    playOpeningPrologue();
 
 });
 
@@ -4023,7 +4142,7 @@ function triggerMobileAction() {
 
     if (!gameStarted || characterPanelOpen || cameraIntro.active) return;
 
-    if (nearbyInteractable || nearbyCatEvent || nearbyStation || nearbySceneExit || piaoziState.nearby || nearbyColesInspectable || nearbyLongnanInteraction || nearbyLongnanExit) tryInteraction();
+    if (nearbyInteractable || nearbyCatEvent || nearbyStation || nearbySceneExit || piaoziState.nearby || nearbyColesInspectable || nearbyLongnanInteraction || nearbyLongnanExit || nearbyLongnanMemoryAlbum) tryInteraction();
 
 }
 
@@ -4133,7 +4252,7 @@ window.addEventListener("keydown", event => {
 
     if (characterPanelOpen) return;
 
-    if ((event.code === "KeyE" || event.code === "Enter" || event.code === "Space") && (nearbyInteractable || nearbyCatEvent || nearbyStation || nearbySceneExit || piaoziState.nearby || nearbyColesInspectable || nearbyLongnanInteraction || nearbyLongnanExit)) {
+    if ((event.code === "KeyE" || event.code === "Enter" || event.code === "Space") && (nearbyInteractable || nearbyCatEvent || nearbyStation || nearbySceneExit || piaoziState.nearby || nearbyColesInspectable || nearbyLongnanInteraction || nearbyLongnanExit || nearbyLongnanMemoryAlbum)) {
 
         event.preventDefault();
         tryInteraction();
