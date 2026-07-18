@@ -1224,6 +1224,13 @@ body.touchMode #characterMenuButton:not(.hidden){
 
     }
 
+    #mobileControls.invitationMode .mobileDpad,
+    #mobileControls.invitationMode [data-control="sprint"]{
+
+        display:none;
+
+    }
+
     #gameDialogue{
 
         bottom:calc(env(safe-area-inset-bottom) + 222px);

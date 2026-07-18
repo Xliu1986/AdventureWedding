@@ -1929,7 +1929,8 @@ function startWeddingGatewayDialogue() {
     le.companion = false;
     cats.forEach(cat => cat.following = false);
     if (characterPanelOpen) setCharacterPanelOpen(false);
-    mobileControls.classList.add("hidden");
+    mobileControls.classList.remove("hidden");
+    mobileControls.classList.add("isDialogueOpen");
     characterMenuButton.classList.add("hidden");
     gameState = GameState.WEDDING_GATEWAY_DIALOGUE;
     openPiaoziDialogue(weddingGatewayDialoguePages, "weddingGateway");
@@ -1942,6 +1943,7 @@ function beginWeddingGatewayCutscene() {
     gameState = GameState.WEDDING_GATEWAY_CUTSCENE;
     weddingGatewaySequence.phase = "formation";
     weddingGatewaySequence.elapsed = 0;
+    mobileControls.classList.add("hidden");
 
 }
 
@@ -1952,6 +1954,8 @@ function showWeddingInvitation() {
     weddingGatewaySequence.phase = "invitation";
     weddingGatewaySequence.invitationReady = false;
     transitionInputLockUntil = performance.now() + 350;
+    mobileControls.classList.remove("hidden");
+    mobileControls.classList.add("invitationMode");
     showStoryCG({ id: "weddingInvitation", revealDelay: 0.25 });
 
 }
@@ -1973,6 +1977,7 @@ function continueWeddingInvitation() {
 function showWeddingContinuation() {
 
     lockForChapterCard();
+    mobileControls.classList.remove("invitationMode");
     gameState = GameState.WEDDING_CONTINUATION;
     chapterCardState.active = true;
     chapterCardState.mode = "weddingContinuation";
@@ -2842,10 +2847,10 @@ function updateWeddingGatewaySequence(deltaTime) {
             [cats[0], { x: 682, y: 570 }],
             [cats[1], { x: 758, y: 570 }]
         ];
-        const reached = formation.map(([actor, target]) => moveWeddingActor(actor, target, deltaTime, 128)).every(Boolean);
-        if (reached || weddingGatewaySequence.elapsed >= 3) {
+        const regroupSpeed = weddingGatewaySequence.elapsed >= 3 ? 420 : 128;
+        const reached = formation.map(([actor, target]) => moveWeddingActor(actor, target, deltaTime, regroupSpeed)).every(Boolean);
+        if (reached) {
 
-            if (!reached) placeWeddingFormation();
             weddingGatewaySequence.formationReached = true;
             weddingGatewaySequence.phase = "approach";
             weddingGatewaySequence.elapsed = 0;
