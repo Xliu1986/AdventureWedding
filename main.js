@@ -4359,44 +4359,31 @@ function drawStoryCG() {
 
     const sourceWidth = image.naturalWidth;
     const sourceHeight = Math.min(config.sourceHeight || image.naturalHeight, image.naturalHeight);
-    const focalX = config.focalX ?? 0.5;
-    const focalY = config.focalY ?? 0.5;
 
-    if (gameViewportState.isMobile && gameViewportState.portrait && config.mobileDisplay === "dialogueSafe") {
+    if (gameViewportState.isMobile && gameViewportState.portrait) {
 
-        // Keep the approved artwork fully visible in the central visual area.
-        // The reserved lower section is blue-black and belongs exclusively to
-        // the DOM dialogue box, so neither layer obscures the other.
-        const safeBottom = Math.max(320, Math.round(gameViewportState.height * 0.34));
-        const visualHeight = gameViewportState.height - safeBottom - 34;
-        const scale = Math.min(
-            (gameViewportState.width - 28) / sourceWidth,
-            visualHeight / sourceHeight
-        );
+        // Every Story CG uses the same iPhone portrait cinema layout: contain
+        // the complete approved artwork in the upper visual panel, leave a
+        // navy gap for the live dialogue below, and never cover-crop a memory.
+        const panelTop = 72;
+        const panelBottom = Math.min(468, Math.round(gameViewportState.height * 0.49));
+        const panelWidth = gameViewportState.width - 28;
+        const panelHeight = panelBottom - panelTop;
+        const scale = Math.min(panelWidth / sourceWidth, panelHeight / sourceHeight);
         const drawWidth = Math.round(sourceWidth * scale);
         const drawHeight = Math.round(sourceHeight * scale);
         const drawX = Math.round((gameViewportState.width - drawWidth) / 2);
-        const drawY = Math.round(18 + (visualHeight - drawHeight) / 2);
+        const drawY = Math.round(panelTop + (panelHeight - drawHeight) / 2);
 
         gameCtx.globalAlpha = storyCGOverlay.opacity;
         gameCtx.drawImage(image, 0, 0, sourceWidth, sourceHeight, drawX, drawY, drawWidth, drawHeight);
-
-    } else if (gameViewportState.isMobile && gameViewportState.portrait && config.mobileDisplay !== "contain") {
-
-        // Portrait uses a focal crop rather than vertical distortion. Each CG can
-        // configure focalX/focalY so real people and landmarks stay visible.
-        const targetAspect = gameViewportState.width / gameViewportState.height;
-        const cropWidth = Math.min(sourceWidth, sourceHeight * targetAspect);
-        const cropHeight = Math.min(sourceHeight, cropWidth / targetAspect);
-        const sourceX = Math.max(0, Math.min(sourceWidth - cropWidth, sourceWidth * focalX - cropWidth / 2));
-        const sourceY = Math.max(0, Math.min(sourceHeight - cropHeight, sourceHeight * focalY - cropHeight / 2));
-        gameCtx.globalAlpha = storyCGOverlay.opacity;
-        gameCtx.drawImage(image, sourceX, sourceY, cropWidth, cropHeight, 0, 0, gameViewportState.width, gameViewportState.height);
+        gameCtx.strokeStyle = "rgba(216, 170, 84, .88)";
+        gameCtx.lineWidth = 2;
+        gameCtx.strokeRect(drawX - 1, drawY - 1, drawWidth + 2, drawHeight + 2);
 
     } else {
 
-        // Approved full-frame CGs use contain on iPhone too: no stretching and
-        // no loss of the image's authored dialogue panel or composition.
+        // Desktop and landscape preserve each approved CG's full composition.
         const scale = Math.min(gameViewportState.width / sourceWidth, gameViewportState.height / sourceHeight);
         const drawWidth = Math.round(sourceWidth * scale);
         const drawHeight = Math.round(sourceHeight * scale);
