@@ -1017,7 +1017,10 @@ const storyCGs = {
         focalY: 0.42,
         // The current legacy file includes an authored dialogue area at its base.
         // Crop it so the live JRPG dialogue UI remains the single text layer.
-        sourceHeight: 602
+        sourceHeight: 602,
+        // On an iPhone, keep the story image centred above the live dialogue
+        // instead of letting a full-screen crop sit behind it.
+        mobileDisplay: "dialogueSafe"
     },
     sydneyCooking: {
         src: "assets/cg/sydney/cg-cooking-together.png",
@@ -3443,6 +3446,14 @@ function getCameraFollowZoom() {
     // readable without stretching or cropping the map image.
     if (currentChapter === "tokyo" && gameViewportState.portrait) return 0.68;
 
+    // Coles is a wide interior. Filling the phone's height makes the aisles
+    // readable and lets the regular horizontal camera follow explore it.
+    if (currentChapter === "coles" && gameViewportState.portrait) {
+
+        return gameViewportState.height / COLES_WORLD_HEIGHT;
+
+    }
+
     return gameViewportState.portrait ? 0.76 : 0.92;
 
 }
@@ -4351,7 +4362,26 @@ function drawStoryCG() {
     const focalX = config.focalX ?? 0.5;
     const focalY = config.focalY ?? 0.5;
 
-    if (gameViewportState.isMobile && gameViewportState.portrait && config.mobileDisplay !== "contain") {
+    if (gameViewportState.isMobile && gameViewportState.portrait && config.mobileDisplay === "dialogueSafe") {
+
+        // Keep the approved artwork fully visible in the central visual area.
+        // The reserved lower section is blue-black and belongs exclusively to
+        // the DOM dialogue box, so neither layer obscures the other.
+        const safeBottom = Math.max(320, Math.round(gameViewportState.height * 0.34));
+        const visualHeight = gameViewportState.height - safeBottom - 34;
+        const scale = Math.min(
+            (gameViewportState.width - 28) / sourceWidth,
+            visualHeight / sourceHeight
+        );
+        const drawWidth = Math.round(sourceWidth * scale);
+        const drawHeight = Math.round(sourceHeight * scale);
+        const drawX = Math.round((gameViewportState.width - drawWidth) / 2);
+        const drawY = Math.round(18 + (visualHeight - drawHeight) / 2);
+
+        gameCtx.globalAlpha = storyCGOverlay.opacity;
+        gameCtx.drawImage(image, 0, 0, sourceWidth, sourceHeight, drawX, drawY, drawWidth, drawHeight);
+
+    } else if (gameViewportState.isMobile && gameViewportState.portrait && config.mobileDisplay !== "contain") {
 
         // Portrait uses a focal crop rather than vertical distortion. Each CG can
         // configure focalX/focalY so real people and landmarks stay visible.
