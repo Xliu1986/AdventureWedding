@@ -3391,6 +3391,15 @@ function getCameraFollowZoom() {
     // keeps the Opera House and Harbour Bridge present while the party walks.
     if (currentChapter === "sydney") {
 
+        // On a tall phone screen, fill the display by the harbour artwork's
+        // height.  The camera can then travel across the wide panorama as the
+        // player walks, rather than shrinking the 16:9 world into a strip.
+        if (gameViewportState.isMobile && gameViewportState.portrait) {
+
+            return gameViewportState.height / SYDNEY_WORLD_HEIGHT;
+
+        }
+
         return Math.min(
             gameViewportState.width / SYDNEY_WORLD_WIDTH,
             gameViewportState.height / SYDNEY_WORLD_HEIGHT
@@ -3419,8 +3428,8 @@ function getCameraTarget(zoom = getCameraFollowZoom()) {
     if (currentChapter === "sydney") {
 
         return {
-            x: Math.max(0, (getWorldWidth() - visibleWidth) / 2),
-            y: 0
+            x: Math.max(0, Math.min(player.x + player.width / 2 - visibleWidth / 2, maxX)),
+            y: Math.max(0, Math.min(player.y + player.height / 2 - visibleHeight / 2, maxY))
         };
 
     }
