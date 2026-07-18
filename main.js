@@ -640,8 +640,9 @@ const playerFallbackSprite = new Image();
 playerFallbackSprite.src = CHARACTERS.mori.sprite;
 
 const le = {
-    x: 1950,
-    y: 820,
+    // Sakura Avenue is the opening meeting place on the portrait Tokyo map.
+    x: 1680,
+    y: 1580,
     width: 24,
     height: 24,
     direction: "down",
@@ -667,21 +668,22 @@ catSpriteSheets.dazhi.src = CHARACTERS.dazhi.sprite;
 const DEBUG_COLLISIONS = false;
 
 const collisionRects = [
-    { x: 920, y: 0, width: 920, height: 440 },
-    { x: 1980, y: 0, width: 560, height: 420 },
-    { x: 0, y: 860, width: 1460, height: 520 },
-    { x: 0, y: 0, width: 650, height: 580 },
-    { x: 1650, y: 760, width: 150, height: 860 },
-    { x: 2200, y: 760, width: 150, height: 860 },
-    { x: 0, y: 1800, width: 1130, height: 444 },
-    { x: 1640, y: 1800, width: 1164, height: 444 }
+    // Tokyo Station, shrine hall, the shopping-street facades and river.
+    // Coordinates are world pixels (the 1024 × 1536 portrait artwork is
+    // rendered at STORY_MAP_SCALE), leaving its plazas, sidewalks, bridge and
+    // Sakura Avenue clear for the existing story interactions.
+    { x: 480, y: 0, width: 1060, height: 470 },
+    { x: 1610, y: 0, width: 438, height: 610 },
+    { x: 0, y: 1210, width: 1460, height: 530 },
+    { x: 0, y: 2460, width: 1010, height: 612 },
+    { x: 1245, y: 2460, width: 803, height: 612 }
 ];
 
 const walkableZones = [
-    { x: 700, y: 420, width: 1160, height: 420 },
-    { x: 1740, y: 420, width: 560, height: 1220 },
-    { x: 0, y: 1380, width: 1540, height: 360 },
-    { x: 1130, y: 1800, width: 510, height: 444 }
+    { x: 380, y: 470, width: 1160, height: 650 },
+    { x: 1500, y: 600, width: 420, height: 1560 },
+    { x: 0, y: 1740, width: 1500, height: 620 },
+    { x: 1000, y: 2360, width: 250, height: 700 }
 ];
 
 const meetingState = {
@@ -712,7 +714,7 @@ const moriPositionHistory = [];
 const interactables = [
     {
         id: "bench",
-        x: 1930, y: 700, width: 90, height: 70,
+        x: 1510, y: 1120, width: 90, height: 70,
         pages: [
             { speaker: "乐乐", text: "东京有很多这样的公园。\n以前我喜欢一个人坐在这里。" },
             { speaker: "森", text: "以后。\n就不是一个人了。" }
@@ -721,7 +723,7 @@ const interactables = [
     },
     {
         id: "vending",
-        x: 1280, y: 1300, width: 80, height: 80,
+        x: 1180, y: 1750, width: 80, height: 80,
         pages: [
             { speaker: "乐乐", text: "日本的自动售货机，\n什么都有。" },
             { speaker: "森", text: "真的吗？" },
@@ -731,7 +733,7 @@ const interactables = [
     },
     {
         id: "shrine",
-        x: 2080, y: 520, width: 140, height: 110,
+        x: 1700, y: 890, width: 140, height: 110,
         pages: [
             { speaker: "乐乐", text: "来东京的人。\n都会来这里。" },
             { speaker: "森", text: "那我们也许个愿吧。" },
@@ -743,7 +745,7 @@ const interactables = [
     {
         // The central ramen storefront on the Tokyo shopping street.
         id: "ittencho",
-        x: 840, y: 1320, width: 150, height: 82,
+        x: 580, y: 1740, width: 150, height: 82,
         prompt: "一点张",
         pages: [
             { speaker: "森", text: "这家看起来不错啊！名字也很有意思：一点张。\n有没有感觉很熟悉 ：）" },
@@ -759,17 +761,17 @@ const interactables = [
 let nearbyInteractable = null;
 
 const sakuraAvenueMoment = {
-    x: 1810,
-    y: 900,
-    width: 360,
-    height: 640,
+    x: 1510,
+    y: 1160,
+    width: 380,
+    height: 980,
     active: false,
     discovered: false
 };
 
 const hiddenCatEvent = {
-    x: 1855,
-    y: 600,
+    x: 1290,
+    y: 880,
     width: 96,
     height: 72,
     discovered: false,
@@ -785,12 +787,12 @@ const hiddenCatEvent = {
 
 const cats = [
     {
-        id: "tuotuo", name: "坨坨", x: 1870, y: 622, width: 22, height: 18,
+        id: "tuotuo", name: "坨坨", x: 1305, y: 902, width: 22, height: 18,
         collar: "#d9524f", marking: "#d9d7ce", direction: "down",
         following: false, moving: false, animationTime: 0, behaviour: "idle", behaviourTime: 0
     },
     {
-        id: "dazhi", name: "大痣", x: 1902, y: 629, width: 22, height: 18,
+        id: "dazhi", name: "大痣", x: 1337, y: 909, width: 22, height: 18,
         collar: "#8855a6", marking: "#77757a", direction: "down",
         following: false, moving: false, animationTime: 0, behaviour: "idle", behaviourTime: 0
     }
@@ -969,14 +971,14 @@ const STORY_MAP_SCALE = 2;
 const PLAYER_RENDER_WIDTH = 64;
 const PLAYER_RENDER_HEIGHT = 96;
 const SAKURA_AVENUE_BOUNDS = {
-    x: 1740,
-    y: 220,
-    width: 460,
-    height: 1400
+    x: 1510,
+    y: 1160,
+    width: 380,
+    height: 980
 };
 
 const exteriorMap = new Image();
-exteriorMap.src = "assets/tokyo-story-map.png";
+exteriorMap.src = "assets/tokyo-story-map.png?v=0.9.2-portrait";
 
 const sydneyMap = new Image();
 sydneyMap.src = "assets/maps/sydney-harbour-lookout.png?v=0.8.0";
@@ -1449,7 +1451,7 @@ const cameraIntro = {
     transitionDuration: 1.8
 };
 
-const stationDepartureZone = { x: 1080, y: 390, width: 520, height: 260 };
+const stationDepartureZone = { x: 800, y: 490, width: 460, height: 250 };
 let nearbyStation = false;
 const chapterTransition = {
     active: false,
@@ -1458,10 +1460,10 @@ const chapterTransition = {
     elapsed: 0,
     petalPhase: 0,
     partyTargets: [
-        { actor: player, x: 1325, y: 365 },
-        { actor: le, x: 1275, y: 395 },
-        { actor: null, x: 1228, y: 425 },
-        { actor: null, x: 1195, y: 425 }
+        { actor: player, x: 1035, y: 530 },
+        { actor: le, x: 990, y: 570 },
+        { actor: null, x: 948, y: 610 },
+        { actor: null, x: 912, y: 640 }
     ]
 };
 
@@ -3351,8 +3353,8 @@ function drawCollisionDebug() {
 
 function spawnPlayer() {
 
-    player.x = 1940;
-    player.y = 1020;
+    player.x = 1660;
+    player.y = 1900;
     player.moving = false;
 
     centerCameraOnPlayer();
@@ -3396,6 +3398,11 @@ function getCameraFollowZoom() {
 
     }
     if (!gameViewportState.isMobile) return 1;
+
+    // The new Tokyo artwork is composed natively for a tall phone screen.
+    // A slightly wider portrait frame keeps both the party and the avenue
+    // readable without stretching or cropping the map image.
+    if (currentChapter === "tokyo" && gameViewportState.portrait) return 0.68;
 
     return gameViewportState.portrait ? 0.76 : 0.92;
 
