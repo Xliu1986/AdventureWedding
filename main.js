@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.9.1 — Chapter Title System
+   Version 0.9.2 — Wedding Gateway
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -1951,6 +1951,7 @@ function showWeddingInvitation() {
     weddingGatewaySequence.active = false;
     weddingGatewaySequence.phase = "invitation";
     weddingGatewaySequence.invitationReady = false;
+    transitionInputLockUntil = performance.now() + 350;
     showStoryCG({ id: "weddingInvitation", revealDelay: 0.25 });
 
 }
@@ -3412,6 +3413,17 @@ function getCameraTarget(zoom = getCameraFollowZoom()) {
 
     }
 
+    if (weddingGatewaySequence.active && ["formation", "approach", "catPause", "coupleEnter", "whiteFade", "whiteHold"].includes(weddingGatewaySequence.phase)) {
+
+        const partyCenterX = (player.x + le.x + player.width + le.width) / 2;
+        const partyCenterY = (player.y + le.y + player.height + le.height) / 2;
+        return {
+            x: Math.max(0, Math.min(partyCenterX - visibleWidth / 2, maxX)),
+            y: Math.max(0, Math.min(partyCenterY - visibleHeight / 2, maxY))
+        };
+
+    }
+
     return {
         x: Math.max(0, Math.min(player.x + player.width / 2 - visibleWidth / 2, maxX)),
         y: Math.max(0, Math.min(player.y + player.height / 2 + portraitOffsetY - visibleHeight / 2, maxY))
@@ -4805,6 +4817,7 @@ function drawGame() {
     if (currentChapter === "tokyo") drawCollisionDebug();
     if (currentChapter === "longnanTown") drawLongnanBridgePiaozi();
     drawWorldAtmosphere();
+    if (currentChapter === "weddingXiaoyuan") drawWeddingGatewayVisuals();
 
     [
         { y: player.y + player.height, draw: drawPlayer },
@@ -4818,6 +4831,7 @@ function drawGame() {
 
     drawChapterTransitionOverlay();
     drawSceneTransitionOverlay();
+    drawWeddingGatewayOverlays();
 
 }
 
@@ -4893,7 +4907,9 @@ function gameLoop(timestamp) {
     updateChapterCard(deltaTime);
     updateChapterTransition(deltaTime);
     updateSceneTransition(deltaTime);
+    updateWeddingGatewaySequence(deltaTime);
     updateStoryCG(deltaTime);
+    if (weddingGatewayNoticeRemaining > 0) weddingGatewayNoticeRemaining = Math.max(0, weddingGatewayNoticeRemaining - deltaTime);
     if (gameState === GameState.LONGNAN_TITLE) {
 
         longnanTitleTimer += deltaTime;
@@ -4993,6 +5009,13 @@ function triggerMobileAction() {
 
     }
 
+    if (gameState === GameState.WEDDING_INVITATION) {
+
+        continueWeddingInvitation();
+        return;
+
+    }
+
     if (meetingState.dialogueOpen) {
 
         advanceMeetingDialogue();
@@ -5087,6 +5110,14 @@ window.addEventListener("keydown", event => {
 
     }
 
+    if (gameState === GameState.WEDDING_INVITATION) {
+
+        if (["Enter", "Space", "KeyE"].includes(event.code)) continueWeddingInvitation();
+        event.preventDefault();
+        return;
+
+    }
+
     if (event.code === "Escape" && characterPanelOpen) {
 
         event.preventDefault();
@@ -5147,7 +5178,8 @@ gameDialogue.addEventListener("click", advanceMeetingDialogue);
 chapterCard.addEventListener("click", requestChapterCardSkip);
 gameCanvas.addEventListener("click", () => {
 
-    if (!chapterCardState.active) tryInteraction();
+    if (gameState === GameState.WEDDING_INVITATION) continueWeddingInvitation();
+    else if (!chapterCardState.active) tryInteraction();
 
 });
 
