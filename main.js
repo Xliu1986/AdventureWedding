@@ -1471,6 +1471,21 @@ const chapterTransition = {
 // both desktop and touch devices.
 const sydneyToColesExit = { x: 790, y: 900, width: 280, height: 150 };
 const colesToSydneyExit = { x: 600, y: 760, width: 330, height: 180 };
+// Reaching the lower lookout terrace naturally starts the New Year food
+// conversation once, before the existing Coles entrance remains available.
+const sydneyNewYearSnackTrigger = {
+    id: "sydneyNewYearSnack",
+    x: 790,
+    y: 900,
+    width: 280,
+    height: 150,
+    completed: false,
+    pages: [
+        { speaker: "森", text: "走，我们去买点吃的吧，做些好吃的好好庆祝一下新年～" },
+        { speaker: "乐乐", text: "好呀，还真是有点饿了。" },
+        { speaker: "坨坨，大痣", text: "饿了喵～" }
+    ]
+};
 // Sydney is a single lookout tableau. The stone terrace is walkable; water,
 // gardens and stairs remain outside the playable space.
 const sydneyLookoutWalkableZone = { x: 118, y: 738, width: 1684, height: 270 };
@@ -2711,6 +2726,21 @@ function updateNearbySceneExit() {
         nearbySceneExit = gameState === GameState.SYDNEY
             ? "coles"
             : (storyFlags.gansuPiaozi && !storyFlags.sydneyChapterComplete ? "sydneyLife" : "sydney");
+
+    }
+
+}
+
+function updateSydneyNewYearSnackTrigger() {
+
+    if (gameState !== GameState.SYDNEY || meetingState.dialogueOpen || sceneTransition.active || sydneyNewYearSnackTrigger.completed) return;
+
+    const closestX = Math.max(sydneyNewYearSnackTrigger.x, Math.min(player.x + player.width / 2, sydneyNewYearSnackTrigger.x + sydneyNewYearSnackTrigger.width));
+    const closestY = Math.max(sydneyNewYearSnackTrigger.y, Math.min(player.y + player.height / 2, sydneyNewYearSnackTrigger.y + sydneyNewYearSnackTrigger.height));
+
+    if (Math.hypot(player.x + player.width / 2 - closestX, player.y + player.height / 2 - closestY) <= 72) {
+
+        openInteractionDialogue(sydneyNewYearSnackTrigger);
 
     }
 
@@ -4979,6 +5009,7 @@ function gameLoop(timestamp) {
         nearbyInteractable = null;
         nearbyCatEvent = false;
         nearbyStation = false;
+        updateSydneyNewYearSnackTrigger();
         updateNearbySceneExit();
         updateNearbyPiaozi();
         updateNearbyColesInspectable();
