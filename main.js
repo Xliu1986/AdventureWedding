@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.8.7 — Longnan Town Memories
+   Version 0.9.1 — Chapter Title System
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -322,52 +322,27 @@ const gameDialogueName = document.querySelector(".gameDialogueName");
 const gameDialogueText = document.querySelector(".gameDialogueText");
 const gameDialogueContinue = document.querySelector(".gameDialogueContinue");
 const openingPrologue = document.getElementById("openingPrologue");
+const chapterCard = document.getElementById("chapterCard");
+const chapterCardLabel = document.querySelector(".chapterCardLabel");
+const chapterCardTitleZh = document.querySelector(".chapterCardTitleZh");
+const chapterCardTitleEn = document.querySelector(".chapterCardTitleEn");
+const chapterCardTheme = document.querySelector(".chapterCardTheme");
+const chapterCardMessage = document.querySelector(".chapterCardMessage");
 
 let gameStarted = false;
 let characterPanelOpen = false;
+const chapterCardState = {
+    active: false, mode: "", chapterId: "", elapsed: 0, phase: "idle",
+    onComplete: null, inputUnlocked: false, finalCard: false, previousGameState: null
+};
+let transitionInputLockUntil = 0;
 
 // The single canonical location for every playable-character visual.
 const CHARACTERS = window.CHARACTERS;
 if (!CHARACTERS) throw new Error("Missing canonical data/characters.js manifest.");
 
-// Story-facing chapter metadata. Scene identifiers such as "longnanTown" and
-// "coles" remain implementation details; chapter copy comes from this map.
-const CHAPTERS = {
-
-    prologue: {
-        title: "Prologue",
-        subtitle: "Adventure Wedding"
-    },
-
-    tokyo: {
-        number: 1,
-        title: "东京",
-        english: "Tokyo",
-        theme: "相遇"
-    },
-
-    sydney: {
-        number: 2,
-        title: "悉尼",
-        english: "Sydney",
-        theme: "相伴"
-    },
-
-    longnan: {
-        number: 3,
-        title: "甘肃 · 陇南",
-        english: "Longnan",
-        theme: "回家"
-    },
-
-    wedding: {
-        number: "Final",
-        title: "北京 · 晓园",
-        english: "Wedding",
-        theme: "相守"
-    }
-
-};
+const CHAPTERS = window.CHAPTERS;
+if (!CHAPTERS) throw new Error("Missing centralized data/chapters.js configuration.");
 
 const portraitSources = Object.values(CHARACTERS)
     .map(character => character.portrait)
@@ -393,15 +368,189 @@ document.querySelectorAll("[data-character-portrait]").forEach(image => {
 
 });
 
-function beginGameplay() {
+function lockForChapterCard() {
+
+    pressedKeys.clear();
+    clearMobileControls();
+    player.moving = false;
+    le.moving = false;
+    cats.forEach(cat => cat.moving = false);
+    if (characterPanelOpen) setCharacterPanelOpen(false);
+    mobileControls.classList.add("hidden");
+    characterMenuButton.classList.add("hidden");
+    chapterLocation.classList.add("hidden");
+
+}
+
+function showChapterCard({ mode, chapter, onComplete = null }) {
+
+    if (chapterCardState.active || !chapter) return false;
+
+    lockForChapterCard();
+    const isEnding = mode === "ending";
+    const isFinal = mode === "finalEnding";
+    chapterCardState.active = true;
+    chapterCardState.mode = mode;
+    chapterCardState.chapterId = chapter.id;
+    chapterCardState.elapsed = 0;
+    chapterCardState.phase = "fadeIn";
+    chapterCardState.onComplete = onComplete;
+    chapterCardState.inputUnlocked = false;
+    chapterCardState.finalCard = isFinal;
+    chapterCardState.previousGameState = gameState;
+
+    if (mode === "prologue") gameState = GameState.PROLOGUE;
+    else if (isEnding) gameState = GameState.CHAPTER_ENDING;
+    else if (isFinal) gameState = GameState.FINAL_ENDING;
+    else gameState = GameState.CHAPTER_INTRO;
+
+    chapterCardLabel.textContent = isFinal ? "AdventureWedding" : (isEnding ? chapter.endingLabel : chapter.introLabel);
+    chapterCardTitleZh.textContent = isFinal ? "The End" : (isEnding ? `${chapter.titleZh} · ${chapter.theme}` : chapter.titleZh);
+    chapterCardTitleEn.textContent = isFinal ? "2026.09.09" : (isEnding ? "" : chapter.titleEn);
+    chapterCardTheme.textContent = isFinal ? "森 ❤ 乐" : (isEnding ? "" : chapter.theme);
+    chapterCardMessage.textContent = isFinal ? "谢谢你，\n陪我们走过这段旅程。\n\nPRESS START AGAIN" : (isEnding ? chapter.endingMessage : chapter.introMessage);
+    chapterCard.dataset.mode = mode;
+    chapterCard.style.opacity = "0";
+    chapterCard.classList.remove("hidden");
+    transitionInputLockUntil = performance.now() + 350;
+    return true;
+
+}
+
+function showPrologue(onComplete) {
+
+    return showChapterCard({ mode: "prologue", chapter: CHAPTERS.prologue, onComplete });
+
+}
+
+function showChapterIntro(chapterId, onComplete) {
+
+    const chapter = typeof chapterId === "string" ? CHAPTERS[chapterId] : chapterId;
+    return showChapterCard({ mode: "intro", chapter, onComplete });
+
+}
+
+function showChapterEnding(chapterId, onComplete) {
+
+    const chapter = typeof chapterId === "string" ? CHAPTERS[chapterId] : chapterId;
+    return showChapterCard({ mode: "ending", chapter, onComplete });
+
+}
+
+function showFinalEnding() {
+
+    return showChapterCard({ mode: "finalEnding", chapter: CHAPTERS.wedding });
+
+}
+
+function requestChapterCardSkip() {
+
+    if (!chapterCardState.active || !chapterCardState.inputUnlocked || chapterCardState.finalCard) return;
+    if (performance.now() < transitionInputLockUntil) return;
+    chapterCardState.phase = "fadeOut";
+    chapterCardState.elapsed = 0;
+
+}
+
+function updateChapterCard(deltaTime) {
+
+    if (!chapterCardState.active) return;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const fadeDuration = reduceMotion ? 0.18 : 0.55;
+    const holdDuration = reduceMotion ? 1.1 : 2.8;
+    chapterCardState.elapsed += deltaTime;
+
+    if (chapterCardState.phase === "fadeIn") {
+
+        chapterCard.style.opacity = String(Math.min(1, chapterCardState.elapsed / fadeDuration));
+        if (chapterCardState.elapsed >= fadeDuration) {
+
+            chapterCardState.phase = "hold";
+            chapterCardState.elapsed = 0;
+            chapterCardState.inputUnlocked = true;
+
+        }
+        return;
+
+    }
+
+    if (chapterCardState.phase === "hold") {
+
+        if (chapterCardState.finalCard) return;
+        if (chapterCardState.elapsed >= holdDuration) {
+
+            chapterCardState.phase = "fadeOut";
+            chapterCardState.elapsed = 0;
+
+        }
+        return;
+
+    }
+
+    if (chapterCardState.phase === "fadeOut") {
+
+        chapterCard.style.opacity = String(Math.max(0, 1 - chapterCardState.elapsed / fadeDuration));
+        if (chapterCardState.elapsed < fadeDuration) return;
+
+        const onComplete = chapterCardState.onComplete;
+        chapterCard.classList.add("hidden");
+        chapterCardState.active = false;
+        chapterCardState.phase = "idle";
+        chapterCardState.onComplete = null;
+        transitionInputLockUntil = performance.now() + 350;
+        if (onComplete) onComplete();
+
+    }
+
+}
+
+window.testChapterCard = (chapterId, mode = "intro") => {
+
+    if (mode === "prologue") return showPrologue();
+    if (mode === "finalEnding") return showFinalEnding();
+    return mode === "ending" ? showChapterEnding(chapterId) : showChapterIntro(chapterId);
+
+};
+
+function completeWeddingChapter() {
+
+    if (chapterCardState.active || gameState !== GameState.WEDDING_XIAOYUAN) return false;
+    return showChapterEnding("wedding", () => {
+
+        storyFlags.weddingChapterComplete = true;
+        storyFlags.gameComplete = true;
+        showFinalEnding();
+
+    });
+
+}
+
+window.completeWeddingChapter = completeWeddingChapter;
+
+function restoreGameplayUI() {
 
     openingPrologue.classList.add("hidden");
     gameViewport.classList.remove("hidden");
     chapterLocation.classList.remove("hidden");
     characterMenuButton.classList.remove("hidden");
     mobileControls.classList.remove("hidden");
+}
+
+function beginTokyoGameplay() {
+
+    restoreGameplayUI();
+    currentChapter = "tokyo";
+    gameState = GameState.TOKYO;
+    storyFlags.tokyoChapterStarted = true;
     spawnPlayer();
     startCameraIntro();
+
+}
+
+function beginGameplay() {
+
+    // Kept as the one-shot game-loop launcher. Scene callbacks only load
+    // content; they never create another requestAnimationFrame chain.
     previousGameTime = performance.now();
     requestAnimationFrame(gameLoop);
 
@@ -409,33 +558,14 @@ function beginGameplay() {
 
 function playOpeningPrologue() {
 
-    const lines = [...openingPrologue.querySelectorAll(".openingLine")];
-    openingPrologue.classList.remove("hidden", "showCharacters");
-    lines.forEach(line => line.classList.remove("isVisible", "isLeaving"));
+    // Compatibility entry point for older callers; Build 0.9.1 uses the
+    // reusable chapter-card system rather than the retired timed prologue.
+    showPrologue(() => {
 
-    let index = 0;
-    const showNextLine = () => {
+        storyFlags.prologueViewed = true;
+        showChapterIntro("tokyo", beginTokyoGameplay);
 
-        if (index >= lines.length) {
-
-            openingPrologue.classList.add("showCharacters");
-            window.setTimeout(beginGameplay, 1200);
-            return;
-
-        }
-
-        const line = lines[index++];
-        line.classList.add("isVisible");
-        window.setTimeout(() => {
-
-            line.classList.add("isLeaving");
-            window.setTimeout(showNextLine, 380);
-
-        }, 950);
-
-    };
-
-    showNextLine();
+    });
 
 }
 
@@ -686,6 +816,10 @@ let nearbyCatEvent = false;
 let activeInteraction = null;
 let gameplayPauseRemaining = 0;
 const storyFlags = {
+    prologueViewed: false,
+    tokyoChapterStarted: false,
+    tokyoChapterComplete: false,
+    sydneyChapterStarted: false,
     gansuPiaozi: false,
     sydneyCooking: false,
     sydneySeaside: false,
@@ -693,9 +827,18 @@ const storyFlags = {
     sydneyChapterComplete: false,
     longnanChapterStarted: false,
     longnanMemoryAlbumViewed: false,
+    longnanChapterComplete: false,
     weddingChapterStarted: false,
     weddingMapEntered: false,
-    weddingIntroShown: false
+    weddingIntroShown: false,
+    weddingSignInViewed: false,
+    weddingPhotoAreaViewed: false,
+    weddingCeremonyAreaViewed: false,
+    weddingArchUnlocked: false,
+    weddingArchSequenceStarted: false,
+    weddingInvitationViewed: false,
+    weddingChapterComplete: false,
+    gameComplete: false
 };
 let activeColesInspectable = null;
 
@@ -851,7 +994,7 @@ const longnanChildhoodTownPixelMap = new Image();
 longnanChildhoodTownPixelMap.src = "assets/maps/longnan/longnan-town.png?v=0.8.7";
 
 const weddingXiaoyuanMap = new Image();
-weddingXiaoyuanMap.src = "assets/maps/wedding/xiaoyuan-wedding-map.png?v=0.9.0";
+weddingXiaoyuanMap.src = "assets/maps/wedding/xiaoyuan-wedding-map.png?v=0.9.0-map2";
 weddingXiaoyuanMap.addEventListener("load", () => {
 
     if (currentChapter === "weddingXiaoyuan") storyFlags.weddingMapEntered = true;
@@ -958,6 +1101,17 @@ const storyCGs = {
         focalY: 0.5,
         mobileDisplay: "contain",
         autoCloseAfter: 2.5
+    },
+    weddingInvitation: {
+        src: "assets/cg/wedding/wedding-invitation.png?v=0.9.2",
+        focalX: 0.5,
+        focalY: 0.5,
+        mobileDisplay: "contain",
+        fallbackPlaceholder: true,
+        placeholderTitle: "Wedding Invitation",
+        placeholderSubtitle: "北京 · 晓园",
+        requiresContinue: true,
+        fadeFromWhite: true
     }
 };
 
@@ -971,7 +1125,8 @@ const storyCGOverlay = {
     dialogue: null,
     dialoguePurpose: "",
     dialogueStarted: false,
-    onComplete: null
+    onComplete: null,
+    inputReady: false
 };
 
 function preloadStoryCGs() {
@@ -981,6 +1136,12 @@ function preloadStoryCGs() {
         if (!config.image && config.src) {
 
             config.image = new Image();
+            config.image.addEventListener("error", () => {
+
+                config.loadFailed = true;
+                console.warn(`Missing Story CG asset: ${config.src}`);
+
+            });
             config.image.src = config.src;
 
         }
@@ -1054,7 +1215,22 @@ const weddingInteractables = [
     }
 ];
 let nearbyWeddingInteraction = null;
+const weddingFloralGateway = { id: "weddingFloralGateway", label: "进入花拱门", x: 725, y: 274, range: 116 };
+const weddingGatewaySequence = {
+    active: false,
+    phase: "idle",
+    elapsed: 0,
+    whiteFade: 0,
+    invitationReady: false,
+    formationReached: false,
+    catsStopped: false
+};
+let weddingGatewayNoticeRemaining = 0;
 const GameState = Object.freeze({
+    PROLOGUE: "prologue",
+    CHAPTER_INTRO: "chapterIntro",
+    CHAPTER_ENDING: "chapterEnding",
+    FINAL_ENDING: "finalEnding",
     TOKYO: "tokyo",
     TOKYO_STATION_CUTSCENE: "tokyoStationCutscene",
     CHAPTER_TRANSITION: "chapterTransition",
@@ -1073,7 +1249,12 @@ const GameState = Object.freeze({
     LONGNAN_CG: "longnanCG",
     LONGNAN_COMPLETE: "longnanComplete",
     WEDDING_INTRO: "weddingIntro",
-    WEDDING_XIAOYUAN: "weddingXiaoyuan"
+    WEDDING_XIAOYUAN: "weddingXiaoyuan",
+    WEDDING_GATEWAY_DIALOGUE: "weddingGatewayDialogue",
+    WEDDING_GATEWAY_CUTSCENE: "weddingGatewayCutscene",
+    WEDDING_WHITE_TRANSITION: "weddingWhiteTransition",
+    WEDDING_INVITATION: "weddingInvitation",
+    WEDDING_CONTINUATION: "weddingContinuation"
 });
 
 let currentChapter = "tokyo";
@@ -1611,7 +1792,22 @@ function closeMeetingDialogue() {
 
     if (dialoguePurpose === "sydneyAirport") {
 
-        storyCGOverlay.onComplete = startLongnanTitle;
+        storyCGOverlay.onComplete = () => {
+
+            storyFlags.sydneyChapterComplete = true;
+            showChapterEnding("sydney", () => {
+
+                showChapterIntro("longnan", () => {
+
+                    storyFlags.longnanChapterStarted = true;
+                    restoreGameplayUI();
+                    startLongnanOpening();
+
+                });
+
+            });
+
+        };
         storyCGOverlay.phase = "endingHold";
         storyCGOverlay.revealDelay = 1;
 
@@ -1660,10 +1856,137 @@ function closeMeetingDialogue() {
 
     }
 
+    if (dialoguePurpose === "weddingGuide" && activeInteraction) {
+
+        const viewedFlagById = {
+            weddingSignIn: "weddingSignInViewed",
+            weddingPhotoArea: "weddingPhotoAreaViewed",
+            weddingCeremonyArea: "weddingCeremonyAreaViewed"
+        };
+        const viewedFlag = viewedFlagById[activeInteraction.id];
+        if (viewedFlag) storyFlags[viewedFlag] = true;
+        unlockWeddingFloralGateway();
+
+    }
+
+    if (dialoguePurpose === "weddingGateway") beginWeddingGatewayCutscene();
+
+    if (dialoguePurpose === "weddingInvitation") {
+
+        storyFlags.weddingInvitationViewed = true;
+        storyCGOverlay.onComplete = showWeddingContinuation;
+        storyCGOverlay.phase = "endingHold";
+        storyCGOverlay.revealDelay = 0.55;
+
+    }
+
     if (dialoguePurpose === "colesInspect" && activeColesInspectable) activeColesInspectable.completed = true;
 
     activeInteraction = null;
     activeColesInspectable = null;
+
+}
+
+function unlockWeddingFloralGateway() {
+
+    if (storyFlags.weddingArchUnlocked) return;
+    if (!storyFlags.weddingSignInViewed || !storyFlags.weddingPhotoAreaViewed || !storyFlags.weddingCeremonyAreaViewed) return;
+
+    storyFlags.weddingArchUnlocked = true;
+    weddingGatewayNoticeRemaining = 1.8;
+
+}
+
+const weddingGatewayDialoguePages = [
+    { speaker: "坨坨", text: "森～\n\n准备好了喵？" },
+    { speaker: "大痣", text: "大家都在等你们喵呜～" },
+    { speaker: "乐乐", text: "那我们，\n\n一起进去吧。" },
+    { speaker: "森", text: "走吧。\n\n迎接我们的，\n\n下一段人生。" }
+];
+
+function startWeddingGatewayDialogue() {
+
+    if (!storyFlags.weddingArchUnlocked || storyFlags.weddingArchSequenceStarted || gameState !== GameState.WEDDING_XIAOYUAN) return;
+
+    storyFlags.weddingArchSequenceStarted = true;
+    weddingGatewaySequence.active = true;
+    weddingGatewaySequence.phase = "dialogue";
+    weddingGatewaySequence.elapsed = 0;
+    weddingGatewaySequence.whiteFade = 0;
+    weddingGatewaySequence.formationReached = false;
+    weddingGatewaySequence.catsStopped = false;
+    nearbyWeddingInteraction = null;
+    pressedKeys.clear();
+    clearMobileControls();
+    player.moving = false;
+    le.moving = false;
+    cats.forEach(cat => {
+
+        cat.moving = false;
+        cat.behaviour = "idle";
+
+    });
+    le.companion = false;
+    cats.forEach(cat => cat.following = false);
+    if (characterPanelOpen) setCharacterPanelOpen(false);
+    mobileControls.classList.add("hidden");
+    characterMenuButton.classList.add("hidden");
+    gameState = GameState.WEDDING_GATEWAY_DIALOGUE;
+    openPiaoziDialogue(weddingGatewayDialoguePages, "weddingGateway");
+
+}
+
+function beginWeddingGatewayCutscene() {
+
+    if (!weddingGatewaySequence.active) return;
+    gameState = GameState.WEDDING_GATEWAY_CUTSCENE;
+    weddingGatewaySequence.phase = "formation";
+    weddingGatewaySequence.elapsed = 0;
+
+}
+
+function showWeddingInvitation() {
+
+    gameState = GameState.WEDDING_INVITATION;
+    weddingGatewaySequence.active = false;
+    weddingGatewaySequence.phase = "invitation";
+    weddingGatewaySequence.invitationReady = false;
+    showStoryCG({ id: "weddingInvitation", revealDelay: 0.25 });
+
+}
+
+function continueWeddingInvitation() {
+
+    if (gameState !== GameState.WEDDING_INVITATION || !storyCGOverlay.active || !storyCGOverlay.inputReady || meetingState.dialogueOpen) return;
+    if (performance.now() < transitionInputLockUntil) return;
+
+    transitionInputLockUntil = performance.now() + 350;
+    storyCGOverlay.inputReady = false;
+    openPiaoziDialogue([
+        { speaker: "乐乐", text: "谢谢你，\n\n陪我们一路走到了这里。" },
+        { speaker: "森", text: "谢谢大家，\n\n来参加我们的婚礼。" }
+    ], "weddingInvitation");
+
+}
+
+function showWeddingContinuation() {
+
+    lockForChapterCard();
+    gameState = GameState.WEDDING_CONTINUATION;
+    chapterCardState.active = true;
+    chapterCardState.mode = "weddingContinuation";
+    chapterCardState.chapterId = "wedding";
+    chapterCardState.phase = "hold";
+    chapterCardState.finalCard = true;
+    chapterCardState.inputUnlocked = false;
+    chapterCardLabel.textContent = "Wedding";
+    chapterCardTitleZh.textContent = "婚礼即将开始……";
+    chapterCardTitleEn.textContent = "";
+    chapterCardTheme.textContent = "北京 · 晓园";
+    chapterCardMessage.textContent = "";
+    chapterCard.dataset.mode = "continuation";
+    chapterCard.style.opacity = "1";
+    chapterCard.classList.remove("hidden");
 
 }
 
@@ -1775,28 +2098,19 @@ function startSydneyAirportSequence() {
 function startLongnanTitle() {
 
     storyFlags.sydneyChapterComplete = true;
-    showChapterIntro(CHAPTERS.longnan);
+    showChapterIntro("longnan", () => {
 
-}
+        storyFlags.longnanChapterStarted = true;
+        restoreGameplayUI();
+        startLongnanOpening();
 
-function showChapterIntro(chapter) {
-
-    activeChapterIntro = chapter;
-    gameState = GameState.LONGNAN_TITLE;
-    longnanTitleTimer = 0;
-
-}
-
-function showChapterComplete(chapter) {
-
-    activeChapterComplete = chapter;
-    gameState = GameState.LONGNAN_COMPLETE;
-    longnanSequenceTimer = 0;
+    });
 
 }
 
 function startLongnanOpening() {
 
+    restoreGameplayUI();
     currentChapter = "longnanLookout";
     gameState = GameState.LONGNAN_LOOKOUT;
     storyFlags.longnanChapterStarted = true;
@@ -1858,6 +2172,7 @@ const weddingOpeningPages = [
 
 function enterWeddingXiaoyuan() {
 
+    restoreGameplayUI();
     currentChapter = "weddingXiaoyuan";
     gameState = GameState.WEDDING_XIAOYUAN;
     storyFlags.weddingChapterStarted = true;
@@ -1901,7 +2216,17 @@ function playLongnanCG() {
     const scene = longnanCGSequence[longnanCGIndex];
     if (!scene) {
 
-        showChapterComplete(CHAPTERS.longnan);
+        showChapterEnding("longnan", () => {
+
+            storyFlags.longnanChapterComplete = true;
+            showChapterIntro("wedding", () => {
+
+                restoreGameplayUI();
+                enterWeddingXiaoyuan();
+
+            });
+
+        });
         return;
 
     }
@@ -1925,6 +2250,7 @@ function showStoryCG({ id, image, dialogue = null, dialoguePurpose = "storyCG", 
     storyCGOverlay.dialoguePurpose = dialoguePurpose;
     storyCGOverlay.dialogueStarted = false;
     storyCGOverlay.onComplete = onComplete;
+    storyCGOverlay.inputReady = false;
     pressedKeys.clear();
     clearMobileControls();
     player.moving = false;
@@ -1947,9 +2273,17 @@ function showLongnanMemoryAlbum(pageIndex = 0) {
     if (!id) {
 
         storyFlags.longnanMemoryAlbumViewed = true;
-        // Build 0.9.0 continues naturally from Longnan's completed album to
-        // the existing chapter-complete card, then into the wedding opening.
-        showChapterComplete(CHAPTERS.longnan);
+        showChapterEnding("longnan", () => {
+
+            storyFlags.longnanChapterComplete = true;
+            showChapterIntro("wedding", () => {
+
+                restoreGameplayUI();
+                enterWeddingXiaoyuan();
+
+            });
+
+        });
         return;
 
     }
@@ -1992,7 +2326,12 @@ function updateStoryCG(deltaTime) {
 
                 openPiaoziDialogue(storyCGOverlay.dialogue, storyCGOverlay.dialoguePurpose);
 
-            } else if (storyCGOverlay.config?.placeholder || storyCGOverlay.config?.autoCloseAfter) {
+            } else if (storyCGOverlay.config?.requiresContinue) {
+
+                storyCGOverlay.inputReady = true;
+                weddingGatewaySequence.invitationReady = true;
+
+            } else if (storyCGOverlay.config?.autoCloseAfter) {
 
                 storyCGOverlay.phase = "endingHold";
                 storyCGOverlay.revealDelay = storyCGOverlay.config.autoCloseAfter || 1.8;
@@ -2022,6 +2361,7 @@ function updateStoryCG(deltaTime) {
         storyCGOverlay.phase = "idle";
         storyCGOverlay.dialogue = null;
         storyCGOverlay.onComplete = null;
+        storyCGOverlay.inputReady = false;
         if (onComplete) onComplete();
 
     }
@@ -2030,7 +2370,7 @@ function updateStoryCG(deltaTime) {
 
 function checkFirstMeeting() {
 
-    if (meetingState.triggered || cameraIntro.active) return;
+    if (chapterCardState.active || meetingState.triggered || cameraIntro.active) return;
 
     const distance = Math.hypot(player.x - le.x, player.y - le.y);
 
@@ -2177,7 +2517,9 @@ function startSydneyDialogue() {
 
 function spawnSydneyParty() {
 
+    restoreGameplayUI();
     currentChapter = "sydney";
+    storyFlags.sydneyChapterStarted = true;
     gameState = GameState.SYDNEY_LOOKOUT;
     chapterLocation.textContent = "悉尼 · 海港之夜";
     player.x = 875;
@@ -2223,8 +2565,19 @@ function updateChapterTransition(deltaTime) {
 
     if (chapterTransition.phase === "fadeTokyo" && chapterTransition.elapsed >= 1.8) {
 
-        chapterTransition.phase = "chapterOne";
-        chapterTransition.elapsed = 0;
+        chapterTransition.active = false;
+        chapterTransition.completed = true;
+        storyFlags.tokyoChapterComplete = true;
+        showChapterEnding("tokyo", () => {
+
+            showChapterIntro("sydney", () => {
+
+                spawnSydneyParty();
+                startSydneyDialogue();
+
+            });
+
+        });
         return;
 
     }
@@ -2417,14 +2770,222 @@ function updateNearbyLongnan() {
 function updateNearbyWedding() {
 
     nearbyWeddingInteraction = null;
-    if (gameState !== GameState.WEDDING_XIAOYUAN || meetingState.dialogueOpen || storyCGOverlay.active) return;
+    if (gameState !== GameState.WEDDING_XIAOYUAN || meetingState.dialogueOpen || storyCGOverlay.active || weddingGatewaySequence.active) return;
 
     const centerX = player.x + player.width / 2;
     const centerY = player.y + player.height / 2;
+    if (storyFlags.weddingArchUnlocked && !storyFlags.weddingArchSequenceStarted
+        && Math.hypot(centerX - weddingFloralGateway.x, centerY - weddingFloralGateway.y) <= weddingFloralGateway.range) {
+
+        nearbyWeddingInteraction = weddingFloralGateway;
+        return;
+
+    }
     nearbyWeddingInteraction = weddingInteractables
         .map(item => ({ item, distance: Math.hypot(centerX - item.x, centerY - item.y) }))
         .filter(entry => entry.distance <= 108)
         .sort((first, second) => first.distance - second.distance)[0]?.item || null;
+
+}
+
+function moveWeddingActor(actor, target, deltaTime, speed) {
+
+    const distance = Math.hypot(target.x - actor.x, target.y - actor.y);
+    if (distance <= 2) {
+
+        actor.x = target.x;
+        actor.y = target.y;
+        actor.moving = false;
+        return true;
+
+    }
+
+    const step = Math.min(distance, speed * deltaTime);
+    actor.x += ((target.x - actor.x) / distance) * step;
+    actor.y += ((target.y - actor.y) / distance) * step;
+    actor.moving = true;
+    faceToward(actor, target);
+    return false;
+
+}
+
+function placeWeddingFormation() {
+
+    const formation = [
+        [player, { x: 682, y: 510 }],
+        [le, { x: 758, y: 510 }],
+        [cats[0], { x: 682, y: 570 }],
+        [cats[1], { x: 758, y: 570 }]
+    ];
+    formation.forEach(([actor, target]) => {
+
+        actor.x = target.x;
+        actor.y = target.y;
+        actor.direction = "up";
+        actor.moving = false;
+
+    });
+
+}
+
+function updateWeddingGatewaySequence(deltaTime) {
+
+    if (!weddingGatewaySequence.active || weddingGatewaySequence.phase === "dialogue") return;
+    weddingGatewaySequence.elapsed += deltaTime;
+
+    if (weddingGatewaySequence.phase === "formation") {
+
+        const formation = [
+            [player, { x: 682, y: 510 }],
+            [le, { x: 758, y: 510 }],
+            [cats[0], { x: 682, y: 570 }],
+            [cats[1], { x: 758, y: 570 }]
+        ];
+        const reached = formation.map(([actor, target]) => moveWeddingActor(actor, target, deltaTime, 128)).every(Boolean);
+        if (reached || weddingGatewaySequence.elapsed >= 3) {
+
+            if (!reached) placeWeddingFormation();
+            weddingGatewaySequence.formationReached = true;
+            weddingGatewaySequence.phase = "approach";
+            weddingGatewaySequence.elapsed = 0;
+
+        }
+        return;
+
+    }
+
+    if (weddingGatewaySequence.phase === "approach") {
+
+        const targets = [
+            [player, { x: 682, y: 322 }],
+            [le, { x: 758, y: 322 }],
+            [cats[0], { x: 682, y: 380 }],
+            [cats[1], { x: 758, y: 380 }]
+        ];
+        const reached = targets.map(([actor, target]) => moveWeddingActor(actor, target, deltaTime, 104)).every(Boolean);
+        if (reached) {
+
+            cats.forEach(cat => faceToward(cat, player));
+            weddingGatewaySequence.catsStopped = true;
+            weddingGatewaySequence.phase = "catPause";
+            weddingGatewaySequence.elapsed = 0;
+
+        }
+        return;
+
+    }
+
+    if (weddingGatewaySequence.phase === "catPause") {
+
+        player.moving = false;
+        le.moving = false;
+        if (weddingGatewaySequence.elapsed >= 0.75) {
+
+            weddingGatewaySequence.phase = "coupleEnter";
+            weddingGatewaySequence.elapsed = 0;
+
+        }
+        return;
+
+    }
+
+    if (weddingGatewaySequence.phase === "coupleEnter") {
+
+        const reached = [
+            moveWeddingActor(player, { x: 682, y: 230 }, deltaTime, 92),
+            moveWeddingActor(le, { x: 758, y: 230 }, deltaTime, 92)
+        ].every(Boolean);
+        cats.forEach(cat => cat.moving = false);
+        if (reached) {
+
+            player.moving = false;
+            le.moving = false;
+            weddingGatewaySequence.phase = "whiteFade";
+            weddingGatewaySequence.elapsed = 0;
+            gameState = GameState.WEDDING_WHITE_TRANSITION;
+
+        }
+        return;
+
+    }
+
+    if (weddingGatewaySequence.phase === "whiteFade") {
+
+        weddingGatewaySequence.whiteFade = Math.min(1, weddingGatewaySequence.elapsed / 1.45);
+        if (weddingGatewaySequence.whiteFade >= 1) {
+
+            weddingGatewaySequence.phase = "whiteHold";
+            weddingGatewaySequence.elapsed = 0;
+
+        }
+        return;
+
+    }
+
+    if (weddingGatewaySequence.phase === "whiteHold" && weddingGatewaySequence.elapsed >= 0.55) showWeddingInvitation();
+
+}
+
+function drawWeddingGatewayVisuals() {
+
+    if (!storyFlags.weddingArchUnlocked) return;
+    const pulse = 0.16 + (Math.sin(windTime * 2.3) + 1) * 0.045;
+    const archX = weddingFloralGateway.x;
+    const archY = weddingFloralGateway.y;
+    gameCtx.save();
+    gameCtx.globalCompositeOperation = "screen";
+    gameCtx.fillStyle = `rgba(255, 246, 216, ${pulse})`;
+    gameCtx.fillRect(archX - 104, archY - 118, 208, 130);
+    gameCtx.fillStyle = "rgba(247, 207, 120, .66)";
+    for (let index = 0; index < 8; index++) {
+
+        const angle = windTime * 1.1 + index * 0.78;
+        const x = archX + Math.cos(angle) * (70 + (index % 3) * 9);
+        const y = archY - 42 + Math.sin(angle * 1.5) * 44;
+        gameCtx.fillRect(Math.round(x), Math.round(y), 3, 3);
+
+    }
+    gameCtx.fillStyle = "rgba(255, 248, 239, .75)";
+    for (let index = 0; index < 4; index++) {
+
+        const x = archX - 70 + ((windTime * 16 + index * 37) % 138);
+        const y = archY - 104 + ((windTime * 11 + index * 29) % 108);
+        gameCtx.fillRect(Math.round(x), Math.round(y), 3, 4);
+
+    }
+    gameCtx.restore();
+
+}
+
+function drawWeddingGatewayOverlays() {
+
+    if (weddingGatewayNoticeRemaining > 0) {
+
+        const alpha = Math.min(1, weddingGatewayNoticeRemaining / 0.25, (1.8 - weddingGatewayNoticeRemaining) / 0.25);
+        const width = 260;
+        const x = Math.round((gameViewportState.width - width) / 2);
+        gameCtx.globalAlpha = Math.max(0, alpha);
+        gameCtx.fillStyle = "rgba(7, 21, 42, .94)";
+        gameCtx.fillRect(x, 44, width, 42);
+        gameCtx.strokeStyle = "#d8aa54";
+        gameCtx.lineWidth = 2;
+        gameCtx.strokeRect(x, 44, width, 42);
+        gameCtx.fillStyle = "#fff2cc";
+        gameCtx.textAlign = "center";
+        gameCtx.font = "15px Fusion Pixel, monospace";
+        gameCtx.fillText("花拱门似乎亮了起来……", gameViewportState.width / 2, 70);
+        gameCtx.textAlign = "left";
+        gameCtx.globalAlpha = 1;
+
+    }
+
+    if (weddingGatewaySequence.phase === "whiteFade" || weddingGatewaySequence.phase === "whiteHold") {
+
+        const alpha = weddingGatewaySequence.phase === "whiteHold" ? 1 : weddingGatewaySequence.whiteFade;
+        gameCtx.fillStyle = `rgba(255, 249, 231, ${alpha})`;
+        gameCtx.fillRect(0, 0, gameViewportState.width, gameViewportState.height);
+
+    }
 
 }
 
@@ -2525,6 +3086,13 @@ function tryInteraction() {
 
     if (nearbyWeddingInteraction && !meetingState.dialogueOpen) {
 
+        if (nearbyWeddingInteraction.id === "weddingFloralGateway") {
+
+            startWeddingGatewayDialogue();
+            return;
+
+        }
+
         activeInteraction = nearbyWeddingInteraction;
         openPiaoziDialogue(nearbyWeddingInteraction.pages, "weddingGuide");
 
@@ -2589,7 +3157,7 @@ function tryInteraction() {
 
 function updateLeCompanion(deltaTime) {
 
-    if (!le.companion || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active || gameplayPauseRemaining > 0 || chapterTransition.active || sceneTransition.active || storyCGOverlay.active) {
+    if (!le.companion || chapterCardState.active || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active || gameplayPauseRemaining > 0 || chapterTransition.active || sceneTransition.active || storyCGOverlay.active) {
 
         le.moving = false;
         return;
@@ -2644,6 +3212,8 @@ function drawInteractionPrompt() {
     const mobilePrompt = mobileControls.classList.contains("isTouchMode");
     const promptText = nearbyLongnanExit
         ? (mobilePrompt ? "点击 A 前往童年小镇" : "按 E 前往童年小镇")
+        : nearbyWeddingInteraction?.id === "weddingFloralGateway"
+        ? `${nearbyWeddingInteraction.label}\n${mobilePrompt ? "点击 A" : "按 E"}`
         : nearbyWeddingInteraction
         ? `${nearbyWeddingInteraction.label}\n${mobilePrompt ? "点击 A 查看" : "按 E 查看"}`
         : nearbyLongnanMemoryAlbum
@@ -2669,7 +3239,7 @@ function drawInteractionPrompt() {
         : nearbyInteractable?.prompt
         ? (mobilePrompt ? `点击 A ${nearbyInteractable.prompt}` : `按 E 查看 ${nearbyInteractable.prompt}`)
         : (mobilePrompt ? "点击 A 互动" : "按 E / 点击互动");
-    const promptWidth = nearbyWeddingInteraction ? 126 : nearbyLongnanExit ? 190 : nearbyLongnanMemoryAlbum ? 160 : nearbyLongnanInteraction ? 190 : piaoziState.nearby ? 240 : nearbySceneExit === "sydneyLife" ? 220 : nearbySceneExit ? 170 : nearbyStation ? 156 : nearbyCatEvent ? 164 : nearbyInteractable?.prompt ? 158 : 112;
+    const promptWidth = nearbyWeddingInteraction?.id === "weddingFloralGateway" ? 150 : nearbyWeddingInteraction ? 126 : nearbyLongnanExit ? 190 : nearbyLongnanMemoryAlbum ? 160 : nearbyLongnanInteraction ? 190 : piaoziState.nearby ? 240 : nearbySceneExit === "sydneyLife" ? 220 : nearbySceneExit ? 170 : nearbyStation ? 156 : nearbyCatEvent ? 164 : nearbyInteractable?.prompt ? 158 : 112;
 
     gameCtx.fillStyle = "rgba(10, 20, 38, 0.86)";
     gameCtx.fillRect(player.x - 44, player.y - (nearbyWeddingInteraction ? 76 : 58), promptWidth, nearbyWeddingInteraction ? 46 : 28);
@@ -2677,8 +3247,11 @@ function drawInteractionPrompt() {
     gameCtx.font = "14px Fusion Pixel 12px Monospaced JP";
     if (nearbyWeddingInteraction) {
 
-        gameCtx.fillText(nearbyWeddingInteraction.label, player.x - 38, player.y - 57);
-        gameCtx.fillText(mobilePrompt ? "点击 A 查看" : "按 E 查看", player.x - 38, player.y - 38);
+        const viewed = ({ weddingSignIn: storyFlags.weddingSignInViewed, weddingPhotoArea: storyFlags.weddingPhotoAreaViewed, weddingCeremonyArea: storyFlags.weddingCeremonyAreaViewed })[nearbyWeddingInteraction.id];
+        gameCtx.fillText(`${nearbyWeddingInteraction.label}${viewed ? " ✓" : ""}`, player.x - 38, player.y - 57);
+        gameCtx.fillText(nearbyWeddingInteraction.id === "weddingFloralGateway"
+            ? (mobilePrompt ? "点击 A" : "按 E")
+            : (mobilePrompt ? "点击 A 查看" : "按 E 查看"), player.x - 38, player.y - 38);
 
     } else {
 
@@ -2690,7 +3263,7 @@ function drawInteractionPrompt() {
 
 function updateCatCompanion(cat, index, deltaTime) {
 
-    if (!cat.following || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active || gameplayPauseRemaining > 0 || chapterTransition.active || sceneTransition.active || storyCGOverlay.active) {
+    if (!cat.following || chapterCardState.active || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active || gameplayPauseRemaining > 0 || chapterTransition.active || sceneTransition.active || storyCGOverlay.active) {
 
         cat.moving = false;
         cat.animationTime += deltaTime;
@@ -3527,8 +4100,12 @@ function drawChapterTransitionOverlay() {
 
         gameCtx.fillStyle = "#02060d";
         gameCtx.fillRect(0, 0, gameViewportState.width, gameViewportState.height);
-        if (phase === "chapterOne") drawChapterCard("Chapter 1", "东京", "Completed");
-        else drawChapterCard("Chapter 2", "Sydney", "悉尼");
+        const chapter = phase === "chapterOne" ? CHAPTERS.tokyo : CHAPTERS.sydney;
+        drawChapterCard(
+            phase === "chapterOne" ? chapter.endingLabel : chapter.introLabel,
+            phase === "chapterOne" ? chapter.titleZh : chapter.titleEn,
+            phase === "chapterOne" ? chapter.endingMessage.replace("\n", " ") : chapter.titleZh
+        );
         return;
 
     }
@@ -3674,12 +4251,12 @@ function drawSydneyLookout() {
 
 function drawStoryCG() {
 
-    gameCtx.fillStyle = "#02070d";
+    gameCtx.fillStyle = storyCGOverlay.config?.fadeFromWhite ? "#fff8e7" : "#02070d";
     gameCtx.fillRect(0, 0, gameViewportState.width, gameViewportState.height);
 
     const config = storyCGOverlay.config;
     const image = config?.image;
-    if (config?.placeholder) {
+    if (config?.fallbackPlaceholder && (!image?.complete || !image.naturalWidth)) {
 
         gameCtx.globalAlpha = storyCGOverlay.opacity;
         gameCtx.fillStyle = "#08172d";
@@ -3690,7 +4267,15 @@ function drawStoryCG() {
         gameCtx.fillStyle = "#f4cf7a";
         gameCtx.textAlign = "center";
         gameCtx.font = "28px Fusion Pixel, monospace";
-        gameCtx.fillText("陇南 · 回忆", gameViewportState.width / 2, gameViewportState.height / 2);
+        gameCtx.fillText(config.placeholderTitle || "Story CG", gameViewportState.width / 2, gameViewportState.height / 2 - 16);
+        gameCtx.font = "18px Fusion Pixel, monospace";
+        gameCtx.fillText(config.placeholderSubtitle || "", gameViewportState.width / 2, gameViewportState.height / 2 + 24);
+        if (storyCGOverlay.inputReady) {
+
+            gameCtx.font = "15px Fusion Pixel, monospace";
+            gameCtx.fillText(gameViewportState.isMobile ? "点击 A 继续" : "按 E 继续", gameViewportState.width / 2, gameViewportState.height - 62);
+
+        }
         gameCtx.textAlign = "left";
         gameCtx.globalAlpha = 1;
         return;
@@ -3734,6 +4319,21 @@ function drawStoryCG() {
     }
 
     gameCtx.globalAlpha = 1;
+
+    if (storyCGOverlay.inputReady) {
+
+        gameCtx.fillStyle = "rgba(5, 17, 33, .76)";
+        gameCtx.fillRect(gameViewportState.width / 2 - 82, gameViewportState.height - 58, 164, 30);
+        gameCtx.strokeStyle = "#d8aa54";
+        gameCtx.lineWidth = 2;
+        gameCtx.strokeRect(gameViewportState.width / 2 - 82, gameViewportState.height - 58, 164, 30);
+        gameCtx.fillStyle = "#fff2cc";
+        gameCtx.textAlign = "center";
+        gameCtx.font = "14px Fusion Pixel, monospace";
+        gameCtx.fillText(gameViewportState.isMobile ? "点击 A 继续" : "按 E 继续", gameViewportState.width / 2, gameViewportState.height - 37);
+        gameCtx.textAlign = "left";
+
+    }
 
 }
 
@@ -3986,6 +4586,7 @@ function drawSceneTransitionOverlay() {
 function drawLongnanTitle() {
 
     const chapter = activeChapterIntro || CHAPTERS.longnan;
+    const previousChapter = CHAPTERS.sydney;
 
     gameCtx.fillStyle = "#07152a";
     gameCtx.fillRect(0, 0, gameViewportState.width, gameViewportState.height);
@@ -4002,17 +4603,17 @@ function drawLongnanTitle() {
     gameCtx.textAlign = "center";
     gameCtx.fillStyle = "#f4cf7a";
     gameCtx.font = "24px Fusion Pixel, monospace";
-    gameCtx.fillText("Chapter 2", gameViewportState.width / 2, gameViewportState.height * 0.32);
+    gameCtx.fillText(previousChapter.endingLabel, gameViewportState.width / 2, gameViewportState.height * 0.32);
     gameCtx.font = "34px Fusion Pixel, monospace";
-    gameCtx.fillText("悉尼", gameViewportState.width / 2, gameViewportState.height * 0.41);
+    gameCtx.fillText(previousChapter.titleZh, gameViewportState.width / 2, gameViewportState.height * 0.41);
     gameCtx.font = "20px Fusion Pixel, monospace";
-    gameCtx.fillText("Completed", gameViewportState.width / 2, gameViewportState.height * 0.48);
+    gameCtx.fillText(previousChapter.endingMessage.replace("\n", " "), gameViewportState.width / 2, gameViewportState.height * 0.48);
     if (longnanTitleTimer > 2) {
 
         gameCtx.font = "24px Fusion Pixel, monospace";
-        gameCtx.fillText(`Chapter ${chapter.number}`, gameViewportState.width / 2, gameViewportState.height * 0.61);
+        gameCtx.fillText(chapter.introLabel, gameViewportState.width / 2, gameViewportState.height * 0.61);
         gameCtx.font = "34px Fusion Pixel, monospace";
-        gameCtx.fillText(chapter.title, gameViewportState.width / 2, gameViewportState.height * 0.70);
+        gameCtx.fillText(chapter.titleZh, gameViewportState.width / 2, gameViewportState.height * 0.70);
         gameCtx.font = "16px Fusion Pixel, monospace";
         gameCtx.fillText(chapter.theme, gameViewportState.width / 2, gameViewportState.height * 0.76);
 
@@ -4061,11 +4662,11 @@ function drawLongnanComplete() {
     gameCtx.textAlign = "center";
     gameCtx.fillStyle = "#f4cf7a";
     gameCtx.font = "26px Fusion Pixel, monospace";
-    gameCtx.fillText(`Chapter ${chapter.number}`, gameViewportState.width / 2, gameViewportState.height * 0.40);
+    gameCtx.fillText(chapter.endingLabel || "Chapter Completed", gameViewportState.width / 2, gameViewportState.height * 0.40);
     gameCtx.font = "34px Fusion Pixel, monospace";
-    gameCtx.fillText(chapter.english, gameViewportState.width / 2, gameViewportState.height * 0.49);
+    gameCtx.fillText(chapter.titleEn, gameViewportState.width / 2, gameViewportState.height * 0.49);
     gameCtx.font = "24px Fusion Pixel, monospace";
-    gameCtx.fillText("Completed", gameViewportState.width / 2, gameViewportState.height * 0.57);
+    gameCtx.fillText(chapter.endingMessage.replace("\n", " "), gameViewportState.width / 2, gameViewportState.height * 0.57);
     gameCtx.textAlign = "left";
 
 }
@@ -4088,15 +4689,16 @@ function drawWeddingIntro() {
         gameCtx.textAlign = "center";
         gameCtx.fillStyle = "rgba(7, 21, 42, .9)";
         gameCtx.font = "24px Fusion Pixel, monospace";
-        gameCtx.fillText(`${chapter.number} Chapter`, gameViewportState.width / 2, gameViewportState.height * 0.34);
+        gameCtx.fillText(chapter.introLabel, gameViewportState.width / 2, gameViewportState.height * 0.34);
         gameCtx.font = "34px Fusion Pixel, monospace";
-        gameCtx.fillText(chapter.english, gameViewportState.width / 2, gameViewportState.height * 0.43);
+        gameCtx.fillText(chapter.titleEn, gameViewportState.width / 2, gameViewportState.height * 0.43);
         gameCtx.font = "21px Fusion Pixel, monospace";
-        gameCtx.fillText(chapter.title, gameViewportState.width / 2, gameViewportState.height * 0.50);
+        gameCtx.fillText(chapter.titleZh, gameViewportState.width / 2, gameViewportState.height * 0.50);
         gameCtx.font = "18px Fusion Pixel, monospace";
         gameCtx.fillText(chapter.theme, gameViewportState.width / 2, gameViewportState.height * 0.56);
-        gameCtx.fillText("今天，", gameViewportState.width / 2, gameViewportState.height * 0.66);
-        gameCtx.fillText("我们成为一家人。", gameViewportState.width / 2, gameViewportState.height * 0.71);
+        const [firstLine, secondLine] = chapter.introMessage.split("\n");
+        gameCtx.fillText(firstLine, gameViewportState.width / 2, gameViewportState.height * 0.66);
+        gameCtx.fillText(secondLine || "", gameViewportState.width / 2, gameViewportState.height * 0.71);
         gameCtx.textAlign = "left";
 
     }
@@ -4221,7 +4823,7 @@ function drawGame() {
 
 function updatePlayer(deltaTime) {
 
-    if (cameraIntro.active || meetingState.dialogueOpen || characterPanelOpen || gameplayPauseRemaining || chapterTransition.active || sceneTransition.active || storyCGOverlay.active || ![GameState.TOKYO, GameState.SYDNEY, GameState.COLES, GameState.LONGNAN_LOOKOUT, GameState.LONGNAN_TOWN, GameState.WEDDING_XIAOYUAN].includes(gameState)) {
+    if (chapterCardState.active || cameraIntro.active || meetingState.dialogueOpen || characterPanelOpen || gameplayPauseRemaining || chapterTransition.active || sceneTransition.active || storyCGOverlay.active || ![GameState.TOKYO, GameState.SYDNEY, GameState.COLES, GameState.LONGNAN_LOOKOUT, GameState.LONGNAN_TOWN, GameState.WEDDING_XIAOYUAN].includes(gameState)) {
 
         player.moving = false;
         return;
@@ -4288,6 +4890,7 @@ function gameLoop(timestamp) {
 
     if (gameplayPauseRemaining > 0) gameplayPauseRemaining = Math.max(0, gameplayPauseRemaining - deltaTime);
 
+    updateChapterCard(deltaTime);
     updateChapterTransition(deltaTime);
     updateSceneTransition(deltaTime);
     updateStoryCG(deltaTime);
@@ -4369,6 +4972,7 @@ startButton.addEventListener("click",()=>{
     titleAnimationRunning = false;
     titleScreen.classList.add("hidden");
     dialog.classList.add("hidden");
+    beginGameplay();
     playOpeningPrologue();
 
 });
@@ -4381,6 +4985,13 @@ characterMenuButton.addEventListener("pointerdown", event => {
 });
 
 function triggerMobileAction() {
+
+    if (chapterCardState.active) {
+
+        requestChapterCardSkip();
+        return;
+
+    }
 
     if (meetingState.dialogueOpen) {
 
@@ -4437,7 +5048,7 @@ mobileControls.querySelectorAll("button[data-control]").forEach(button => {
 
         }
 
-        if (!gameStarted || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active) return;
+        if (!gameStarted || chapterCardState.active || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active) return;
 
         activeControlPointers.set(event.pointerId, control);
         pressedKeys.add(mobileControlKeys[control]);
@@ -4467,6 +5078,14 @@ mobileControls.querySelectorAll("button[data-control]").forEach(button => {
 });
 
 window.addEventListener("keydown", event => {
+
+    if (chapterCardState.active) {
+
+        if (["Enter", "Space", "KeyE"].includes(event.code)) requestChapterCardSkip();
+        event.preventDefault();
+        return;
+
+    }
 
     if (event.code === "Escape" && characterPanelOpen) {
 
@@ -4525,7 +5144,12 @@ window.addEventListener("keydown", event => {
 });
 
 gameDialogue.addEventListener("click", advanceMeetingDialogue);
-gameCanvas.addEventListener("click", tryInteraction);
+chapterCard.addEventListener("click", requestChapterCardSkip);
+gameCanvas.addEventListener("click", () => {
+
+    if (!chapterCardState.active) tryInteraction();
+
+});
 
 window.addEventListener("keyup", event => {
 
