@@ -748,7 +748,7 @@ const interactables = [
         x: 580, y: 1740, width: 150, height: 82,
         prompt: "一点张",
         pages: [
-            { speaker: "森", text: "这家看起来不错啊！名字也很有意思：一点张。\n有没有感觉很熟悉 ：）" },
+            { speaker: "森", text: "这家拉面店看起来很特别，生意很不错啊！" },
             { speaker: "乐乐", text: "哈哈哈，我要分享给张欣！" },
             { speaker: "森", text: "（偷笑）向我们的好朋友张欣致敬～～感谢她促成了这段奇妙的旅程～～" },
             { speaker: "坨坨，大痣", text: "谢谢喵～" }
@@ -4263,33 +4263,39 @@ function drawSydneyLookout() {
         height: gameViewportState.height
     };
 
-    if (sydneyMap.complete && sydneyMap.naturalWidth) {
+    // Use the clean harbour scene for the opening tableau.  The earlier
+    // reference image contains pre-rendered people, which would not match the
+    // canonical sprites used everywhere else in the game.
+    const lookoutBackground = sydneyExplorationMap.complete && sydneyExplorationMap.naturalWidth
+        ? sydneyExplorationMap
+        : sydneyMap;
 
-        const sourceHeight = Math.min(665, sydneyMap.naturalHeight);
-        const sourceWidth = sydneyMap.naturalWidth;
+    if (lookoutBackground.complete && lookoutBackground.naturalWidth) {
+
+        const sourceHeight = lookoutBackground.naturalHeight;
+        const sourceWidth = lookoutBackground.naturalWidth;
 
         if (gameViewportState.isMobile && gameViewportState.portrait) {
 
-            // iPhone portrait: use a deliberate wide observatory frame instead
-            // of cover-cropping the scene into a narrow, unreadable slice.
-            const sourceX = Math.max(0, Math.round((sourceWidth - 1120) / 2));
-            const portraitSourceWidth = Math.min(1120, sourceWidth - sourceX);
-            const scale = gameViewportState.width / portraitSourceWidth;
-            const drawWidth = gameViewportState.width;
+            // iPhone portrait keeps the complete harbour panorama in the
+            // upper scene frame, without cutting the Opera House or bridge.
+            const scale = (gameViewportState.width - 12) / sourceWidth;
+            const drawWidth = Math.round(sourceWidth * scale);
             const drawHeight = Math.round(sourceHeight * scale);
             const drawY = Math.max(20, Math.round(gameViewportState.height * 0.055));
-            sceneFrame = { x: 0, y: drawY, width: drawWidth, height: drawHeight };
+            const drawX = Math.round((gameViewportState.width - drawWidth) / 2);
+            sceneFrame = { x: drawX, y: drawY, width: drawWidth, height: drawHeight };
 
             gameCtx.fillStyle = "#071225";
-            gameCtx.fillRect(0, drawY - 8, gameViewportState.width, drawHeight + 16);
+            gameCtx.fillRect(drawX - 4, drawY - 8, drawWidth + 8, drawHeight + 16);
             gameCtx.drawImage(
-                sydneyMap,
-                sourceX, 0, portraitSourceWidth, sourceHeight,
-                0, drawY, drawWidth, drawHeight
+                lookoutBackground,
+                0, 0, sourceWidth, sourceHeight,
+                drawX, drawY, drawWidth, drawHeight
             );
             gameCtx.strokeStyle = "rgba(221, 174, 94, .82)";
             gameCtx.lineWidth = 2;
-            gameCtx.strokeRect(1, drawY - 7, gameViewportState.width - 2, drawHeight + 14);
+            gameCtx.strokeRect(drawX - 3, drawY - 7, drawWidth + 6, drawHeight + 14);
 
         } else {
 
@@ -4299,33 +4305,13 @@ function drawSydneyLookout() {
             const drawX = (gameViewportState.width - drawWidth) / 2;
             const drawY = (gameViewportState.height - drawHeight) / 2;
             sceneFrame = { x: drawX, y: drawY, width: drawWidth, height: drawHeight };
-            gameCtx.drawImage(sydneyMap, 0, 0, sourceWidth, sourceHeight, drawX, drawY, drawWidth, drawHeight);
-
-            // Replace only the baked-in lookout title and version label. The
-            // harbour artwork, character label and all other CG details stay
-            // exactly as supplied.
-            const titleScale = drawWidth / sourceWidth;
-            const titleX = drawX + 14 * titleScale;
-            const titleY = drawY + 10 * titleScale;
-            const titleWidth = 218 * titleScale;
-            const titleHeight = 55 * titleScale;
-            gameCtx.fillStyle = "#061426";
-            gameCtx.fillRect(titleX, titleY, titleWidth, titleHeight);
-            gameCtx.strokeStyle = "#d7982b";
-            gameCtx.lineWidth = Math.max(1, 2 * titleScale);
-            gameCtx.strokeRect(titleX + 1, titleY + 1, titleWidth - 2, titleHeight - 2);
-            gameCtx.fillStyle = "#fff0d6";
-            gameCtx.font = `${Math.max(12, 21 * titleScale)}px Fusion Pixel, monospace`;
-            gameCtx.fillText("悉尼跨年夜", titleX + 27 * titleScale, titleY + 35 * titleScale);
-
-            // The nearby “人物” plaque remains untouched; only the version
-            // text to its right is covered with the same night-sky tone.
-            gameCtx.fillStyle = "#061426";
-            gameCtx.fillRect(drawX + 1360 * titleScale, drawY + 12 * titleScale, 176 * titleScale, 56 * titleScale);
+            gameCtx.drawImage(lookoutBackground, 0, 0, sourceWidth, sourceHeight, drawX, drawY, drawWidth, drawHeight);
 
         }
 
     }
+
+    drawSydneyLookoutParty(sceneFrame);
 
     fireworks.forEach(particle => {
 
@@ -4340,6 +4326,32 @@ function drawSydneyLookout() {
 
     });
     gameCtx.globalAlpha = 1;
+
+}
+
+function drawSydneyLookoutParty(sceneFrame) {
+
+    const groundY = sceneFrame.y + sceneFrame.height * 0.93;
+    const personHeight = Math.round(Math.min(sceneFrame.height * 0.34, 132));
+    const personWidth = Math.round(personHeight * 2 / 3);
+    const catHeight = Math.round(personHeight * 0.7);
+    const catWidth = Math.round(catHeight * 2 / 3);
+    const positions = [0.40, 0.50, 0.60, 0.69].map(ratio => sceneFrame.x + sceneFrame.width * ratio);
+
+    const drawSprite = (sprite, fallback, x, width, height) => {
+
+        const image = sprite.complete && sprite.naturalWidth ? sprite : fallback;
+        if (!image?.complete || !image.naturalWidth) return;
+        gameCtx.drawImage(image, 0, 48, 32, 48, Math.round(x - width / 2), Math.round(groundY - height), width, height);
+
+    };
+
+    // Row 1 is the upward/back-facing idle pose, matching a group looking out
+    // across the harbour.  All four are drawn from assets/characters.
+    drawSprite(playerSprite, playerFallbackSprite, positions[0], personWidth, personHeight);
+    drawSprite(leSprite, leFallbackSprite, positions[1], personWidth, personHeight);
+    drawSprite(catSpriteSheets.tuotuo, null, positions[2], catWidth, catHeight);
+    drawSprite(catSpriteSheets.dazhi, null, positions[3], catWidth, catHeight);
 
 }
 
