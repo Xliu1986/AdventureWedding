@@ -3507,16 +3507,34 @@ function clampCameraToWorld() {
 
 function startCameraIntro() {
 
-    const overviewZoom = Math.min(
-        (gameViewportState.width - 48) / getWorldWidth(),
-        (gameViewportState.height - 48) / getWorldHeight()
-    );
+    const overviewZoom = getCameraIntroOverviewZoom();
 
     camera.x = Math.max(0, (getWorldWidth() - gameViewportState.width / overviewZoom) / 2);
     camera.y = Math.max(0, (getWorldHeight() - gameViewportState.height / overviewZoom) / 2);
     camera.zoom = overviewZoom;
     cameraIntro.active = true;
     cameraIntro.elapsed = 0;
+
+}
+
+function getCameraIntroOverviewZoom() {
+
+    // Tokyo's portrait map is shown in full before the camera moves down to
+    // Sakura Avenue.  Using the entire available phone width preserves the
+    // whole map rather than presenting the previous small inset overview.
+    if (currentChapter === "tokyo" && gameViewportState.isMobile && gameViewportState.portrait) {
+
+        return Math.min(
+            gameViewportState.width / getWorldWidth(),
+            gameViewportState.height / getWorldHeight()
+        );
+
+    }
+
+    return Math.min(
+        (gameViewportState.width - 48) / getWorldWidth(),
+        (gameViewportState.height - 48) / getWorldHeight()
+    );
 
 }
 
@@ -3532,10 +3550,7 @@ function updateCamera(deltaTime) {
 
         cameraIntro.elapsed += deltaTime;
 
-        const overviewZoom = Math.min(
-            (gameViewportState.width - 48) / getWorldWidth(),
-            (gameViewportState.height - 48) / getWorldHeight()
-        );
+        const overviewZoom = getCameraIntroOverviewZoom();
         const overviewX = Math.max(0, (getWorldWidth() - gameViewportState.width / overviewZoom) / 2);
         const overviewY = Math.max(0, (getWorldHeight() - gameViewportState.height / overviewZoom) / 2);
 
@@ -3573,7 +3588,12 @@ function tileNoise(column, row, offset) {
 
 function drawGrassTile(x, y, column, row) {
 
-    gameCtx.fillStyle = "#91ad6d";
+    gameCtx.fillStyle = currentChapter === "tokyo"
+        && gameViewportState.isMobile
+        && gameViewportState.portrait
+        && cameraIntro.active
+        ? "#06111d"
+        : "#91ad6d";
     gameCtx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
 
     for (let detail = 0; detail < 4; detail++) {
@@ -4834,9 +4854,19 @@ function drawGame() {
     gameCtx.fillStyle = "#91ad6d";
     gameCtx.fillRect(0, 0, gameViewportState.width, gameViewportState.height);
 
+    // Centre the complete portrait Tokyo map during the opening overview.
+    // The offset naturally reaches zero as the camera begins its close-in
+    // journey to Mori on Sakura Avenue.
+    const introWorldOffsetY = currentChapter === "tokyo"
+        && gameViewportState.isMobile
+        && gameViewportState.portrait
+        && cameraIntro.active
+        ? Math.max(0, (gameViewportState.height - getWorldHeight() * camera.zoom) / 2) / camera.zoom
+        : 0;
+
     gameCtx.save();
     gameCtx.scale(camera.zoom, camera.zoom);
-    gameCtx.translate(-Math.round(camera.x), -Math.round(camera.y));
+    gameCtx.translate(-Math.round(camera.x), -Math.round(camera.y) + introWorldOffsetY);
 
     if (currentChapter === "coles") {
 
@@ -4887,11 +4917,23 @@ function drawGame() {
     drawWorldAtmosphere();
     if (currentChapter === "weddingXiaoyuan") drawWeddingGatewayVisuals();
 
-    [
-        { y: player.y + player.height, draw: drawPlayer },
-        { y: le.y + le.height, draw: drawLe },
-        ...cats.filter(cat => hiddenCatEvent.discovered || !cat.following).map(cat => ({ y: cat.y + cat.height, draw: () => drawCat(cat) }))
-    ].sort((first, second) => first.y - second.y).forEach(character => character.draw());
+    const showOpeningParty = !(
+        currentChapter === "tokyo"
+        && gameViewportState.isMobile
+        && gameViewportState.portrait
+        && cameraIntro.active
+        && cameraIntro.elapsed <= cameraIntro.overviewDuration
+    );
+
+    if (showOpeningParty) {
+
+        [
+            { y: player.y + player.height, draw: drawPlayer },
+            { y: le.y + le.height, draw: drawLe },
+            ...cats.filter(cat => hiddenCatEvent.discovered || !cat.following).map(cat => ({ y: cat.y + cat.height, draw: () => drawCat(cat) }))
+        ].sort((first, second) => first.y - second.y).forEach(character => character.draw());
+
+    }
 
     drawInteractionPrompt();
 
