@@ -1024,6 +1024,7 @@ const storyCGs = {
     },
     sydneyCooking: {
         src: "assets/cg/sydney/cg-cooking-together.png",
+        location: "Crows Nest",
         focalX: 0.55,
         focalY: 0.42,
         sourceHeight: 941,
@@ -1033,6 +1034,7 @@ const storyCGs = {
     },
     sydneyWatchingTheSea: {
         src: "assets/cg/sydney/cg-seaside-jump.png",
+        location: "Cronulla",
         focalX: 0.51,
         focalY: 0.45,
         sourceHeight: 1024,
@@ -1040,9 +1042,9 @@ const storyCGs = {
     },
     tasmaniaAdventure: {
         src: "assets/cg/sydney/cg-tasmania-trip.png",
+        location: "比舍诺",
         focalX: 0.53,
         focalY: 0.47,
-        sourceHeight: 941,
         mobileDisplay: "contain"
     },
     sydneyAirport: {
@@ -4391,6 +4393,7 @@ function drawStoryCG() {
 
     const sourceWidth = image.naturalWidth;
     const sourceHeight = Math.min(config.sourceHeight || image.naturalHeight, image.naturalHeight);
+    let storyFrame = null;
 
     if (gameViewportState.isMobile && gameViewportState.portrait) {
 
@@ -4412,6 +4415,7 @@ function drawStoryCG() {
         gameCtx.strokeStyle = "rgba(216, 170, 84, .88)";
         gameCtx.lineWidth = 2;
         gameCtx.strokeRect(drawX - 1, drawY - 1, drawWidth + 2, drawHeight + 2);
+        storyFrame = { x: drawX, y: drawY, width: drawWidth, height: drawHeight };
 
     } else {
 
@@ -4419,18 +4423,27 @@ function drawStoryCG() {
         const scale = Math.min(gameViewportState.width / sourceWidth, gameViewportState.height / sourceHeight);
         const drawWidth = Math.round(sourceWidth * scale);
         const drawHeight = Math.round(sourceHeight * scale);
+        const drawX = Math.round((gameViewportState.width - drawWidth) / 2);
+        const drawY = Math.max(0, Math.round((gameViewportState.height - drawHeight) / 2));
         gameCtx.globalAlpha = storyCGOverlay.opacity;
         gameCtx.drawImage(
             image,
             0, 0, sourceWidth, sourceHeight,
-            Math.round((gameViewportState.width - drawWidth) / 2),
-            Math.max(0, Math.round((gameViewportState.height - drawHeight) / 2)),
+            drawX,
+            drawY,
             drawWidth, drawHeight
         );
+        storyFrame = { x: drawX, y: drawY, width: drawWidth, height: drawHeight };
 
     }
 
     gameCtx.globalAlpha = 1;
+
+    if (config.location && storyFrame) {
+
+        drawStoryCGLocation(config.location, storyFrame);
+
+    }
 
     if (storyCGOverlay.inputReady) {
 
@@ -4446,6 +4459,32 @@ function drawStoryCG() {
         gameCtx.textAlign = "left";
 
     }
+
+}
+
+function drawStoryCGLocation(location, frame) {
+
+    const fontSize = Math.max(13, Math.min(22, Math.round(frame.width * 0.035)));
+    const paddingX = Math.max(10, Math.round(fontSize * 0.7));
+    const paddingY = Math.max(7, Math.round(fontSize * 0.55));
+
+    gameCtx.save();
+    gameCtx.font = `${fontSize}px Fusion Pixel, monospace`;
+    const labelWidth = Math.min(frame.width - 16, Math.ceil(gameCtx.measureText(location).width) + paddingX * 2);
+    const labelHeight = fontSize + paddingY * 2;
+    const labelX = frame.x + 8;
+    const labelY = frame.y + 8;
+
+    gameCtx.fillStyle = "rgba(5, 17, 33, .94)";
+    gameCtx.fillRect(labelX, labelY, labelWidth, labelHeight);
+    gameCtx.strokeStyle = "#d8aa54";
+    gameCtx.lineWidth = 2;
+    gameCtx.strokeRect(labelX, labelY, labelWidth, labelHeight);
+    gameCtx.fillStyle = "#fff2cc";
+    gameCtx.textAlign = "left";
+    gameCtx.textBaseline = "middle";
+    gameCtx.fillText(location, labelX + paddingX, labelY + labelHeight / 2 + 1);
+    gameCtx.restore();
 
 }
 
