@@ -28,13 +28,16 @@ let lastGameViewportKey = "";
 
 function resizeGameViewport() {
 
-    const availableWidth = Math.max(1, window.innerWidth);
-    const availableHeight = Math.max(1, window.innerHeight);
+    const visualViewport = window.visualViewport;
+    const availableWidth = Math.max(1, Math.round(visualViewport?.width || window.innerWidth));
+    const availableHeight = Math.max(1, Math.round(visualViewport?.height || window.innerHeight));
     const isMobile = navigator.maxTouchPoints > 0
         || window.matchMedia("(any-pointer: coarse), (max-width: 900px)").matches;
     const portrait = availableHeight > availableWidth;
     const internalWidth = isMobile && portrait ? 540 : 960;
-    const internalHeight = isMobile && portrait ? 960 : 540;
+    const internalHeight = isMobile && portrait
+        ? Math.max(960, Math.round(internalWidth * availableHeight / availableWidth))
+        : 540;
     const scale = Math.min(availableWidth / internalWidth, availableHeight / internalHeight);
     const cssWidth = Math.max(1, Math.round(internalWidth * scale));
     const cssHeight = Math.max(1, Math.round(internalHeight * scale));
@@ -56,6 +59,8 @@ function resizeGameViewport() {
     gameCanvas.height = Math.round(internalHeight * dpr);
     gameCanvas.style.width = `${cssWidth}px`;
     gameCanvas.style.height = `${cssHeight}px`;
+    gameViewport.style.width = `${availableWidth}px`;
+    gameViewport.style.height = `${availableHeight}px`;
     gameCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     gameCtx.imageSmoothingEnabled = false;
 
@@ -1034,6 +1039,7 @@ const longnanTownPiaozi = {
         { speaker: "森，乐乐", text: "（笑）" }
     ]
 };
+const longnanTownInteractionPoints = [...longnanTownMemories, longnanTownPiaozi];
 const longnanMemoryAlbumTrigger = { x: 768, y: 915, radius: 96 };
 const longnanCGSequence = [
     { id: "longnanChildhoodDrawing", pages: [{ speaker: "乐乐", text: "小时候，\n我最喜欢画这些山。" }] },
@@ -2831,11 +2837,31 @@ function updateNearbyInteractable() {
 
     }
 
-    nearbyInteractable = interactables
-        .filter(item => item.repeatable || !item.completed)
-        .map(item => ({ item, distance: Math.hypot(player.x - item.x, player.y - item.y) }))
-        .filter(entry => entry.distance <= 100)
-        .sort((first, second) => first.distance - second.distance)[0]?.item || null;
+    nearbyInteractable = findNearestInteraction(interactables, player.x, player.y, 100, item => item.repeatable || !item.completed);
+
+}
+
+function findNearestInteraction(items, x, y, maxDistance, predicate = () => true) {
+
+    let nearest = null;
+    let nearestDistance = maxDistance;
+
+    for (let index = 0; index < items.length; index++) {
+
+        const item = items[index];
+        if (!predicate(item)) continue;
+
+        const distance = Math.hypot(x - item.x, y - item.y);
+        if (distance <= nearestDistance) {
+
+            nearest = item;
+            nearestDistance = distance;
+
+        }
+
+    }
+
+    return nearest;
 
 }
 
@@ -2957,11 +2983,7 @@ function updateNearbyColesInspectable() {
     if (currentChapter !== "coles" || meetingState.dialogueOpen) return;
     const playerCenterX = player.x + player.width / 2;
     const playerCenterY = player.y + player.height / 2;
-    nearbyColesInspectable = colesInspectables
-        .filter(item => !item.completed)
-        .map(item => ({ item, distance: Math.hypot(playerCenterX - item.x, playerCenterY - item.y) }))
-        .filter(entry => entry.distance <= 86)
-        .sort((first, second) => first.distance - second.distance)[0]?.item || null;
+    nearbyColesInspectable = findNearestInteraction(colesInspectables, playerCenterX, playerCenterY, 86, item => !item.completed);
 
 }
 
@@ -2981,12 +3003,7 @@ function updateNearbyLongnan() {
 
     } else if (gameState === GameState.LONGNAN_TOWN) {
 
-        const candidates = [...longnanTownMemories, longnanTownPiaozi]
-            .filter(item => item.repeatable || !item.completed)
-            .map(item => ({ item, distance: Math.hypot(centerX - item.x, centerY - item.y) }))
-            .filter(entry => entry.distance < 115)
-            .sort((a, b) => a.distance - b.distance)[0]?.item || null;
-        nearbyLongnanInteraction = candidates;
+        nearbyLongnanInteraction = findNearestInteraction(longnanTownInteractionPoints, centerX, centerY, 115, item => item.repeatable || !item.completed);
         nearbyLongnanMemoryAlbum = Math.hypot(
             centerX - longnanMemoryAlbumTrigger.x,
             centerY - longnanMemoryAlbumTrigger.y
@@ -3010,10 +3027,7 @@ function updateNearbyWedding() {
         return;
 
     }
-    nearbyWeddingInteraction = weddingInteractables
-        .map(item => ({ item, distance: Math.hypot(centerX - item.x, centerY - item.y) }))
-        .filter(entry => entry.distance <= 108)
-        .sort((first, second) => first.distance - second.distance)[0]?.item || null;
+    nearbyWeddingInteraction = findNearestInteraction(weddingInteractables, centerX, centerY, 108);
 
 }
 
@@ -4801,9 +4815,14 @@ function drawStoryCG() {
         // Every Story CG uses the same iPhone portrait cinema layout: contain
         // the complete approved artwork in the upper visual panel, leave a
         // navy gap for the live dialogue below, and never cover-crop a memory.
-        const panelTop = 72;
-        const panelBottom = Math.min(468, Math.round(gameViewportState.height * 0.49));
-        const panelWidth = gameViewportState.width - 28;
+        const controlReserve = 330;
+        const dialogueReserve = 210;
+        const panelTop = 66;
+        const panelBottom = Math.max(360, Math.min(
+            Math.round(gameViewportState.height * 0.52),
+            gameViewportState.height - controlReserve - dialogueReserve
+        ));
+        const panelWidth = gameViewportState.width - 24;
         const panelHeight = panelBottom - panelTop;
         const scale = Math.min(panelWidth / sourceWidth, panelHeight / sourceHeight);
         const drawWidth = Math.round(sourceWidth * scale);
@@ -5837,7 +5856,7 @@ window.addEventListener("blur", () => {
    Rebuild on Resize
 =========================== */
 
-window.addEventListener("resize",()=>{
+function handleViewportResize() {
 
     if (resizeQueued) return;
     resizeQueued = true;
@@ -5860,4 +5879,7 @@ window.addEventListener("resize",()=>{
 
     });
 
-});
+}
+
+window.addEventListener("resize", handleViewportResize);
+window.visualViewport?.addEventListener("resize", handleViewportResize);
