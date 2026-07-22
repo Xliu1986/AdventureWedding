@@ -974,7 +974,10 @@ const sydneyLifeSequence = [
         { speaker: "大痣", text: "喵呜～" }
     ] },
     { id: "blueWorksMemory", cg: "blueWorksMemory", flag: "blueWorksMemory", hold: 0.9, pages: [
-        { speaker: "乐乐", text: "相熟十载宝藏老店，\n挚友蓝工品质保证。" }
+        { speaker: "森", text: "这是我在悉尼最常去的宝藏小店，\n老朋友杜老板品味没得说！" },
+        { speaker: "乐乐", text: "哇，\n那一定要去逛一逛！" },
+        { speaker: "坨坨", text: "我也要去喵～" },
+        { speaker: "大痣", text: "一起去喵呜～" }
     ] }
 ];
 const sydneyAirportPages = [
@@ -1123,22 +1126,18 @@ const storyCGs = {
         mobileDisplay: "contain"
     },
     tasmaniaAdventure: {
-        src: "assets/cg/sydney/cg-tasmania-trip.png",
+        src: "assets/cg/sydney/cg-tasmania-trip.png?v=0.9.4-bicheno",
         location: "比舍诺",
         focalX: 0.53,
         focalY: 0.47,
         mobileDisplay: "contain"
     },
     blueWorksMemory: {
-        src: "assets/cg/sydney/cg-blueworks.png",
+        src: "assets/cg/sydney/cg-blueworks.png?v=0.9.4-blueworks",
         location: "Blue Works Vintage Store",
         focalX: 0.5,
         focalY: 0.48,
-        mobileDisplay: "contain",
-        fallbackPlaceholder: true,
-        placeholderTitle: "Blue Works Vintage Store",
-        placeholderSubtitle: "Sydney Memory",
-        pendingAsset: true
+        mobileDisplay: "contain"
     },
     sydneyAirport: {
         // Approved airport departure CG: preserved as supplied.
@@ -4898,9 +4897,9 @@ function drawStoryCGLocation(location, frame) {
     const labelX = frame.x + 8;
     const labelY = frame.y + 8;
 
-    gameCtx.fillStyle = "rgba(5, 17, 33, .94)";
+    gameCtx.fillStyle = "rgba(5, 17, 33, .58)";
     gameCtx.fillRect(labelX, labelY, labelWidth, labelHeight);
-    gameCtx.strokeStyle = "#d8aa54";
+    gameCtx.strokeStyle = "rgba(216, 170, 84, .82)";
     gameCtx.lineWidth = 2;
     gameCtx.strokeRect(labelX, labelY, labelWidth, labelHeight);
     gameCtx.fillStyle = "#fff2cc";
