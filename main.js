@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.9.4 — Gameplay Polish
+   Version 0.9.4.1 — Performance Hotfix
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -331,6 +331,54 @@ const chapterCardMessage = document.querySelector(".chapterCardMessage");
 
 let gameStarted = false;
 let characterPanelOpen = false;
+let gameLoopStarted = false;
+let previousGameTime = 0;
+let resizeQueued = false;
+let latestFps = 60;
+let fpsSampleTime = 0;
+let fpsSampleFrames = 0;
+
+const performanceProfile = {
+    isMobile: navigator.maxTouchPoints > 0 || window.matchMedia("(pointer: coarse), (max-width: 900px)").matches,
+    reducedEffects: false
+};
+
+const PARTICLE_BUDGETS = {
+    desktop: { tokyoPetals: 28, sydneyFireworks: 72, longnanLeaves: 16, weddingParticles: 18 },
+    mobile: { tokyoPetals: 14, sydneyFireworks: 36, longnanLeaves: 8, weddingParticles: 8 }
+};
+const ACCELERATION = 3000;
+const DECELERATION = 3600;
+const MAX_FOLLOW_HISTORY = 180;
+const CULL_MARGIN = 96;
+
+function getParticleBudget(name) {
+
+    const profile = performanceProfile.isMobile || performanceProfile.reducedEffects ? PARTICLE_BUDGETS.mobile : PARTICLE_BUDGETS.desktop;
+    const value = profile[name] || 0;
+    return performanceProfile.reducedEffects ? Math.max(4, Math.floor(value * 0.5)) : value;
+
+}
+
+function moveTowards(current, target, maxDelta) {
+
+    if (Math.abs(target - current) <= maxDelta) return target;
+    return current + Math.sign(target - current) * maxDelta;
+
+}
+
+function updatePerformanceProfile(deltaTime) {
+
+    fpsSampleTime += deltaTime;
+    fpsSampleFrames += 1;
+    if (fpsSampleTime < 2) return;
+
+    latestFps = fpsSampleFrames / fpsSampleTime;
+    if (latestFps < 45) performanceProfile.reducedEffects = true;
+    fpsSampleTime = 0;
+    fpsSampleFrames = 0;
+
+}
 const chapterCardState = {
     active: false, mode: "", chapterId: "", elapsed: 0, phase: "idle",
     onComplete: null, inputUnlocked: false, finalCard: false, previousGameState: null
@@ -551,6 +599,20 @@ function beginGameplay() {
 
     // Kept as the one-shot game-loop launcher. Scene callbacks only load
     // content; they never create another requestAnimationFrame chain.
+    startGameLoop();
+
+}
+
+function startGameLoop() {
+
+    if (gameLoopStarted) {
+
+        console.warn("AdventureWedding game loop already started; duplicate start ignored.");
+        return;
+
+    }
+
+    gameLoopStarted = true;
     previousGameTime = performance.now();
     requestAnimationFrame(gameLoop);
 
@@ -580,6 +642,7 @@ function refreshMobileControlMode() {
     const enabled = navigator.maxTouchPoints > 0
         || window.matchMedia("(any-pointer: coarse), (max-width: 900px)").matches;
 
+    performanceProfile.isMobile = enabled;
     document.body.classList.toggle("touchMode", enabled);
     mobileControls.classList.toggle("isTouchMode", enabled);
 
@@ -1166,22 +1229,28 @@ const storyCGOverlay = {
     albumPageIndex: 0
 };
 
+function ensureStoryCGImage(config) {
+
+    if (!config || config.image || !config.src) return;
+
+    config.image = new Image();
+    config.image.addEventListener("error", () => {
+
+        config.loadFailed = true;
+        if (!config.pendingAsset) console.warn(`Missing Story CG asset: ${config.src}`);
+
+    }, { once: true });
+    config.image.src = config.src;
+
+}
+
 function preloadStoryCGs() {
+
+    if (performanceProfile.isMobile) return;
 
     Object.values(storyCGs).forEach(config => {
 
-        if (!config.image && config.src) {
-
-            config.image = new Image();
-            config.image.addEventListener("error", () => {
-
-                config.loadFailed = true;
-                if (!config.pendingAsset) console.warn(`Missing Story CG asset: ${config.src}`);
-
-            });
-            config.image.src = config.src;
-
-        }
+        ensureStoryCGImage(config);
 
     });
 
@@ -1448,7 +1517,7 @@ const sakuraTreeLocations = tokyoMap.flatMap((row, rowIndex) =>
     )
 );
 
-const worldPetals = Array.from({ length: 70 }, () => ({
+const worldPetals = Array.from({ length: PARTICLE_BUDGETS.desktop.tokyoPetals }, () => ({
     x: Math.random() * MAP_COLUMNS * TILE_SIZE,
     y: Math.random() * MAP_ROWS * TILE_SIZE,
     size: 2 + Math.random() * 3,
@@ -1459,12 +1528,28 @@ const worldPetals = Array.from({ length: 70 }, () => ({
 
 const birds = [
     { x: 1120, y: 760, speed: 16, phase: 0.2 },
-    { x: 1200, y: 790, speed: 16, phase: 0.8 },
-    { x: 1280, y: 740, speed: 16, phase: 1.4 }
+    { x: 1200, y: 790, speed: 16, phase: 0.8 }
 ];
 
 let windTime = 0;
 let interactionPromptAlpha = 0;
+
+function limitArrayLength(items, length) {
+
+    if (items.length > length) items.length = length;
+
+}
+
+function isWorldObjectInView(x, y, width = 8, height = 8) {
+
+    const visibleWidth = gameViewportState.width / camera.zoom;
+    const visibleHeight = gameViewportState.height / camera.zoom;
+    return x + width >= camera.x - CULL_MARGIN
+        && x <= camera.x + visibleWidth + CULL_MARGIN
+        && y + height >= camera.y - CULL_MARGIN
+        && y <= camera.y + visibleHeight + CULL_MARGIN;
+
+}
 
 const AmbientHooks = Object.freeze({
     TokyoAmbient: () => window.dispatchEvent(new CustomEvent("adventurewedding:ambient", { detail: "TokyoAmbient" })),
@@ -1478,11 +1563,36 @@ window.SydneyAmbient = AmbientHooks.SydneyAmbient;
 window.LongnanAmbient = AmbientHooks.LongnanAmbient;
 window.WeddingAmbient = AmbientHooks.WeddingAmbient;
 
+window.getPerformanceStatus = () => ({
+    fps: Math.round(latestFps),
+    gameState,
+    particleCount: worldPetals.length + fireworks.length,
+    followHistoryLength: moriPositionHistory.length,
+    activeTimers: 0,
+    loopStarted: gameLoopStarted
+});
+
+const characterDrawQueue = [
+    { y: 0, type: "player", actor: player },
+    { y: 0, type: "le", actor: le },
+    { y: 0, type: "cat", actor: null },
+    { y: 0, type: "cat", actor: null }
+];
+
+function drawCharacterQueueItem(item) {
+
+    if (item.type === "player") drawPlayer();
+    else if (item.type === "le") drawLe();
+    else if (item.actor) drawCat(item.actor);
+
+}
+
 const colesAmbientShoppers = [
     { x: 780, y: 330, minX: 650, maxX: 840, speed: 18, direction: 1, color: "#7a554d" },
     { x: 812, y: 618, minX: 650, maxX: 930, speed: 14, direction: -1, color: "#45677d" },
     { x: 1045, y: 704, minX: 820, maxX: 1080, speed: 16, direction: 1, color: "#6c7150" }
 ];
+const ENABLE_COLES_AMBIENT_SHOPPERS = false;
 
 const solidTiles = new Set([
     Tile.TREE, Tile.SAKURA_TREE, Tile.FLOWER_BED, Tile.BUSH, Tile.FENCE,
@@ -1706,22 +1816,11 @@ function faceMovementDirection(actor, horizontal, vertical) {
         ? `${verticalName}-${horizontalName}`
         : (horizontal ? horizontalName : verticalName);
 
-    // The canonical sheets provide four authored rows. During a diagonal
-    // input retain the last compatible row, creating a natural cardinal →
-    // diagonal → cardinal turn without rotating or distorting the sprite.
-    if (horizontal && vertical) {
-
-        if (actor.direction !== horizontalName && actor.direction !== verticalName) actor.direction = horizontalName;
-        actor.renderDirection = actor.direction;
-        return;
-
-    }
-
     if (Math.abs(horizontal) > Math.abs(vertical)) {
 
         actor.direction = horizontal > 0 ? "right" : "left";
 
-    } else {
+    } else if (vertical) {
 
         actor.direction = vertical > 0 ? "down" : "up";
 
@@ -2343,13 +2442,14 @@ function showStoryCG({ id, image, dialogue = null, dialoguePurpose = "storyCG", 
 
     const config = storyCGs[id] || (image ? { image, focalX: 0.5, focalY: 0.5 } : null);
     if (storyCGOverlay.active || !config) return false;
+    ensureStoryCGImage(config);
 
     storyCGOverlay.active = true;
     storyCGOverlay.id = id || "custom";
     storyCGOverlay.config = config;
     storyCGOverlay.phase = "fadeIn";
     storyCGOverlay.opacity = 0;
-    storyCGOverlay.revealDelay = revealDelay;
+    storyCGOverlay.revealDelay = Math.max(0, Math.min(revealDelay, 0.5));
     storyCGOverlay.dialogue = dialogue;
     storyCGOverlay.dialoguePurpose = dialoguePurpose;
     storyCGOverlay.dialogueStarted = false;
@@ -2422,7 +2522,7 @@ function updateStoryCG(deltaTime) {
 
     if (storyCGOverlay.phase === "fadeIn") {
 
-        storyCGOverlay.opacity = Math.min(1, storyCGOverlay.opacity + deltaTime / 0.85);
+        storyCGOverlay.opacity = Math.min(1, storyCGOverlay.opacity + deltaTime / 0.6);
         if (storyCGOverlay.opacity < 1) return;
         storyCGOverlay.phase = "hold";
 
@@ -2463,7 +2563,7 @@ function updateStoryCG(deltaTime) {
 
     if (storyCGOverlay.phase === "fadeOut") {
 
-        storyCGOverlay.opacity = Math.max(0, storyCGOverlay.opacity - deltaTime / 0.85);
+        storyCGOverlay.opacity = Math.max(0, storyCGOverlay.opacity - deltaTime / 0.6);
         if (storyCGOverlay.opacity > 0) return;
 
         const onComplete = storyCGOverlay.onComplete;
@@ -2763,7 +2863,8 @@ function updateSakuraAvenueMoment() {
 
         sakuraAvenueMoment.discovered = true;
 
-        for (let index = 0; index < 28; index++) {
+        const extraPetals = performanceProfile.isMobile ? 6 : 10;
+        for (let index = 0; index < extraPetals; index++) {
 
             worldPetals.push({
                 x: sakuraAvenueMoment.x + Math.random() * sakuraAvenueMoment.width,
@@ -2775,6 +2876,7 @@ function updateSakuraAvenueMoment() {
             });
 
         }
+        limitArrayLength(worldPetals, getParticleBudget("tokyoPetals"));
 
     }
 
@@ -3430,6 +3532,8 @@ function updateCatCompanion(cat, index, deltaTime) {
     }
 
     cat.animationTime += deltaTime;
+    if (!isWorldObjectInView(cat.x, cat.y, 64, 96)) return;
+
     updateOrganicIdleOffset(cat, deltaTime);
     cat.idleTimer -= deltaTime;
 
@@ -3703,9 +3807,7 @@ function getCameraDeadZoneTarget(zoom) {
 function updateCamera(deltaTime) {
 
     const followZoom = getCameraFollowZoom();
-    const cinematicWeddingCamera = weddingGatewaySequence.active
-        && ["formation", "approach", "catPause", "coupleEnter", "whiteFade", "whiteHold"].includes(weddingGatewaySequence.phase);
-    let target = cinematicWeddingCamera ? getCameraTarget(followZoom) : getCameraDeadZoneTarget(followZoom);
+    let target = getCameraTarget(followZoom);
     const followAmount = 1 - Math.pow(1 - camera.smoothing, deltaTime * 60);
 
     if (characterPanelOpen) return;
@@ -4057,38 +4159,35 @@ function drawLandmarkTile(tile, x, y, column, row) {
 function updateWorldAtmosphere(deltaTime) {
 
     windTime += deltaTime;
+    limitArrayLength(worldPetals, getParticleBudget("tokyoPetals"));
 
-    if (currentChapter === "coles") colesAmbientShoppers.forEach(shopper => {
+    switch (currentChapter) {
+        case "tokyo":
+            worldPetals.forEach(petal => {
 
-        shopper.x += shopper.speed * shopper.direction * deltaTime;
-        if (shopper.x < shopper.minX || shopper.x > shopper.maxX) {
+                petal.y += petal.fall * deltaTime;
+                petal.x += (petal.drift + Math.sin(windTime * 1.5 + petal.phase) * 8) * deltaTime;
 
-            shopper.direction *= -1;
-            shopper.x = Math.max(shopper.minX, Math.min(shopper.x, shopper.maxX));
+                if (petal.y > getWorldHeight()) petal.y = -8;
+                if (petal.x > getWorldWidth()) petal.x = -8;
 
-        }
+            });
 
-    });
+            if (!performanceProfile.reducedEffects) birds.forEach(bird => {
 
-    if (currentChapter !== "tokyo") return;
+                bird.x += bird.speed * deltaTime;
+                if (bird.x > getWorldWidth()) bird.x = -16;
 
-    worldPetals.forEach(petal => {
-
-        petal.y += petal.fall * deltaTime;
-        petal.x += (petal.drift + Math.sin(windTime * 1.5 + petal.phase) * 8) * deltaTime;
-
-        if (petal.y > getWorldHeight()) petal.y = -8;
-        if (petal.x > getWorldWidth()) petal.x = -8;
-
-    });
-
-    birds.forEach(bird => {
-
-        bird.x += bird.speed * deltaTime;
-
-        if (bird.x > getWorldWidth()) bird.x = -16;
-
-    });
+            });
+            break;
+        case "sydney":
+        case "longnanLookout":
+        case "longnanTown":
+        case "weddingXiaoyuan":
+            break;
+        default:
+            break;
+    }
 
 }
 
@@ -4098,38 +4197,11 @@ function drawWorldAtmosphere() {
 
         // Gentle harbour glints retain the stillness of the Sydney night scene.
         gameCtx.fillStyle = "rgba(178, 222, 255, 0.34)";
-        for (let index = 0; index < 14; index++) {
+        for (let index = 0; index < getParticleBudget("sydneyFireworks") / 6; index++) {
 
             const x = 390 + index * 86 + Math.sin(windTime * 1.6 + index) * 12;
             const y = 520 + (index % 4) * 54;
             gameCtx.fillRect(x, y, 18, 2);
-
-        }
-
-        // Two distant ferries, slow cloud bands and a pair of harbour birds.
-        for (let index = 0; index < 2; index++) {
-
-            const boatX = ((windTime * (18 + index * 4) + index * 710) % 1500) + 180;
-            const boatY = 485 + index * 82;
-            gameCtx.fillStyle = "rgba(245, 222, 167, .72)";
-            gameCtx.fillRect(boatX, boatY, 34, 4);
-            gameCtx.fillStyle = "rgba(233, 246, 255, .55)";
-            gameCtx.fillRect(boatX + 8, boatY - 5, 18, 5);
-
-        }
-        gameCtx.fillStyle = "rgba(197, 216, 237, .08)";
-        gameCtx.fillRect((windTime * 5 % 1500) - 220, 115, 260, 12);
-        gameCtx.fillRect(((windTime * 4 + 680) % 1700) - 180, 175, 210, 9);
-        for (let index = 0; index < 2; index++) {
-
-            const birdX = ((windTime * 32 + index * 620) % 1650) + 90;
-            const birdY = 270 + index * 45;
-            gameCtx.strokeStyle = "rgba(232, 239, 246, .7)";
-            gameCtx.beginPath();
-            gameCtx.moveTo(birdX - 5, birdY);
-            gameCtx.lineTo(birdX, birdY - 3);
-            gameCtx.lineTo(birdX + 5, birdY);
-            gameCtx.stroke();
 
         }
 
@@ -4141,7 +4213,7 @@ function drawWorldAtmosphere() {
 
         // Longnan uses mountain breeze, leaves, insects and warm sun flecks —
         // deliberately no Tokyo-style pink petals.
-        for (let index = 0; index < 16; index++) {
+        for (let index = 0; index < getParticleBudget("longnanLeaves"); index++) {
 
             const x = (index * 149 + windTime * (8 + index % 3) * 6) % getWorldWidth();
             const y = (index * 97 + Math.sin(windTime * 1.2 + index) * 28 + 80) % getWorldHeight();
@@ -4149,15 +4221,15 @@ function drawWorldAtmosphere() {
             gameCtx.fillRect(x, y, 4, 2);
 
         }
-        for (let index = 0; index < 7; index++) {
+        for (let index = 0; index < Math.max(3, Math.floor(getParticleBudget("longnanLeaves") / 2)); index++) {
 
             const x = 120 + (index * 227 + windTime * 9) % Math.max(240, getWorldWidth() - 240);
             const y = 160 + (index * 113) % Math.max(220, getWorldHeight() - 320);
-            gameCtx.fillStyle = `rgba(255, 224, 117, ${0.22 + Math.sin(windTime * 3 + index) * 0.08})`;
+            gameCtx.fillStyle = "rgba(255, 224, 117, .22)";
             gameCtx.fillRect(x, y, 2, 2);
 
         }
-        gameCtx.fillStyle = `rgba(255, 240, 181, ${0.025 + Math.sin(windTime * .7) * .008})`;
+        gameCtx.fillStyle = "rgba(255, 240, 181, .024)";
         gameCtx.fillRect(0, 0, getWorldWidth(), getWorldHeight());
         return;
 
@@ -4165,7 +4237,7 @@ function drawWorldAtmosphere() {
 
     if (currentChapter === "weddingXiaoyuan") {
 
-        for (let index = 0; index < 18; index++) {
+        for (let index = 0; index < getParticleBudget("weddingParticles"); index++) {
 
             const x = (index * 103 + windTime * 11) % getWorldWidth();
             const y = (index * 71 + windTime * (5 + index % 2)) % getWorldHeight();
@@ -4173,19 +4245,6 @@ function drawWorldAtmosphere() {
             gameCtx.fillRect(x, y, 3, 3);
 
         }
-        for (let index = 0; index < 3; index++) {
-
-            const x = 460 + index * 290 + Math.sin(windTime * 1.4 + index) * 18;
-            const y = 320 + index * 76 + Math.cos(windTime * 1.8 + index) * 9;
-            gameCtx.fillStyle = "rgba(255, 226, 118, .58)";
-            gameCtx.fillRect(x - 3, y, 3, 2);
-            gameCtx.fillRect(x + 2, y, 3, 2);
-
-        }
-        // Soft highlights suggest swaying flowers, the photo banner and tent.
-        gameCtx.fillStyle = `rgba(255, 248, 223, ${0.08 + Math.sin(windTime * 1.2) * .025})`;
-        gameCtx.fillRect(1130, 195, 150, 4);
-        gameCtx.fillRect(1040, 495, 184, 3);
         return;
 
     }
@@ -4258,6 +4317,7 @@ function drawWorldAtmosphere() {
 
     worldPetals.forEach(petal => {
 
+        if (!isWorldObjectInView(petal.x, petal.y, petal.size, petal.size)) return;
         gameCtx.fillStyle = "rgba(244, 177, 197, 0.75)";
         gameCtx.fillRect(petal.x, petal.y, petal.size, petal.size);
 
@@ -4265,6 +4325,7 @@ function drawWorldAtmosphere() {
 
     birds.forEach(bird => {
 
+        if (performanceProfile.reducedEffects || !isWorldObjectInView(bird.x - 8, bird.y - 8, 16, 16)) return;
         const wing = Math.sin(windTime * 8 + bird.phase) > 0 ? -3 : 3;
 
         gameCtx.strokeStyle = "#5d5650";
@@ -4510,21 +4571,24 @@ function updateSydneyFireworks(deltaTime) {
     if (gameState !== GameState.SYDNEY_LOOKOUT) return;
 
     fireworkCooldown -= deltaTime;
-    if (fireworkCooldown <= 0 && fireworks.length < 120) {
+    const maxFireworks = getParticleBudget("sydneyFireworks");
+    if (fireworkCooldown <= 0 && fireworks.length < maxFireworks) {
 
         const originX = 0.15 + Math.random() * 0.7;
         const originY = 0.12 + Math.random() * 0.22;
         const color = fireworkColors[Math.floor(Math.random() * fireworkColors.length)];
-        for (let index = 0; index < 22; index++) {
+        const burstCount = performanceProfile.isMobile || performanceProfile.reducedEffects ? 10 : 16;
+        for (let index = 0; index < burstCount; index++) {
 
-            const angle = Math.PI * 2 * index / 22;
+            const angle = Math.PI * 2 * index / burstCount;
             const speed = 28 + Math.random() * 38;
             fireworks.push({ x: originX, y: originY, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: 0.8 + Math.random() * 0.45, maxLife: 1.2, color });
 
         }
-        fireworkCooldown = 0.72 + Math.random() * 0.65;
+        fireworkCooldown = (performanceProfile.isMobile || performanceProfile.reducedEffects ? 1.2 : 0.86) + Math.random() * 0.65;
 
     }
+    limitArrayLength(fireworks, maxFireworks);
 
     for (let index = fireworks.length - 1; index >= 0; index--) {
 
@@ -4645,7 +4709,7 @@ function drawSydneyLookoutParty(sceneFrame) {
 
 function drawStoryCGAmbience(config, frame) {
 
-    if (!frame || storyCGOverlay.id !== "sydneyWatchingTheSea") return;
+    if (!frame || storyCGOverlay.id !== "sydneyWatchingTheSea" || gameViewportState.isMobile || performanceProfile.reducedEffects) return;
     const progress = windTime;
     gameCtx.save();
     gameCtx.globalAlpha = storyCGOverlay.opacity;
@@ -4682,34 +4746,14 @@ function drawMemoryAlbumTransition(frame) {
 
     if (!frame || !storyCGOverlay.config?.memoryAlbum || storyCGOverlay.phase !== "fadeIn") return;
     const remaining = 1 - storyCGOverlay.opacity;
+    if (remaining <= 0) return;
+
     gameCtx.save();
-    if (storyCGOverlay.albumMode === "open") {
-
-        const coverWidth = Math.ceil(frame.width * .5 * remaining);
-        gameCtx.fillStyle = "#07182c";
-        gameCtx.fillRect(frame.x, frame.y, coverWidth, frame.height);
-        gameCtx.fillRect(frame.x + frame.width - coverWidth, frame.y, coverWidth, frame.height);
-        gameCtx.strokeStyle = "#d8aa54";
-        gameCtx.lineWidth = 3;
-        gameCtx.beginPath();
-        gameCtx.moveTo(frame.x + coverWidth, frame.y);
-        gameCtx.lineTo(frame.x + coverWidth, frame.y + frame.height);
-        gameCtx.moveTo(frame.x + frame.width - coverWidth, frame.y);
-        gameCtx.lineTo(frame.x + frame.width - coverWidth, frame.y + frame.height);
-        gameCtx.stroke();
-
-    } else {
-
-        const foldWidth = Math.ceil(frame.width * remaining);
-        const foldX = frame.x + frame.width - foldWidth;
-        const fold = gameCtx.createLinearGradient(foldX, 0, frame.x + frame.width, 0);
-        fold.addColorStop(0, "rgba(247, 226, 181, .18)");
-        fold.addColorStop(.5, "rgba(9, 27, 48, .88)");
-        fold.addColorStop(1, "rgba(216, 170, 84, .38)");
-        gameCtx.fillStyle = fold;
-        gameCtx.fillRect(foldX, frame.y, foldWidth, frame.height);
-
-    }
+    gameCtx.globalAlpha = Math.min(0.55, remaining);
+    gameCtx.fillStyle = "#07182c";
+    const translate = storyCGOverlay.albumMode === "flip" ? Math.round(8 * remaining) : 0;
+    gameCtx.fillRect(frame.x + translate, frame.y, frame.width, frame.height);
+    gameCtx.globalAlpha = 1;
     gameCtx.restore();
 
 }
@@ -4850,7 +4894,7 @@ function drawStoryCGLocation(location, frame) {
 
 function drawColesAmbientShoppers() {
 
-    if (currentChapter !== "coles") return;
+    if (currentChapter !== "coles" || !ENABLE_COLES_AMBIENT_SHOPPERS) return;
     colesAmbientShoppers.forEach((shopper, index) => {
 
         const sway = Math.sin(windTime * 4 + index) * 1.5;
@@ -5356,11 +5400,43 @@ function drawGame() {
 
     if (showOpeningParty) {
 
-        [
-            { y: player.y + player.height, draw: drawPlayer },
-            { y: le.y + le.height, draw: drawLe },
-            ...cats.filter(cat => hiddenCatEvent.discovered || !cat.following).map(cat => ({ y: cat.y + cat.height, draw: () => drawCat(cat) }))
-        ].sort((first, second) => first.y - second.y).forEach(character => character.draw());
+        characterDrawQueue[0].y = player.y + player.height;
+        characterDrawQueue[0].type = "player";
+        characterDrawQueue[0].actor = player;
+        characterDrawQueue[1].y = le.y + le.height;
+        characterDrawQueue[1].type = "le";
+        characterDrawQueue[1].actor = le;
+        let queueLength = 2;
+
+        cats.forEach(cat => {
+
+            if (hiddenCatEvent.discovered || !cat.following) {
+
+                const slot = characterDrawQueue[queueLength];
+                slot.y = cat.y + cat.height;
+                slot.type = "cat";
+                slot.actor = cat;
+                queueLength += 1;
+
+            }
+
+        });
+
+        for (let index = 1; index < queueLength; index++) {
+
+            const current = characterDrawQueue[index];
+            let position = index - 1;
+            while (position >= 0 && characterDrawQueue[position].y > current.y) {
+
+                characterDrawQueue[position + 1] = characterDrawQueue[position];
+                position -= 1;
+
+            }
+            characterDrawQueue[position + 1] = current;
+
+        }
+
+        for (let index = 0; index < queueLength; index++) drawCharacterQueueItem(characterDrawQueue[index]);
 
     }
 
@@ -5404,10 +5480,11 @@ function updatePlayer(deltaTime) {
     const movementSpeed = player.speed * (isSprinting ? player.sprintMultiplier : 1);
     const targetVelocityX = horizontal * movementSpeed;
     const targetVelocityY = vertical * movementSpeed;
-    const easingAmount = 1 - Math.exp(-deltaTime / 0.08);
+    const maxDeltaX = (horizontal ? ACCELERATION : DECELERATION) * deltaTime;
+    const maxDeltaY = (vertical ? ACCELERATION : DECELERATION) * deltaTime;
 
-    player.velocityX += (targetVelocityX - player.velocityX) * easingAmount;
-    player.velocityY += (targetVelocityY - player.velocityY) * easingAmount;
+    player.velocityX = moveTowards(player.velocityX, targetVelocityX, maxDeltaX);
+    player.velocityY = moveTowards(player.velocityY, targetVelocityY, maxDeltaY);
     if (!horizontal && Math.abs(player.velocityX) < 1) player.velocityX = 0;
     if (!vertical && Math.abs(player.velocityY) < 1) player.velocityY = 0;
 
@@ -5446,12 +5523,11 @@ function updatePlayer(deltaTime) {
 
 }
 
-let previousGameTime = 0;
-
 function gameLoop(timestamp) {
 
-    const deltaTime = Math.min((timestamp - previousGameTime) / 1000, 0.1);
+    const deltaTime = Math.min((timestamp - previousGameTime) / 1000, 0.033);
     previousGameTime = timestamp;
+    updatePerformanceProfile(deltaTime);
 
     if (gameplayPauseRemaining > 0) gameplayPauseRemaining = Math.max(0, gameplayPauseRemaining - deltaTime);
 
@@ -5494,7 +5570,11 @@ function gameLoop(timestamp) {
     if (currentChapter === "tokyo") checkFirstMeeting();
     moriPositionHistory.push({ x: player.x, y: player.y });
 
-    if (moriPositionHistory.length > 180) moriPositionHistory.shift();
+    if (moriPositionHistory.length > MAX_FOLLOW_HISTORY) {
+
+        moriPositionHistory.splice(0, moriPositionHistory.length - MAX_FOLLOW_HISTORY);
+
+    }
 
     updateLeCompanion(deltaTime);
     if (currentChapter === "tokyo") {
@@ -5520,8 +5600,12 @@ function gameLoop(timestamp) {
     updateCatCompanions(deltaTime);
     updateDialogueTypewriter(deltaTime);
     updateInteractionPromptFade(deltaTime);
-    updateWorldAtmosphere(deltaTime);
-    updateSydneyFireworks(deltaTime);
+    if (!storyCGOverlay.active && !chapterCardState.active) {
+
+        updateWorldAtmosphere(deltaTime);
+        updateSydneyFireworks(deltaTime);
+
+    }
     mobileControls.classList.toggle("isDialogueOpen", meetingState.dialogueOpen || storyCGOverlay.active || [GameState.LONGNAN_TITLE, GameState.LONGNAN_COMPLETE, GameState.WEDDING_INTRO].includes(gameState));
 
     if (player.moving) playerAnimationTime += deltaTime;
@@ -5529,7 +5613,7 @@ function gameLoop(timestamp) {
     updateCamera(deltaTime);
     drawGame();
 
-    requestAnimationFrame(gameLoop);
+    if (gameLoopStarted) requestAnimationFrame(gameLoop);
 
 }
 
@@ -5755,18 +5839,25 @@ window.addEventListener("blur", () => {
 
 window.addEventListener("resize",()=>{
 
-    resizeCanvas();
-    refreshMobileControlMode();
+    if (resizeQueued) return;
+    resizeQueued = true;
+    requestAnimationFrame(() => {
 
-    createStars();
+        resizeQueued = false;
+        resizeCanvas();
+        refreshMobileControlMode();
 
-    createPetals();
+        createStars();
 
-    if (gameStarted) {
+        createPetals();
 
-        clampCameraToWorld();
-        drawGame();
+        if (gameStarted) {
 
-    }
+            clampCameraToWorld();
+            drawGame();
+
+        }
+
+    });
 
 });
