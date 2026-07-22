@@ -3171,28 +3171,56 @@ function updateWeddingGatewaySequence(deltaTime) {
 function drawWeddingGatewayVisuals() {
 
     if (!storyFlags.weddingArchUnlocked) return;
-    const pulse = 0.16 + (Math.sin(windTime * 2.3) + 1) * 0.045;
+    const pulse = 0.22 + (Math.sin(windTime * 2.3) + 1) * 0.055;
     const archX = weddingFloralGateway.x;
     const archY = weddingFloralGateway.y;
+    const doorwayX = archX - 48;
+    const doorwayY = archY - 118;
+    const doorwayWidth = 96;
+    const doorwayHeight = 132;
+    const doorwayBottom = doorwayY + doorwayHeight;
+
     gameCtx.save();
+    // Keep the final-chapter glow inside the floral arch opening only.
+    // The flowers, chairs, grass and surrounding map should not receive a
+    // rectangular bloom; the doorway itself is the magical threshold.
+    gameCtx.beginPath();
+    gameCtx.moveTo(doorwayX, doorwayBottom);
+    gameCtx.lineTo(doorwayX, doorwayY + 50);
+    gameCtx.bezierCurveTo(
+        doorwayX,
+        doorwayY + 8,
+        doorwayX + doorwayWidth,
+        doorwayY + 8,
+        doorwayX + doorwayWidth,
+        doorwayY + 50
+    );
+    gameCtx.lineTo(doorwayX + doorwayWidth, doorwayBottom);
+    gameCtx.closePath();
+    gameCtx.clip();
+
     gameCtx.globalCompositeOperation = "screen";
-    gameCtx.fillStyle = `rgba(255, 246, 216, ${pulse})`;
-    gameCtx.fillRect(archX - 104, archY - 118, 208, 130);
-    gameCtx.fillStyle = "rgba(247, 207, 120, .66)";
-    for (let index = 0; index < 8; index++) {
+    const glow = gameCtx.createRadialGradient(
+        archX,
+        archY - 48,
+        8,
+        archX,
+        archY - 48,
+        78
+    );
+    glow.addColorStop(0, `rgba(255, 255, 255, ${pulse + 0.18})`);
+    glow.addColorStop(0.56, `rgba(255, 251, 235, ${pulse})`);
+    glow.addColorStop(1, "rgba(255, 255, 255, 0)");
+    gameCtx.fillStyle = glow;
+    gameCtx.fillRect(doorwayX, doorwayY, doorwayWidth, doorwayHeight);
+
+    gameCtx.fillStyle = "rgba(255, 255, 255, .72)";
+    for (let index = 0; index < 7; index++) {
 
         const angle = windTime * 1.1 + index * 0.78;
-        const x = archX + Math.cos(angle) * (70 + (index % 3) * 9);
-        const y = archY - 42 + Math.sin(angle * 1.5) * 44;
-        gameCtx.fillRect(Math.round(x), Math.round(y), 3, 3);
-
-    }
-    gameCtx.fillStyle = "rgba(255, 248, 239, .75)";
-    for (let index = 0; index < 4; index++) {
-
-        const x = archX - 70 + ((windTime * 16 + index * 37) % 138);
-        const y = archY - 104 + ((windTime * 11 + index * 29) % 108);
-        gameCtx.fillRect(Math.round(x), Math.round(y), 3, 4);
+        const x = doorwayX + 18 + ((windTime * 13 + index * 23) % (doorwayWidth - 36));
+        const y = doorwayY + 34 + Math.sin(angle * 1.5) * 34 + index * 7;
+        gameCtx.fillRect(Math.round(x), Math.round(y), 2, 3);
 
     }
     gameCtx.restore();
