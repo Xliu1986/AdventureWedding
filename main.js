@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.9.2 — Wedding Gateway
+   Version 0.9.4 — Gameplay Polish
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -630,6 +630,10 @@ const player = {
     speed: 240,
     sprintMultiplier: 1.8,
     direction: "down",
+    direction8: "down",
+    renderDirection: "down",
+    velocityX: 0,
+    velocityY: 0,
     moving: false
 };
 
@@ -649,7 +653,10 @@ const le = {
     moving: false,
     animationTime: 0,
     visible: true,
-    companion: false
+    companion: false,
+    idleOffsetX: 0,
+    idleOffsetY: 0,
+    idleOffsetTimer: 0
 };
 
 const leSprite = new Image();
@@ -789,12 +796,14 @@ const cats = [
     {
         id: "tuotuo", name: "坨坨", x: 1305, y: 902, width: 22, height: 18,
         collar: "#d9524f", marking: "#d9d7ce", direction: "down",
-        following: false, moving: false, animationTime: 0, behaviour: "idle", behaviourTime: 0
+        following: false, moving: false, animationTime: 0, behaviour: "idle", behaviourTime: 0,
+        idleTimer: 3 + Math.random() * 5, idleOffsetX: -2, idleOffsetY: 1, idleOffsetTimer: 0
     },
     {
         id: "dazhi", name: "大痣", x: 1337, y: 909, width: 22, height: 18,
         collar: "#8855a6", marking: "#77757a", direction: "down",
-        following: false, moving: false, animationTime: 0, behaviour: "idle", behaviourTime: 0
+        following: false, moving: false, animationTime: 0, behaviour: "idle", behaviourTime: 0,
+        idleTimer: 3 + Math.random() * 5, idleOffsetX: 2, idleOffsetY: -1, idleOffsetTimer: 0
     }
 ];
 
@@ -826,6 +835,7 @@ const storyFlags = {
     sydneyCooking: false,
     sydneySeaside: false,
     tasmaniaAdventure: false,
+    blueWorksMemory: false,
     sydneyChapterComplete: false,
     longnanChapterStarted: false,
     longnanMemoryAlbumViewed: false,
@@ -894,6 +904,9 @@ const sydneyLifeSequence = [
         { speaker: "森", text: "和你在一起，\n去哪里都很漂亮。" },
         { speaker: "坨坨", text: "喵～" },
         { speaker: "大痣", text: "喵呜～" }
+    ] },
+    { id: "blueWorksMemory", cg: "blueWorksMemory", flag: "blueWorksMemory", hold: 0.9, pages: [
+        { speaker: "乐乐", text: "相熟十载宝藏老店，\n挚友蓝工品质保证。" }
     ] }
 ];
 const sydneyAirportPages = [
@@ -1047,6 +1060,17 @@ const storyCGs = {
         focalY: 0.47,
         mobileDisplay: "contain"
     },
+    blueWorksMemory: {
+        src: "assets/cg/sydney/cg-blueworks.png",
+        location: "Blue Works Vintage Store",
+        focalX: 0.5,
+        focalY: 0.48,
+        mobileDisplay: "contain",
+        fallbackPlaceholder: true,
+        placeholderTitle: "Blue Works Vintage Store",
+        placeholderSubtitle: "Sydney Memory",
+        pendingAsset: true
+    },
     sydneyAirport: {
         // Approved airport departure CG: preserved as supplied.
         src: "assets/cg/sydney/cg-sydney-airport.png",
@@ -1086,28 +1110,32 @@ const storyCGs = {
         focalX: 0.5,
         focalY: 0.5,
         mobileDisplay: "contain",
-        autoCloseAfter: 2.5
+        autoCloseAfter: 2.5,
+        memoryAlbum: true
     },
     longnanAlbumPiaozi: {
         src: "assets/cg/memory-album/longnan-piaozi.png?v=0.8.7",
         focalX: 0.5,
         focalY: 0.5,
         mobileDisplay: "contain",
-        autoCloseAfter: 2.5
+        autoCloseAfter: 2.5,
+        memoryAlbum: true
     },
     longnanAlbumMoment: {
         src: "assets/cg/memory-album/sydney-moment.png?v=0.8.7",
         focalX: 0.5,
         focalY: 0.5,
         mobileDisplay: "contain",
-        autoCloseAfter: 2.5
+        autoCloseAfter: 2.5,
+        memoryAlbum: true
     },
     longnanAlbumWedding: {
         src: "assets/cg/memory-album/wedding-portrait.png?v=0.8.7",
         focalX: 0.5,
         focalY: 0.5,
         mobileDisplay: "contain",
-        autoCloseAfter: 2.5
+        autoCloseAfter: 2.5,
+        memoryAlbum: true
     },
     weddingInvitation: {
         src: "assets/cg/wedding/wedding-invitation.png?v=0.9.2",
@@ -1133,7 +1161,9 @@ const storyCGOverlay = {
     dialoguePurpose: "",
     dialogueStarted: false,
     onComplete: null,
-    inputReady: false
+    inputReady: false,
+    albumMode: "",
+    albumPageIndex: 0
 };
 
 function preloadStoryCGs() {
@@ -1146,7 +1176,7 @@ function preloadStoryCGs() {
             config.image.addEventListener("error", () => {
 
                 config.loadFailed = true;
-                console.warn(`Missing Story CG asset: ${config.src}`);
+                if (!config.pendingAsset) console.warn(`Missing Story CG asset: ${config.src}`);
 
             });
             config.image.src = config.src;
@@ -1434,6 +1464,25 @@ const birds = [
 ];
 
 let windTime = 0;
+let interactionPromptAlpha = 0;
+
+const AmbientHooks = Object.freeze({
+    TokyoAmbient: () => window.dispatchEvent(new CustomEvent("adventurewedding:ambient", { detail: "TokyoAmbient" })),
+    SydneyAmbient: () => window.dispatchEvent(new CustomEvent("adventurewedding:ambient", { detail: "SydneyAmbient" })),
+    LongnanAmbient: () => window.dispatchEvent(new CustomEvent("adventurewedding:ambient", { detail: "LongnanAmbient" })),
+    WeddingAmbient: () => window.dispatchEvent(new CustomEvent("adventurewedding:ambient", { detail: "WeddingAmbient" }))
+});
+window.AdventureWeddingAmbientHooks = AmbientHooks;
+window.TokyoAmbient = AmbientHooks.TokyoAmbient;
+window.SydneyAmbient = AmbientHooks.SydneyAmbient;
+window.LongnanAmbient = AmbientHooks.LongnanAmbient;
+window.WeddingAmbient = AmbientHooks.WeddingAmbient;
+
+const colesAmbientShoppers = [
+    { x: 780, y: 330, minX: 650, maxX: 840, speed: 18, direction: 1, color: "#7a554d" },
+    { x: 812, y: 618, minX: 650, maxX: 930, speed: 14, direction: -1, color: "#45677d" },
+    { x: 1045, y: 704, minX: 820, maxX: 1080, speed: 16, direction: 1, color: "#6c7150" }
+];
 
 const solidTiles = new Set([
     Tile.TREE, Tile.SAKURA_TREE, Tile.FLOWER_BED, Tile.BUSH, Tile.FENCE,
@@ -1651,6 +1700,23 @@ function faceMovementDirection(actor, horizontal, vertical) {
 
     if (!horizontal && !vertical) return;
 
+    const verticalName = vertical < 0 ? "up" : "down";
+    const horizontalName = horizontal < 0 ? "left" : "right";
+    actor.direction8 = horizontal && vertical
+        ? `${verticalName}-${horizontalName}`
+        : (horizontal ? horizontalName : verticalName);
+
+    // The canonical sheets provide four authored rows. During a diagonal
+    // input retain the last compatible row, creating a natural cardinal →
+    // diagonal → cardinal turn without rotating or distorting the sprite.
+    if (horizontal && vertical) {
+
+        if (actor.direction !== horizontalName && actor.direction !== verticalName) actor.direction = horizontalName;
+        actor.renderDirection = actor.direction;
+        return;
+
+    }
+
     if (Math.abs(horizontal) > Math.abs(vertical)) {
 
         actor.direction = horizontal > 0 ? "right" : "left";
@@ -1660,6 +1726,8 @@ function faceMovementDirection(actor, horizontal, vertical) {
         actor.direction = vertical > 0 ? "down" : "up";
 
     }
+
+    actor.renderDirection = actor.direction;
 
 }
 
@@ -1705,7 +1773,15 @@ function updateDialogueTypewriter(deltaTime) {
     while (meetingState.characterIndex < page.text.length) {
 
         const character = page.text[meetingState.characterIndex];
-        const delay = /[，。]/.test(character) ? 95 : 40;
+        const delay = /[。！？]/.test(character)
+            ? 150
+            : /[，、；：]/.test(character)
+            ? 90
+            : character === "…"
+            ? 125
+            : /[（）]/.test(character)
+            ? 70
+            : 40;
 
         if (meetingState.typeTimer < delay) return;
 
@@ -2279,6 +2355,8 @@ function showStoryCG({ id, image, dialogue = null, dialoguePurpose = "storyCG", 
     storyCGOverlay.dialogueStarted = false;
     storyCGOverlay.onComplete = onComplete;
     storyCGOverlay.inputReady = false;
+    storyCGOverlay.albumMode = "";
+    storyCGOverlay.albumPageIndex = 0;
     pressedKeys.clear();
     clearMobileControls();
     player.moving = false;
@@ -2316,12 +2394,18 @@ function showLongnanMemoryAlbum(pageIndex = 0) {
 
     }
 
-    showStoryCG({
+    const opened = showStoryCG({
         id,
         dialoguePurpose: "longnanMemoryAlbum",
         revealDelay: 0.45,
         onComplete: () => showLongnanMemoryAlbum(pageIndex + 1)
     });
+    if (opened) {
+
+        storyCGOverlay.albumMode = pageIndex === 0 ? "open" : "flip";
+        storyCGOverlay.albumPageIndex = pageIndex;
+
+    }
 
 }
 
@@ -2338,7 +2422,7 @@ function updateStoryCG(deltaTime) {
 
     if (storyCGOverlay.phase === "fadeIn") {
 
-        storyCGOverlay.opacity = Math.min(1, storyCGOverlay.opacity + deltaTime / 0.4);
+        storyCGOverlay.opacity = Math.min(1, storyCGOverlay.opacity + deltaTime / 0.85);
         if (storyCGOverlay.opacity < 1) return;
         storyCGOverlay.phase = "hold";
 
@@ -2379,7 +2463,7 @@ function updateStoryCG(deltaTime) {
 
     if (storyCGOverlay.phase === "fadeOut") {
 
-        storyCGOverlay.opacity = Math.max(0, storyCGOverlay.opacity - deltaTime / 0.4);
+        storyCGOverlay.opacity = Math.max(0, storyCGOverlay.opacity - deltaTime / 0.85);
         if (storyCGOverlay.opacity > 0) return;
 
         const onComplete = storyCGOverlay.onComplete;
@@ -3198,6 +3282,16 @@ function tryInteraction() {
 
 }
 
+function updateOrganicIdleOffset(actor, deltaTime) {
+
+    actor.idleOffsetTimer = Math.max(0, (actor.idleOffsetTimer || 0) - deltaTime);
+    if (actor.idleOffsetTimer > 0) return;
+    actor.idleOffsetX = Math.round((Math.random() * 6) - 3);
+    actor.idleOffsetY = Math.round((Math.random() * 6) - 3);
+    actor.idleOffsetTimer = 3 + Math.random() * 5;
+
+}
+
 function updateLeCompanion(deltaTime) {
 
     if (!le.companion || chapterCardState.active || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active || gameplayPauseRemaining > 0 || chapterTransition.active || sceneTransition.active || storyCGOverlay.active) {
@@ -3207,7 +3301,12 @@ function updateLeCompanion(deltaTime) {
 
     }
 
-    const delayedPoint = moriPositionHistory[Math.max(0, moriPositionHistory.length - 14)];
+    updateOrganicIdleOffset(le, deltaTime);
+    const historyPoint = moriPositionHistory[Math.max(0, moriPositionHistory.length - 14)];
+    const delayedPoint = historyPoint && {
+        x: historyPoint.x + le.idleOffsetX,
+        y: historyPoint.y + le.idleOffsetY
+    };
 
     if (!delayedPoint) return;
 
@@ -3244,7 +3343,7 @@ function updateLeCompanion(deltaTime) {
 
     le.moving = true;
     le.animationTime += deltaTime;
-    faceToward(le, delayedPoint);
+    faceMovementDirection(le, horizontal, vertical);
 
 }
 
@@ -3284,6 +3383,8 @@ function drawInteractionPrompt() {
         : (mobilePrompt ? "点击 A 互动" : "按 E / 点击互动");
     const promptWidth = nearbyWeddingInteraction?.id === "weddingFloralGateway" ? 150 : nearbyWeddingInteraction ? 126 : nearbyLongnanExit ? 190 : nearbyLongnanMemoryAlbum ? 160 : nearbyLongnanInteraction ? 190 : piaoziState.nearby ? 240 : nearbySceneExit === "sydneyLife" ? 220 : nearbySceneExit ? 170 : nearbyStation ? 156 : nearbyCatEvent ? 164 : nearbyInteractable?.prompt ? 158 : 112;
 
+    gameCtx.save();
+    gameCtx.globalAlpha = interactionPromptAlpha;
     gameCtx.fillStyle = "rgba(10, 20, 38, 0.86)";
     gameCtx.fillRect(player.x - 44, player.y - (nearbyWeddingInteraction ? 76 : 58), promptWidth, nearbyWeddingInteraction ? 46 : 28);
     gameCtx.fillStyle = "#f4cf7a";
@@ -3301,6 +3402,20 @@ function drawInteractionPrompt() {
         gameCtx.fillText(promptText, player.x - 38, player.y - 39);
 
     }
+    gameCtx.restore();
+
+}
+
+function updateInteractionPromptFade(deltaTime) {
+
+    const visible = !meetingState.dialogueOpen && Boolean(
+        nearbyInteractable || nearbyCatEvent || nearbyStation || nearbySceneExit
+        || piaoziState.nearby || nearbyColesInspectable || nearbyLongnanInteraction
+        || nearbyLongnanExit || nearbyLongnanMemoryAlbum || nearbyWeddingInteraction
+    );
+    const target = visible ? 1 : 0;
+    interactionPromptAlpha += (target - interactionPromptAlpha) * (1 - Math.exp(-deltaTime / 0.16));
+    if (Math.abs(target - interactionPromptAlpha) < .01) interactionPromptAlpha = target;
 
 }
 
@@ -3315,6 +3430,22 @@ function updateCatCompanion(cat, index, deltaTime) {
     }
 
     cat.animationTime += deltaTime;
+    updateOrganicIdleOffset(cat, deltaTime);
+    cat.idleTimer -= deltaTime;
+
+    if (cat.idleTimer <= 0 && !cat.moving) {
+
+        const behaviours = cat.id === "tuotuo"
+            ? ["tail", "lookLeft", "lookRight", "blink", "sit", "stand"]
+            : ["blink", "tail", "ear", "lookPlayer", "stretch"];
+        cat.behaviour = behaviours[Math.floor(Math.random() * behaviours.length)];
+        cat.behaviourTime = 0.55 + Math.random() * 1.15;
+        cat.idleTimer = 3 + Math.random() * 5;
+        if (cat.behaviour === "lookLeft") cat.direction = "left";
+        if (cat.behaviour === "lookRight") cat.direction = "right";
+        if (cat.behaviour === "lookPlayer") faceToward(cat, player);
+
+    }
 
     if (cat.behaviourTime > 0) {
 
@@ -3324,13 +3455,17 @@ function updateCatCompanion(cat, index, deltaTime) {
 
     }
 
-    const delayedPoint = moriPositionHistory[Math.max(0, moriPositionHistory.length - 24 - index * 10)];
+    const historyPoint = moriPositionHistory[Math.max(0, moriPositionHistory.length - 24 - index * 10)];
+    const delayedPoint = historyPoint && {
+        x: historyPoint.x + cat.idleOffsetX,
+        y: historyPoint.y + cat.idleOffsetY
+    };
 
     if (!delayedPoint) return;
 
     const distance = Math.hypot(delayedPoint.x - cat.x, delayedPoint.y - cat.y);
 
-    if (distance > 190) {
+    if (distance > 240) {
 
         cat.x = delayedPoint.x;
         cat.y = delayedPoint.y;
@@ -3341,9 +3476,6 @@ function updateCatCompanion(cat, index, deltaTime) {
 
     if (distance < 32) {
 
-        const restingBehaviours = ["sit", "groom", "idle"];
-        cat.behaviour = restingBehaviours[Math.floor(Math.random() * restingBehaviours.length)];
-        cat.behaviourTime = 0.35 + Math.random() * 0.65;
         cat.moving = false;
         return;
 
@@ -3364,7 +3496,7 @@ function updateCatCompanion(cat, index, deltaTime) {
     }
 
     cat.moving = true;
-    faceToward(cat, delayedPoint);
+    faceMovementDirection(cat, horizontal, vertical);
 
 }
 
@@ -3540,10 +3672,40 @@ function getCameraIntroOverviewZoom() {
 
 }
 
+function getCameraDeadZoneTarget(zoom) {
+
+    const visibleWidth = gameViewportState.width / zoom;
+    const visibleHeight = gameViewportState.height / zoom;
+    const maxX = Math.max(0, getWorldWidth() - visibleWidth);
+    const maxY = Math.max(0, getWorldHeight() - visibleHeight);
+    const deadHalfWidth = visibleWidth * 0.15;
+    const deadHalfHeight = visibleHeight * 0.12;
+    const portraitOffsetY = gameViewportState.isMobile && gameViewportState.portrait ? 110 : 0;
+    const focusX = player.x + player.width / 2;
+    const focusY = player.y + player.height / 2 + portraitOffsetY;
+    const cameraCenterX = camera.x + visibleWidth / 2;
+    const cameraCenterY = camera.y + visibleHeight / 2;
+    let targetX = camera.x;
+    let targetY = camera.y;
+
+    if (focusX < cameraCenterX - deadHalfWidth) targetX += focusX - (cameraCenterX - deadHalfWidth);
+    if (focusX > cameraCenterX + deadHalfWidth) targetX += focusX - (cameraCenterX + deadHalfWidth);
+    if (focusY < cameraCenterY - deadHalfHeight) targetY += focusY - (cameraCenterY - deadHalfHeight);
+    if (focusY > cameraCenterY + deadHalfHeight) targetY += focusY - (cameraCenterY + deadHalfHeight);
+
+    return {
+        x: Math.max(0, Math.min(targetX, maxX)),
+        y: Math.max(0, Math.min(targetY, maxY))
+    };
+
+}
+
 function updateCamera(deltaTime) {
 
     const followZoom = getCameraFollowZoom();
-    const target = getCameraTarget(followZoom);
+    const cinematicWeddingCamera = weddingGatewaySequence.active
+        && ["formation", "approach", "catPause", "coupleEnter", "whiteFade", "whiteHold"].includes(weddingGatewaySequence.phase);
+    let target = cinematicWeddingCamera ? getCameraTarget(followZoom) : getCameraDeadZoneTarget(followZoom);
     const followAmount = 1 - Math.pow(1 - camera.smoothing, deltaTime * 60);
 
     if (characterPanelOpen) return;
@@ -3555,6 +3717,7 @@ function updateCamera(deltaTime) {
         const overviewZoom = getCameraIntroOverviewZoom();
         const overviewX = Math.max(0, (getWorldWidth() - gameViewportState.width / overviewZoom) / 2);
         const overviewY = Math.max(0, (getWorldHeight() - gameViewportState.height / overviewZoom) / 2);
+        target = getCameraTarget(followZoom);
 
         if (cameraIntro.elapsed > cameraIntro.overviewDuration) {
 
@@ -3579,6 +3742,7 @@ function updateCamera(deltaTime) {
     camera.x += (target.x - camera.x) * followAmount;
     camera.y += (target.y - camera.y) * followAmount;
     camera.zoom += (followZoom - camera.zoom) * followAmount;
+    clampCameraToWorld();
 
 }
 
@@ -3894,6 +4058,20 @@ function updateWorldAtmosphere(deltaTime) {
 
     windTime += deltaTime;
 
+    if (currentChapter === "coles") colesAmbientShoppers.forEach(shopper => {
+
+        shopper.x += shopper.speed * shopper.direction * deltaTime;
+        if (shopper.x < shopper.minX || shopper.x > shopper.maxX) {
+
+            shopper.direction *= -1;
+            shopper.x = Math.max(shopper.minX, Math.min(shopper.x, shopper.maxX));
+
+        }
+
+    });
+
+    if (currentChapter !== "tokyo") return;
+
     worldPetals.forEach(petal => {
 
         petal.y += petal.fall * deltaTime;
@@ -3928,9 +4106,91 @@ function drawWorldAtmosphere() {
 
         }
 
+        // Two distant ferries, slow cloud bands and a pair of harbour birds.
+        for (let index = 0; index < 2; index++) {
+
+            const boatX = ((windTime * (18 + index * 4) + index * 710) % 1500) + 180;
+            const boatY = 485 + index * 82;
+            gameCtx.fillStyle = "rgba(245, 222, 167, .72)";
+            gameCtx.fillRect(boatX, boatY, 34, 4);
+            gameCtx.fillStyle = "rgba(233, 246, 255, .55)";
+            gameCtx.fillRect(boatX + 8, boatY - 5, 18, 5);
+
+        }
+        gameCtx.fillStyle = "rgba(197, 216, 237, .08)";
+        gameCtx.fillRect((windTime * 5 % 1500) - 220, 115, 260, 12);
+        gameCtx.fillRect(((windTime * 4 + 680) % 1700) - 180, 175, 210, 9);
+        for (let index = 0; index < 2; index++) {
+
+            const birdX = ((windTime * 32 + index * 620) % 1650) + 90;
+            const birdY = 270 + index * 45;
+            gameCtx.strokeStyle = "rgba(232, 239, 246, .7)";
+            gameCtx.beginPath();
+            gameCtx.moveTo(birdX - 5, birdY);
+            gameCtx.lineTo(birdX, birdY - 3);
+            gameCtx.lineTo(birdX + 5, birdY);
+            gameCtx.stroke();
+
+        }
+
         return;
 
     }
+
+    if (currentChapter === "longnanLookout" || currentChapter === "longnanTown") {
+
+        // Longnan uses mountain breeze, leaves, insects and warm sun flecks —
+        // deliberately no Tokyo-style pink petals.
+        for (let index = 0; index < 16; index++) {
+
+            const x = (index * 149 + windTime * (8 + index % 3) * 6) % getWorldWidth();
+            const y = (index * 97 + Math.sin(windTime * 1.2 + index) * 28 + 80) % getWorldHeight();
+            gameCtx.fillStyle = index % 3 ? "rgba(105, 139, 58, .48)" : "rgba(181, 143, 68, .4)";
+            gameCtx.fillRect(x, y, 4, 2);
+
+        }
+        for (let index = 0; index < 7; index++) {
+
+            const x = 120 + (index * 227 + windTime * 9) % Math.max(240, getWorldWidth() - 240);
+            const y = 160 + (index * 113) % Math.max(220, getWorldHeight() - 320);
+            gameCtx.fillStyle = `rgba(255, 224, 117, ${0.22 + Math.sin(windTime * 3 + index) * 0.08})`;
+            gameCtx.fillRect(x, y, 2, 2);
+
+        }
+        gameCtx.fillStyle = `rgba(255, 240, 181, ${0.025 + Math.sin(windTime * .7) * .008})`;
+        gameCtx.fillRect(0, 0, getWorldWidth(), getWorldHeight());
+        return;
+
+    }
+
+    if (currentChapter === "weddingXiaoyuan") {
+
+        for (let index = 0; index < 18; index++) {
+
+            const x = (index * 103 + windTime * 11) % getWorldWidth();
+            const y = (index * 71 + windTime * (5 + index % 2)) % getWorldHeight();
+            gameCtx.fillStyle = index % 2 ? "rgba(255, 246, 224, .55)" : "rgba(242, 183, 196, .45)";
+            gameCtx.fillRect(x, y, 3, 3);
+
+        }
+        for (let index = 0; index < 3; index++) {
+
+            const x = 460 + index * 290 + Math.sin(windTime * 1.4 + index) * 18;
+            const y = 320 + index * 76 + Math.cos(windTime * 1.8 + index) * 9;
+            gameCtx.fillStyle = "rgba(255, 226, 118, .58)";
+            gameCtx.fillRect(x - 3, y, 3, 2);
+            gameCtx.fillRect(x + 2, y, 3, 2);
+
+        }
+        // Soft highlights suggest swaying flowers, the photo banner and tent.
+        gameCtx.fillStyle = `rgba(255, 248, 223, ${0.08 + Math.sin(windTime * 1.2) * .025})`;
+        gameCtx.fillRect(1130, 195, 150, 4);
+        gameCtx.fillRect(1040, 495, 184, 3);
+        return;
+
+    }
+
+    if (currentChapter === "coles") return;
 
     const hasOfficialMap = exteriorMap.complete && exteriorMap.naturalWidth;
 
@@ -3971,6 +4231,29 @@ function drawWorldAtmosphere() {
 
         }
 
+        // Tiny landmark details: station clock, shrine bird, convenience sign
+        // and 一点张 lantern. They remain restrained overlays on the official art.
+        gameCtx.strokeStyle = "rgba(51, 44, 35, .82)";
+        gameCtx.lineWidth = 2;
+        gameCtx.beginPath();
+        gameCtx.moveTo(1024, 237);
+        gameCtx.lineTo(1024 + Math.sin(windTime * .12) * 8, 237 - Math.cos(windTime * .12) * 8);
+        gameCtx.moveTo(1024, 237);
+        gameCtx.lineTo(1024 + Math.sin(windTime * .01) * 5, 237 - Math.cos(windTime * .01) * 5);
+        gameCtx.stroke();
+        const flicker = .16 + Math.max(0, Math.sin(windTime * 5.3)) * .12;
+        gameCtx.fillStyle = `rgba(255, 232, 145, ${flicker})`;
+        gameCtx.fillRect(150, 1434, 98, 5);
+        gameCtx.fillStyle = `rgba(255, 185, 82, ${0.14 + Math.sin(windTime * 2.1) * .04})`;
+        gameCtx.fillRect(515, 1538, 72, 7);
+        const birdX = 1660 + Math.sin(windTime * .75) * 24;
+        gameCtx.strokeStyle = "rgba(65, 61, 54, .58)";
+        gameCtx.beginPath();
+        gameCtx.moveTo(birdX - 4, 365);
+        gameCtx.lineTo(birdX, 362);
+        gameCtx.lineTo(birdX + 4, 365);
+        gameCtx.stroke();
+
     }
 
     worldPetals.forEach(petal => {
@@ -4003,7 +4286,7 @@ function drawPlayer() {
     const animationOffset = !player.moving
         ? 0
         : (pressedKeys.has("ShiftLeft") || pressedKeys.has("ShiftRight") ? 8 : 4);
-    const row = directionRows[player.direction] + animationOffset;
+    const row = directionRows[player.renderDirection || player.direction] + animationOffset;
 
     const activeSprite = playerSprite.complete && playerSprite.naturalWidth
         ? playerSprite
@@ -4038,7 +4321,7 @@ function drawLe() {
 
     const directionRows = { down: 0, up: 1, left: 2, right: 3 };
     const frame = le.moving ? Math.floor(le.animationTime / 0.14) % 4 : 0;
-    const row = directionRows[le.direction] + (le.moving ? 4 : 0);
+    const row = directionRows[le.renderDirection || le.direction] + (le.moving ? 4 : 0);
 
     const activeSprite = leSprite.complete && leSprite.naturalWidth
         ? leSprite
@@ -4075,9 +4358,12 @@ function drawCat(cat) {
 
         const directionRows = { down: 0, up: 1, left: 2, right: 3 };
         const animationOffset = !cat.moving ? 0 : (cat.behaviour === "run" ? 8 : 4);
-        const frame = cat.moving ? Math.floor(cat.animationTime / 0.16) % 4 : 0;
+        const idleFrames = { blink: 1, tail: 2, ear: 3, sit: 1, stand: 0, stretch: 2, lookLeft: 0, lookRight: 0, lookPlayer: 0 };
+        const frame = cat.moving ? Math.floor(cat.animationTime / 0.16) % 4 : (idleFrames[cat.behaviour] || 0);
         const row = directionRows[cat.direction] + animationOffset;
-        const bob = cat.behaviour === "run" ? Math.sin(cat.animationTime * 12) * 2 : 0;
+        const bob = cat.behaviour === "run"
+            ? Math.sin(cat.animationTime * 12) * 2
+            : (cat.behaviour === "stretch" ? Math.sin(cat.animationTime * 5) * 1.5 : 0);
         gameCtx.fillStyle = "rgba(26, 31, 39, 0.25)";
         gameCtx.fillRect(cat.x - 8, cat.y + cat.height - 3, 34, 5);
         gameCtx.drawImage(
@@ -4357,6 +4643,77 @@ function drawSydneyLookoutParty(sceneFrame) {
 
 }
 
+function drawStoryCGAmbience(config, frame) {
+
+    if (!frame || storyCGOverlay.id !== "sydneyWatchingTheSea") return;
+    const progress = windTime;
+    gameCtx.save();
+    gameCtx.globalAlpha = storyCGOverlay.opacity;
+    gameCtx.strokeStyle = "rgba(224, 244, 255, .28)";
+    gameCtx.lineWidth = Math.max(1, Math.round(frame.width / 700));
+    for (let index = 0; index < 3; index++) {
+
+        const y = frame.y + frame.height * (.49 + index * .025);
+        const x = frame.x + ((progress * (9 + index) + index * 140) % Math.max(1, frame.width));
+        gameCtx.beginPath();
+        gameCtx.moveTo(x - 26, y);
+        gameCtx.lineTo(x + 26, y);
+        gameCtx.stroke();
+
+    }
+    gameCtx.fillStyle = "rgba(239, 247, 251, .07)";
+    gameCtx.fillRect(frame.x + ((progress * 4) % frame.width) - 130, frame.y + frame.height * .12, 150, 7);
+    gameCtx.strokeStyle = "rgba(88, 126, 57, .25)";
+    for (let index = 0; index < 8; index++) {
+
+        const x = frame.x + frame.width * (.08 + index * .105);
+        const y = frame.y + frame.height * .69;
+        gameCtx.beginPath();
+        gameCtx.moveTo(x, y);
+        gameCtx.lineTo(x + Math.sin(progress * 1.8 + index) * 3, y - 7);
+        gameCtx.stroke();
+
+    }
+    gameCtx.restore();
+
+}
+
+function drawMemoryAlbumTransition(frame) {
+
+    if (!frame || !storyCGOverlay.config?.memoryAlbum || storyCGOverlay.phase !== "fadeIn") return;
+    const remaining = 1 - storyCGOverlay.opacity;
+    gameCtx.save();
+    if (storyCGOverlay.albumMode === "open") {
+
+        const coverWidth = Math.ceil(frame.width * .5 * remaining);
+        gameCtx.fillStyle = "#07182c";
+        gameCtx.fillRect(frame.x, frame.y, coverWidth, frame.height);
+        gameCtx.fillRect(frame.x + frame.width - coverWidth, frame.y, coverWidth, frame.height);
+        gameCtx.strokeStyle = "#d8aa54";
+        gameCtx.lineWidth = 3;
+        gameCtx.beginPath();
+        gameCtx.moveTo(frame.x + coverWidth, frame.y);
+        gameCtx.lineTo(frame.x + coverWidth, frame.y + frame.height);
+        gameCtx.moveTo(frame.x + frame.width - coverWidth, frame.y);
+        gameCtx.lineTo(frame.x + frame.width - coverWidth, frame.y + frame.height);
+        gameCtx.stroke();
+
+    } else {
+
+        const foldWidth = Math.ceil(frame.width * remaining);
+        const foldX = frame.x + frame.width - foldWidth;
+        const fold = gameCtx.createLinearGradient(foldX, 0, frame.x + frame.width, 0);
+        fold.addColorStop(0, "rgba(247, 226, 181, .18)");
+        fold.addColorStop(.5, "rgba(9, 27, 48, .88)");
+        fold.addColorStop(1, "rgba(216, 170, 84, .38)");
+        gameCtx.fillStyle = fold;
+        gameCtx.fillRect(foldX, frame.y, foldWidth, frame.height);
+
+    }
+    gameCtx.restore();
+
+}
+
 function drawStoryCG() {
 
     gameCtx.fillStyle = storyCGOverlay.config?.fadeFromWhite ? "#fff8e7" : "#02070d";
@@ -4439,6 +4796,9 @@ function drawStoryCG() {
 
     gameCtx.globalAlpha = 1;
 
+    drawStoryCGAmbience(config, storyFrame);
+    drawMemoryAlbumTransition(storyFrame);
+
     if (config.location && storyFrame) {
 
         drawStoryCGLocation(config.location, storyFrame);
@@ -4485,6 +4845,23 @@ function drawStoryCGLocation(location, frame) {
     gameCtx.textBaseline = "middle";
     gameCtx.fillText(location, labelX + paddingX, labelY + labelHeight / 2 + 1);
     gameCtx.restore();
+
+}
+
+function drawColesAmbientShoppers() {
+
+    if (currentChapter !== "coles") return;
+    colesAmbientShoppers.forEach((shopper, index) => {
+
+        const sway = Math.sin(windTime * 4 + index) * 1.5;
+        gameCtx.fillStyle = "rgba(17, 24, 32, .2)";
+        gameCtx.fillRect(shopper.x - 7, shopper.y + 19, 16, 4);
+        gameCtx.fillStyle = shopper.color;
+        gameCtx.fillRect(shopper.x - 6, shopper.y + 5 + sway, 13, 18);
+        gameCtx.fillStyle = "#c99372";
+        gameCtx.fillRect(shopper.x - 4, shopper.y + sway, 9, 8);
+
+    });
 
 }
 
@@ -4966,6 +5343,7 @@ function drawGame() {
     if (currentChapter === "tokyo") drawCollisionDebug();
     if (currentChapter === "longnanTown") drawLongnanBridgePiaozi();
     drawWorldAtmosphere();
+    if (currentChapter === "coles") drawColesAmbientShoppers();
     if (currentChapter === "weddingXiaoyuan") drawWeddingGatewayVisuals();
 
     const showOpeningParty = !(
@@ -5001,6 +5379,8 @@ function updatePlayer(deltaTime) {
     if (chapterCardState.active || cameraIntro.active || meetingState.dialogueOpen || characterPanelOpen || gameplayPauseRemaining || chapterTransition.active || sceneTransition.active || storyCGOverlay.active || ![GameState.TOKYO, GameState.SYDNEY, GameState.COLES, GameState.LONGNAN_LOOKOUT, GameState.LONGNAN_TOWN, GameState.WEDDING_XIAOYUAN].includes(gameState)) {
 
         player.moving = false;
+        player.velocityX = 0;
+        player.velocityY = 0;
         return;
 
     }
@@ -5013,8 +5393,6 @@ function updatePlayer(deltaTime) {
     if (pressedKeys.has("KeyW") || pressedKeys.has("ArrowUp")) vertical -= 1;
     if (pressedKeys.has("KeyS") || pressedKeys.has("ArrowDown")) vertical += 1;
 
-    player.moving = horizontal !== 0 || vertical !== 0;
-
     if (horizontal && vertical) {
 
         horizontal *= Math.SQRT1_2;
@@ -5022,35 +5400,47 @@ function updatePlayer(deltaTime) {
 
     }
 
-    // Direction comes from the movement vector every frame, so keyboard and
-    // touch movement always choose the matching front, back or side sprite.
-    faceMovementDirection(player, horizontal, vertical);
-
     const isSprinting = pressedKeys.has("ShiftLeft") || pressedKeys.has("ShiftRight");
     const movementSpeed = player.speed * (isSprinting ? player.sprintMultiplier : 1);
+    const targetVelocityX = horizontal * movementSpeed;
+    const targetVelocityY = vertical * movementSpeed;
+    const easingAmount = 1 - Math.exp(-deltaTime / 0.08);
+
+    player.velocityX += (targetVelocityX - player.velocityX) * easingAmount;
+    player.velocityY += (targetVelocityY - player.velocityY) * easingAmount;
+    if (!horizontal && Math.abs(player.velocityX) < 1) player.velocityX = 0;
+    if (!vertical && Math.abs(player.velocityY) < 1) player.velocityY = 0;
+
+    player.moving = Math.hypot(player.velocityX, player.velocityY) > 3;
+    if (horizontal || vertical) faceMovementDirection(player, horizontal, vertical);
 
     const destinationX = Math.max(
         0,
-        Math.min(player.x + horizontal * movementSpeed * deltaTime, getWorldWidth() - player.width)
+        Math.min(player.x + player.velocityX * deltaTime, getWorldWidth() - player.width)
     );
     const destinationY = Math.max(
         0,
-        Math.min(player.y + vertical * movementSpeed * deltaTime, getWorldHeight() - player.height)
+        Math.min(player.y + player.velocityY * deltaTime, getWorldHeight() - player.height)
     );
 
-    const canMove = currentChapter === "sydney"
-        ? destinationX >= sydneyLookoutWalkableZone.x
-            && destinationX + player.width <= sydneyLookoutWalkableZone.x + sydneyLookoutWalkableZone.width
-            && destinationY >= sydneyLookoutWalkableZone.y
-            && destinationY + player.height <= sydneyLookoutWalkableZone.y + sydneyLookoutWalkableZone.height
-        : (exteriorMap.complete && exteriorMap.naturalWidth
-            ? canMoveOnOfficialMap(destinationX, destinationY)
-            : canMoveTo(destinationX, destinationY));
+    const canMovePlayerTo = (x, y) => currentChapter === "sydney"
+        ? x >= sydneyLookoutWalkableZone.x
+            && x + player.width <= sydneyLookoutWalkableZone.x + sydneyLookoutWalkableZone.width
+            && y >= sydneyLookoutWalkableZone.y
+            && y + player.height <= sydneyLookoutWalkableZone.y + sydneyLookoutWalkableZone.height
+        : (exteriorMap.complete && exteriorMap.naturalWidth ? canMoveOnOfficialMap(x, y) : canMoveTo(x, y));
 
-    if (canMove) {
+    if (canMovePlayerTo(destinationX, destinationY)) {
 
         player.x = destinationX;
         player.y = destinationY;
+
+    } else {
+
+        if (canMovePlayerTo(destinationX, player.y)) player.x = destinationX;
+        else player.velocityX = 0;
+        if (canMovePlayerTo(player.x, destinationY)) player.y = destinationY;
+        else player.velocityY = 0;
 
     }
 
@@ -5129,6 +5519,7 @@ function gameLoop(timestamp) {
     }
     updateCatCompanions(deltaTime);
     updateDialogueTypewriter(deltaTime);
+    updateInteractionPromptFade(deltaTime);
     updateWorldAtmosphere(deltaTime);
     updateSydneyFireworks(deltaTime);
     mobileControls.classList.toggle("isDialogueOpen", meetingState.dialogueOpen || storyCGOverlay.active || [GameState.LONGNAN_TITLE, GameState.LONGNAN_COMPLETE, GameState.WEDDING_INTRO].includes(gameState));
