@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.9.4.1 — Performance Hotfix
+   Version 0.9.5 — Audio Foundation
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -76,6 +76,8 @@ function resizeCanvas() {
 }
 
 resizeCanvas();
+window.AudioManager?.init();
+window.AudioManager?.applySceneAudio?.("title");
 
 /* ===========================
    Stars
@@ -452,10 +454,10 @@ function showChapterCard({ mode, chapter, onComplete = null }) {
     chapterCardState.finalCard = isFinal;
     chapterCardState.previousGameState = gameState;
 
-    if (mode === "prologue") gameState = GameState.PROLOGUE;
-    else if (isEnding) gameState = GameState.CHAPTER_ENDING;
-    else if (isFinal) gameState = GameState.FINAL_ENDING;
-    else gameState = GameState.CHAPTER_INTRO;
+    if (mode === "prologue") setGameState(GameState.PROLOGUE);
+    else if (isEnding) setGameState(GameState.CHAPTER_ENDING);
+    else if (isFinal) setGameState(GameState.FINAL_ENDING);
+    else setGameState(GameState.CHAPTER_INTRO);
 
     chapterCardLabel.textContent = isFinal ? "AdventureWedding" : (isEnding ? chapter.endingLabel : chapter.introLabel);
     chapterCardTitleZh.textContent = isFinal ? "The End" : (isEnding ? `${chapter.titleZh} · ${chapter.theme}` : chapter.titleZh);
@@ -593,7 +595,7 @@ function beginTokyoGameplay() {
 
     restoreGameplayUI();
     currentChapter = "tokyo";
-    gameState = GameState.TOKYO;
+    setGameState(GameState.TOKYO, { forceAudio: true });
     storyFlags.tokyoChapterStarted = true;
     spawnPlayer();
     startCameraIntro();
@@ -1137,6 +1139,7 @@ const storyCGs = {
         location: "Blue Works Vintage Store",
         focalX: 0.5,
         focalY: 0.48,
+        bgmOverride: "blueWorksTheme",
         mobileDisplay: "contain"
     },
     sydneyAirport: {
@@ -1370,6 +1373,15 @@ const GameState = Object.freeze({
 
 let currentChapter = "tokyo";
 let gameState = GameState.TOKYO;
+
+function setGameState(nextState, options = {}) {
+
+    if (!nextState) return;
+    if (gameState === nextState && !options.forceAudio) return;
+    gameState = nextState;
+    window.AudioManager?.applySceneAudio?.(nextState);
+
+}
 
 let playerAnimationTime = 0;
 
@@ -1892,6 +1904,7 @@ function updateDialogueTypewriter(deltaTime) {
         meetingState.typeTimer -= delay;
         meetingState.characterIndex++;
         gameDialogueText.textContent = page.text.slice(0, meetingState.characterIndex);
+        if (!/\s/.test(character)) window.AudioManager?.playSFX?.("dialogueTick");
 
     }
 
@@ -1912,17 +1925,20 @@ function advanceMeetingDialogue() {
         meetingState.pageComplete = true;
         gameDialogueText.textContent = page.text;
         gameDialogueContinue.classList.remove("hidden");
+        window.AudioManager?.playSFX?.("dialogueNext");
         return;
 
     }
 
     if (meetingState.pageIndex < activeDialoguePages.length - 1) {
 
+        window.AudioManager?.playSFX?.("dialogueNext");
         setDialoguePage(meetingState.pageIndex + 1);
         return;
 
     }
 
+    window.AudioManager?.playSFX?.("dialogueNext");
     closeMeetingDialogue();
 
 }
@@ -1968,7 +1984,7 @@ function closeMeetingDialogue() {
 
     if (dialoguePurpose === "sydney") {
 
-        gameState = GameState.SYDNEY;
+        setGameState(GameState.SYDNEY);
 
     }
 
@@ -2134,7 +2150,7 @@ function startWeddingGatewayDialogue() {
     mobileControls.classList.remove("hidden");
     mobileControls.classList.add("isDialogueOpen");
     characterMenuButton.classList.add("hidden");
-    gameState = GameState.WEDDING_GATEWAY_DIALOGUE;
+    setGameState(GameState.WEDDING_GATEWAY_DIALOGUE);
     openPiaoziDialogue(weddingGatewayDialoguePages, "weddingGateway");
 
 }
@@ -2142,7 +2158,7 @@ function startWeddingGatewayDialogue() {
 function beginWeddingGatewayCutscene() {
 
     if (!weddingGatewaySequence.active) return;
-    gameState = GameState.WEDDING_GATEWAY_CUTSCENE;
+    setGameState(GameState.WEDDING_GATEWAY_CUTSCENE);
     weddingGatewaySequence.phase = "formation";
     weddingGatewaySequence.elapsed = 0;
     mobileControls.classList.add("hidden");
@@ -2151,7 +2167,7 @@ function beginWeddingGatewayCutscene() {
 
 function showWeddingInvitation() {
 
-    gameState = GameState.WEDDING_INVITATION;
+    setGameState(GameState.WEDDING_INVITATION);
     weddingGatewaySequence.active = false;
     weddingGatewaySequence.phase = "invitation";
     weddingGatewaySequence.invitationReady = false;
@@ -2180,7 +2196,7 @@ function showWeddingContinuation() {
 
     lockForChapterCard();
     mobileControls.classList.remove("invitationMode");
-    gameState = GameState.WEDDING_CONTINUATION;
+    setGameState(GameState.WEDDING_CONTINUATION);
     chapterCardState.active = true;
     chapterCardState.mode = "weddingContinuation";
     chapterCardState.chapterId = "wedding";
@@ -2275,7 +2291,7 @@ function playSydneyLifeScene() {
 
     }
 
-    gameState = GameState.SYDNEY_MEMORY;
+    setGameState(GameState.SYDNEY_MEMORY);
     showStoryCG({ id: scene.cg, dialogue: scene.pages, dialoguePurpose: "sydneyLife", revealDelay: 0.55 });
 
 }
@@ -2298,7 +2314,7 @@ function finishSydneyLifeScene() {
 
 function startSydneyAirportSequence() {
 
-    gameState = GameState.SYDNEY_AIRPORT;
+    setGameState(GameState.SYDNEY_AIRPORT);
     showStoryCG({ id: "sydneyAirport", dialogue: sydneyAirportPages, dialoguePurpose: "sydneyAirport", revealDelay: 0.7 });
 
 }
@@ -2320,7 +2336,7 @@ function startLongnanOpening() {
 
     restoreGameplayUI();
     currentChapter = "longnanLookout";
-    gameState = GameState.LONGNAN_LOOKOUT;
+    setGameState(GameState.LONGNAN_LOOKOUT);
     storyFlags.longnanChapterStarted = true;
     chapterLocation.textContent = "甘肃 · 陇南";
     chapterLocation.classList.remove("hidden");
@@ -2356,7 +2372,7 @@ function enterLongnanTown() {
 function placePartyInLongnanTown() {
 
     currentChapter = "longnanTown";
-    gameState = GameState.LONGNAN_TOWN;
+    setGameState(GameState.LONGNAN_TOWN);
     chapterLocation.textContent = "陇南 · 童年小镇";
     le.x = 712;
     le.y = 694;
@@ -2382,7 +2398,7 @@ function enterWeddingXiaoyuan() {
 
     restoreGameplayUI();
     currentChapter = "weddingXiaoyuan";
-    gameState = GameState.WEDDING_XIAOYUAN;
+    setGameState(GameState.WEDDING_XIAOYUAN);
     storyFlags.weddingChapterStarted = true;
     storyFlags.weddingMapEntered = weddingXiaoyuanMap.complete && weddingXiaoyuanMap.naturalWidth > 0;
     chapterLocation.textContent = "北京 · 晓园 · 婚礼现场";
@@ -2438,7 +2454,7 @@ function playLongnanCG() {
         return;
 
     }
-    gameState = GameState.LONGNAN_CG;
+    setGameState(GameState.LONGNAN_CG);
     showStoryCG({ id: scene.id, dialogue: scene.pages, dialoguePurpose: "longnanCG", revealDelay: 0.5 });
 
 }
@@ -2462,6 +2478,7 @@ function showStoryCG({ id, image, dialogue = null, dialoguePurpose = "storyCG", 
     storyCGOverlay.inputReady = false;
     storyCGOverlay.albumMode = "";
     storyCGOverlay.albumPageIndex = 0;
+    window.AudioManager?.beginMemory?.(storyCGOverlay.id, config.bgmOverride);
     pressedKeys.clear();
     clearMobileControls();
     player.moving = false;
@@ -2572,6 +2589,9 @@ function updateStoryCG(deltaTime) {
         if (storyCGOverlay.opacity > 0) return;
 
         const onComplete = storyCGOverlay.onComplete;
+        const completedStoryId = storyCGOverlay.id;
+        const completedBGMOverride = storyCGOverlay.config?.bgmOverride;
+        window.AudioManager?.endMemory?.(completedStoryId, completedBGMOverride);
         storyCGOverlay.active = false;
         storyCGOverlay.id = null;
         storyCGOverlay.config = null;
@@ -2643,7 +2663,7 @@ function startSydneyTransition() {
     if (chapterTransition.active || chapterTransition.completed || currentChapter !== "tokyo") return;
 
     chapterTransition.active = true;
-    gameState = GameState.CHAPTER_TRANSITION;
+    setGameState(GameState.CHAPTER_TRANSITION);
     chapterTransition.phase = "walk";
     chapterTransition.elapsed = 0;
     chapterTransition.petalPhase = 0;
@@ -2672,7 +2692,7 @@ function openTokyoStationDialogue() {
         { speaker: "乐乐", text: "一家人，\n一起出发。" }
     ];
     dialoguePurpose = "station";
-    gameState = GameState.TOKYO_STATION_CUTSCENE;
+    setGameState(GameState.TOKYO_STATION_CUTSCENE);
     meetingState.dialogueOpen = true;
     pressedKeys.clear();
     clearMobileControls();
@@ -2720,7 +2740,7 @@ function startSydneyDialogue() {
         { speaker: "森", text: "欢迎回家。" }
     ];
     dialoguePurpose = "sydney";
-    gameState = GameState.SYDNEY_LOOKOUT;
+    setGameState(GameState.SYDNEY_LOOKOUT);
     meetingState.dialogueOpen = true;
     pressedKeys.clear();
     clearMobileControls();
@@ -2737,7 +2757,7 @@ function spawnSydneyParty() {
     restoreGameplayUI();
     currentChapter = "sydney";
     storyFlags.sydneyChapterStarted = true;
-    gameState = GameState.SYDNEY_LOOKOUT;
+    setGameState(GameState.SYDNEY_LOOKOUT);
     chapterLocation.textContent = "悉尼 · 海港之夜";
     player.x = 875;
     player.y = 755;
@@ -3144,7 +3164,7 @@ function updateWeddingGatewaySequence(deltaTime) {
             le.moving = false;
             weddingGatewaySequence.phase = "whiteFade";
             weddingGatewaySequence.elapsed = 0;
-            gameState = GameState.WEDDING_WHITE_TRANSITION;
+            setGameState(GameState.WEDDING_WHITE_TRANSITION);
 
         }
         return;
@@ -3273,7 +3293,7 @@ function seedPartyHistory() {
 function placePartyInColes() {
 
     currentChapter = "coles";
-    gameState = GameState.COLES;
+    setGameState(GameState.COLES);
     chapterLocation.textContent = "悉尼 · Coles 超市";
     player.x = 760;
     player.y = 800;
@@ -3294,7 +3314,7 @@ function placePartyInColes() {
 function placePartyInSydney() {
 
     currentChapter = "sydney";
-    gameState = GameState.SYDNEY;
+    setGameState(GameState.SYDNEY);
     chapterLocation.textContent = "悉尼 · 海港之夜";
     player.x = 920;
     player.y = 850;
@@ -3319,7 +3339,7 @@ function startSceneTransition(target) {
     sceneTransition.phase = "fadeOut";
     sceneTransition.target = target;
     sceneTransition.elapsed = 0;
-    gameState = target === "coles" ? GameState.TRANSITION_TO_COLES : GameState.TRANSITION_TO_SYDNEY;
+    setGameState(target === "coles" ? GameState.TRANSITION_TO_COLES : GameState.TRANSITION_TO_SYDNEY);
     pressedKeys.clear();
     clearMobileControls();
     player.moving = false;
@@ -3377,7 +3397,7 @@ function tryInteraction() {
 
     } else if (nearbyLongnanMemoryAlbum) {
 
-        gameState = GameState.LONGNAN_MEMORY_ALBUM;
+        setGameState(GameState.LONGNAN_MEMORY_ALBUM);
         showLongnanMemoryAlbum();
 
     } else if (nearbyLongnanExit) {
@@ -5594,7 +5614,7 @@ function gameLoop(timestamp) {
         longnanSequenceTimer += deltaTime;
         if (longnanSequenceTimer >= 2) {
 
-            gameState = GameState.WEDDING_INTRO;
+            setGameState(GameState.WEDDING_INTRO);
             longnanSequenceTimer = 0;
             chapterLocation.classList.add("hidden");
 
@@ -5667,6 +5687,8 @@ startButton.addEventListener("click",()=>{
 
     if (gameStarted) return;
 
+    window.AudioManager?.unlock?.();
+    window.AudioManager?.playSFX?.("pressStart");
     gameStarted = true;
     titleAnimationRunning = false;
     titleScreen.classList.add("hidden");
