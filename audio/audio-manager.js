@@ -1,5 +1,5 @@
 /* AdventureWedding — AudioManager
-   Build v0.9.6.2 Audio & Memory Refinement
+   Build v0.9.6.3.1 Companion Voice Timbre Correction
 
    This file intentionally contains no approved music. It provides the shared
    architecture so future chapters can add assets without scene-local audio.
@@ -39,6 +39,8 @@
         "chapterComplete",
         "cgFadeIn",
         "cgFadeOut",
+        "tuotuoVoice",
+        "dazhiVoice",
         "blueWorksVinyl"
     ];
 
@@ -61,8 +63,8 @@
         dialogueNext: 0.78,
         moriVoice: 0.72,
         leleVoice: 0.74,
-        tuotuoVoice: 0.76,
-        dazhiVoice: 0.76,
+        tuotuoVoice: 0.52,
+        dazhiVoice: 0.54,
         uiMove: 0.56,
         uiConfirm: 0.64,
         uiBack: 0.54,

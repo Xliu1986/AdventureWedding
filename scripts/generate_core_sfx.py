@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate AdventureWedding v0.9.6.2 placeholder core SFX.
+"""Generate AdventureWedding v0.9.6.3.1 placeholder core SFX.
 
 These are tiny original synthesized WAVs: warm, low-tech, and intentionally
 easy to replace when final recorded assets arrive.
@@ -14,8 +14,10 @@ from pathlib import Path
 
 SAMPLE_RATE = 44100
 PEAK = 10 ** (-3 / 20)
+COMPANION_PEAK = 10 ** (-6 / 20)
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "assets" / "audio" / "sfx"
+VOICE_OUT = OUT / "voices"
 
 
 def env(index: int, total: int, attack: float = 0.01, release: float = 0.08) -> float:
@@ -28,11 +30,11 @@ def env(index: int, total: int, attack: float = 0.01, release: float = 0.08) -> 
     return 1.0
 
 
-def write_wav(name: str, samples: list[float]) -> None:
-    OUT.mkdir(parents=True, exist_ok=True)
+def write_wav(name: str, samples: list[float], *, peak_target: float = PEAK, output_dir: Path = OUT) -> None:
+    output_dir.mkdir(parents=True, exist_ok=True)
     peak = max(0.001, max(abs(sample) for sample in samples))
-    scale = PEAK / peak
-    path = OUT / name
+    scale = peak_target / peak
+    path = output_dir / name
     with wave.open(str(path), "w") as file:
         file.setnchannels(1)
         file.setsampwidth(2)
@@ -98,25 +100,63 @@ def paper(name: str, duration: float, seed: int, fold: bool = False) -> None:
     write_wav(name, samples)
 
 
-def companion_voice(name: str, duration: float, notes: list[float], seed: int, *, brightness: float) -> None:
+def one_pole_lowpass(samples: list[float], cutoff: float) -> list[float]:
+    rc = 1 / (math.tau * cutoff)
+    dt = 1 / SAMPLE_RATE
+    alpha = dt / (rc + dt)
+    value = 0.0
+    filtered = []
+    for sample in samples:
+        value += alpha * (sample - value)
+        filtered.append(value)
+    return filtered
+
+
+def companion_voice(
+    name: str,
+    duration: float,
+    syllables: list[dict[str, float]],
+    seed: int,
+    *,
+    formants: tuple[float, float],
+    brightness: float,
+    texture: float,
+) -> None:
     random.seed(seed)
     total = int(duration * SAMPLE_RATE)
     samples = []
-    phases = [random.random() * math.tau for _ in notes]
+    f1, f2 = formants
     for index in range(total):
         t = index / SAMPLE_RATE
-        body = 0.0
-        for note_index, note in enumerate(notes):
-            start = note_index * duration / max(1, len(notes) + 1)
-            if t < start:
+        sample = 0.0
+        for syllable in syllables:
+            start = syllable["start"]
+            length = syllable["length"]
+            if t < start or t > start + length:
                 continue
             local = t - start
-            chirp = note + math.sin(local * math.tau * 18) * brightness
-            body += math.sin(chirp * math.tau * local + phases[note_index]) * math.exp(-10.5 * local)
-            body += 0.18 * math.sin(chirp * 2.02 * math.tau * local + phases[note_index]) * math.exp(-14 * local)
-        bead = (random.random() * 2 - 1) * 0.018 * math.exp(-18 * t)
-        samples.append((body + bead) * env(index, total, 0.006, 0.045))
-    write_wav(name, samples)
+            ratio = local / max(length, 0.001)
+            carrier = syllable["pitch"] * (1 + syllable["rise"] * math.sin(ratio * math.pi))
+            syllable_env = min(1.0, ratio / 0.18, (1 - ratio) / 0.24)
+            syllable_env = max(0.0, syllable_env) ** 0.75
+            phase = math.tau * carrier * local
+            voiced = (
+                math.sin(phase) * 0.55
+                + math.sin(phase * 2.01) * 0.18
+                + math.sin(phase * 3.02) * 0.08
+            )
+            mouth = (
+                math.sin(math.tau * f1 * local) * 0.18
+                + math.sin(math.tau * f2 * local) * 0.07
+            )
+            consonant = 0.0
+            if local < 0.018:
+                consonant = (random.random() * 2 - 1) * brightness * (1 - local / 0.018)
+            breath = (random.random() * 2 - 1) * texture * syllable_env
+            sample += (voiced + mouth + consonant + breath) * syllable_env
+        samples.append(sample * env(index, total, 0.004, 0.035))
+    samples = one_pole_lowpass(samples, 3400)
+    write_wav(name, samples, peak_target=COMPANION_PEAK, output_dir=VOICE_OUT)
 
 
 def shimmer(name: str, duration: float, seed: int) -> None:
@@ -172,23 +212,39 @@ def main() -> None:
     tone("lele-voice.wav", 0.09, [880.0, 1320.0], decay=9.0, seed=19)
 
     tuotuo_patterns = [
-        (0.12, [1046.5, 1318.5]),
-        (0.14, [987.77, 1174.66, 1396.91]),
-        (0.13, [1174.66, 1567.98]),
-        (0.16, [880.0, 1046.5, 1318.5]),
-        (0.15, [1318.5, 1174.66])
+        (0.13, [{"start": 0.000, "length": 0.060, "pitch": 760, "rise": 0.015}, {"start": 0.064, "length": 0.058, "pitch": 880, "rise": -0.010}]),
+        (0.15, [{"start": 0.000, "length": 0.070, "pitch": 820, "rise": 0.010}, {"start": 0.076, "length": 0.064, "pitch": 720, "rise": 0.008}]),
+        (0.14, [{"start": 0.000, "length": 0.055, "pitch": 900, "rise": -0.006}, {"start": 0.062, "length": 0.066, "pitch": 790, "rise": 0.012}]),
+        (0.17, [{"start": 0.000, "length": 0.075, "pitch": 700, "rise": 0.014}, {"start": 0.084, "length": 0.070, "pitch": 840, "rise": 0.006}]),
+        (0.16, [{"start": 0.000, "length": 0.064, "pitch": 860, "rise": 0.008}, {"start": 0.074, "length": 0.068, "pitch": 940, "rise": -0.009}])
     ]
     dazhi_patterns = [
-        (0.16, [392.0, 493.88]),
-        (0.18, [349.23, 440.0, 392.0]),
-        (0.17, [440.0, 523.25]),
-        (0.20, [329.63, 392.0]),
-        (0.19, [392.0, 349.23, 440.0])
+        (0.17, [{"start": 0.000, "length": 0.075, "pitch": 440, "rise": 0.006}, {"start": 0.084, "length": 0.070, "pitch": 392, "rise": -0.004}]),
+        (0.19, [{"start": 0.000, "length": 0.080, "pitch": 415, "rise": 0.004}, {"start": 0.092, "length": 0.076, "pitch": 470, "rise": 0.006}]),
+        (0.18, [{"start": 0.000, "length": 0.072, "pitch": 360, "rise": 0.006}, {"start": 0.084, "length": 0.078, "pitch": 430, "rise": -0.003}]),
+        (0.21, [{"start": 0.000, "length": 0.088, "pitch": 390, "rise": 0.004}, {"start": 0.102, "length": 0.086, "pitch": 350, "rise": 0.005}]),
+        (0.20, [{"start": 0.000, "length": 0.082, "pitch": 470, "rise": -0.003}, {"start": 0.096, "length": 0.080, "pitch": 410, "rise": 0.004}])
     ]
-    for i, (duration, notes) in enumerate(tuotuo_patterns, start=1):
-        companion_voice(f"tuotuo-voice-{i}.wav", duration, notes, 30 + i, brightness=9)
-    for i, (duration, notes) in enumerate(dazhi_patterns, start=1):
-        companion_voice(f"dazhi-voice-{i}.wav", duration, notes, 40 + i, brightness=5)
+    for i, (duration, syllables) in enumerate(tuotuo_patterns, start=1):
+        companion_voice(
+            f"tuotuo-{i:02}.wav",
+            duration,
+            syllables,
+            130 + i,
+            formants=(950, 2200),
+            brightness=0.055,
+            texture=0.010
+        )
+    for i, (duration, syllables) in enumerate(dazhi_patterns, start=1):
+        companion_voice(
+            f"dazhi-{i:02}.wav",
+            duration,
+            syllables,
+            150 + i,
+            formants=(620, 1550),
+            brightness=0.032,
+            texture=0.014
+        )
 
     wood("interaction.wav", 0.10, 360, 50)
     wood("object-inspect.wav", 0.10, 360, 51)

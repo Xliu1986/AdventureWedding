@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.9.6.2 — Audio & Memory Refinement
+   Version 0.9.6.3.1 — Companion Voice Timbre Correction
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -772,7 +772,8 @@ const meetingState = {
     pageIndex: 0,
     characterIndex: 0,
     typeTimer: 0,
-    pageComplete: false
+    pageComplete: false,
+    lastVoiceCueKey: ""
 };
 
 const meetingDialoguePages = [
@@ -1883,13 +1884,17 @@ function setDialoguePage(pageIndex) {
     gameDialogue.dataset.speaker = page.speaker;
     gameDialogueText.textContent = "";
     gameDialogueContinue.classList.add("hidden");
-    playDialogueSpeakerSFX(page.speaker);
+    playDialogueSpeakerSFX(page.speaker, page, pageIndex);
 
 }
 
-function playDialogueSpeakerSFX(speaker) {
+function playDialogueSpeakerSFX(speaker, page = null, pageIndex = meetingState.pageIndex) {
 
     if (typeof speaker !== "string") return;
+    const cueKey = `${dialoguePurpose}:${pageIndex}:${speaker}:${page?.text || ""}`;
+    if (meetingState.lastVoiceCueKey === cueKey) return;
+    meetingState.lastVoiceCueKey = cueKey;
+
     if (speaker === "森") window.AudioManager?.playSFX?.("moriVoice");
     else if (speaker === "乐乐") window.AudioManager?.playSFX?.("leleVoice");
     else if (speaker === "坨坨") window.AudioManager?.playSFX?.("tuotuoVoice");

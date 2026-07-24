@@ -1,14 +1,19 @@
 /* AdventureWedding — Core Sound Effects registry
-   Build v0.9.6.2
+   Build v0.9.6.3.1
 
    BGM and ambient values remain intentionally empty until approved music and
    ambience arrive. Core SFX are tiny original handmade placeholder WAVs.
 */
 
 const SFX_BASE = "assets/audio/sfx/";
+const VOICE_BASE = `${SFX_BASE}voices/`;
 const numberedSFX = (prefix, count) => Array.from(
     { length: count },
     (_, index) => `${SFX_BASE}${prefix}-${index + 1}.wav`
+);
+const numberedVoiceSFX = (prefix, count) => Array.from(
+    { length: count },
+    (_, index) => `${VOICE_BASE}${prefix}-${String(index + 1).padStart(2, "0")}.wav`
 );
 
 const AUDIO_ASSETS = {
@@ -41,8 +46,8 @@ const AUDIO_ASSETS = {
         dialogueNext: `${SFX_BASE}dialogue-next.wav`,
         moriVoice: `${SFX_BASE}mori-voice.wav`,
         leleVoice: `${SFX_BASE}lele-voice.wav`,
-        tuotuoVoice: numberedSFX("tuotuo-voice", 5),
-        dazhiVoice: numberedSFX("dazhi-voice", 5),
+        tuotuoVoice: numberedVoiceSFX("tuotuo", 5),
+        dazhiVoice: numberedVoiceSFX("dazhi", 5),
         interactionPrompt: `${SFX_BASE}interaction.wav`,
         objectInspect: `${SFX_BASE}object-inspect.wav`,
         npcInteraction: `${SFX_BASE}npc-interaction.wav`,

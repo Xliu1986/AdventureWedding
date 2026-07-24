@@ -1,5 +1,5 @@
 /* AdventureWedding — Hidden Audio Diagnostics
-   Build v0.9.6.2
+   Build v0.9.6.3.1
 
    Shift + A opens this lightweight panel. It uses the existing AudioManager and
    never creates another AudioContext.
