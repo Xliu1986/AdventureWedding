@@ -350,7 +350,14 @@
         if (state.pendingLoads.has(cacheKey)) return state.pendingLoads.get(cacheKey);
 
         const loadPromise = fetchAudioArrayBuffer(asset)
-            .then(payload => state.context.decodeAudioData(payload.arrayBuffer))
+            .then(payload => state.context.decodeAudioData(payload.arrayBuffer).catch(error => {
+                error.__audioMeta = {
+                    status: payload.status,
+                    contentType: payload.contentType,
+                    decode: true
+                };
+                throw error;
+            }))
             .then(buffer => {
                 state.decodedBuffers.set(cacheKey, buffer);
                 state.pendingLoads.delete(cacheKey);

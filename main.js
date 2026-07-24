@@ -3420,7 +3420,7 @@ function tryInteraction() {
 
     } else if (nearbyLongnanInteraction?.id === "railing") {
 
-        window.AudioManager?.playSFX?.("objectInspect");
+        window.AudioManager?.playSFX?.("interactionPrompt");
         showStoryCG({
             id: "longnanHometownView",
             dialogue: longnanHometownPages,
@@ -3473,12 +3473,12 @@ function tryInteraction() {
 
     } else if (piaoziState.nearby && !meetingState.dialogueOpen) {
 
-        window.AudioManager?.playSFX?.("objectInspect");
+        window.AudioManager?.playSFX?.("interactionPrompt");
         startPiaoziStoryCG();
 
     } else if (nearbyColesInspectable && !meetingState.dialogueOpen) {
 
-        window.AudioManager?.playSFX?.("objectInspect");
+        window.AudioManager?.playSFX?.("interactionPrompt");
         activeColesInspectable = nearbyColesInspectable;
         openPiaoziDialogue(nearbyColesInspectable.pages, "colesInspect");
 
@@ -3503,7 +3503,7 @@ function playInteractionSFX(interactable) {
 
     } else {
 
-        window.AudioManager?.playSFX?.("objectInspect");
+        window.AudioManager?.playSFX?.("interactionPrompt");
 
     }
 
@@ -5791,12 +5791,18 @@ function gameLoop(timestamp) {
 
 }
 
-startButton.addEventListener("click",()=>{
+startButton.addEventListener("pointerdown", () => {
+
+    window.AudioManager?.unlock?.();
+
+}, { passive: true });
+
+startButton.addEventListener("click", async () => {
 
     if (gameStarted) return;
 
-    window.AudioManager?.unlock?.();
-    window.AudioManager?.playSFX?.("pressStart");
+    const audioUnlocked = await window.AudioManager?.unlock?.();
+    if (audioUnlocked) window.AudioManager?.playSFX?.("pressStart");
     gameStarted = true;
     titleAnimationRunning = false;
     titleScreen.classList.add("hidden");
@@ -5838,7 +5844,12 @@ function triggerMobileAction() {
 
     if (!gameStarted || characterPanelOpen || cameraIntro.active) return;
 
-    if (nearbyInteractable || nearbyCatEvent || nearbyStation || nearbySceneExit || piaoziState.nearby || nearbyColesInspectable || nearbyLongnanInteraction || nearbyLongnanExit || nearbyLongnanMemoryAlbum || nearbyWeddingInteraction) tryInteraction();
+    if (nearbyInteractable || nearbyCatEvent || nearbyStation || nearbySceneExit || piaoziState.nearby || nearbyColesInspectable || nearbyLongnanInteraction || nearbyLongnanExit || nearbyLongnanMemoryAlbum || nearbyWeddingInteraction) {
+
+        window.AudioManager?.playSFX?.("uiConfirm");
+        tryInteraction();
+
+    }
 
 }
 
@@ -5934,6 +5945,7 @@ window.addEventListener("keydown", event => {
     if (event.code === "Escape" && characterPanelOpen) {
 
         event.preventDefault();
+        window.AudioManager?.playSFX?.("uiBack");
         setCharacterPanelOpen(false);
         return;
 
@@ -5957,16 +5969,28 @@ window.addEventListener("keydown", event => {
     if (event.code === "KeyB" && !isTypingInField(event.target)) {
 
         event.preventDefault();
+        window.AudioManager?.playSFX?.(characterPanelOpen ? "uiBack" : "uiConfirm");
         toggleCharacterPanel();
         return;
 
     }
 
-    if (characterPanelOpen) return;
+    if (characterPanelOpen) {
+
+        if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "KeyW", "KeyA", "KeyS", "KeyD"].includes(event.code)) {
+
+            event.preventDefault();
+            window.AudioManager?.playSFX?.("uiMove");
+
+        }
+        return;
+
+    }
 
     if ((event.code === "KeyE" || event.code === "Enter" || event.code === "Space") && (nearbyInteractable || nearbyCatEvent || nearbyStation || nearbySceneExit || piaoziState.nearby || nearbyColesInspectable || nearbyLongnanInteraction || nearbyLongnanExit || nearbyLongnanMemoryAlbum || nearbyWeddingInteraction)) {
 
         event.preventDefault();
+        window.AudioManager?.playSFX?.("uiConfirm");
         tryInteraction();
         return;
 
