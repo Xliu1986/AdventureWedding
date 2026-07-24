@@ -1,5 +1,5 @@
 /* AdventureWedding — AudioManager
-   Build v0.9.5 Audio Foundation
+   Build v0.9.6 Core Sound Effects
 
    This file intentionally contains no approved music. It provides the shared
    architecture so future chapters can add assets without scene-local audio.
@@ -23,6 +23,7 @@
     const DEFAULT_BGM_FADE_MS = 600;
     const DEFAULT_AMBIENT_FADE_MS = 400;
     const BUFFER_CACHE_LIMIT = 32;
+    const MAX_ACTIVE_SFX = 8;
     const DEV_WARNINGS = true;
 
     const sfxLimits = {
@@ -35,12 +36,51 @@
         footstepGrass: 2,
         footstepWood: 2,
         footstepIndoor: 2,
+        footstepSand: 2,
         tuotuoVoice: 1,
-        dazhiVoice: 1
+        dazhiVoice: 1,
+        blueWorksVinyl: 1,
+        chapterComplete: 1
     };
 
     const sfxThrottleMs = {
-        dialogueTick: 45
+        dialogueTick: 45,
+        footstepStone: 80,
+        footstepGrass: 80,
+        footstepWood: 80,
+        footstepIndoor: 80,
+        footstepSand: 80
+    };
+
+    const sfxDefaultVolumes = {
+        dialogueTick: 0.72,
+        dialogueNext: 0.78,
+        moriVoice: 0.72,
+        leleVoice: 0.74,
+        tuotuoVoice: 0.76,
+        dazhiVoice: 0.76,
+        footstepStone: 0.34,
+        footstepGrass: 0.28,
+        footstepWood: 0.34,
+        footstepIndoor: 0.30,
+        footstepSand: 0.25,
+        uiMove: 0.56,
+        uiConfirm: 0.64,
+        uiBack: 0.54,
+        pressStart: 0.68,
+        menuOpen: 0.58,
+        menuClose: 0.56,
+        objectInspect: 0.62,
+        npcInteraction: 0.66,
+        memoryUnlock: 0.74,
+        chapterComplete: 0.82,
+        albumOpen: 0.64,
+        albumClose: 0.6,
+        albumPage: 0.55,
+        photoAdded: 0.58,
+        cgFadeIn: 0.56,
+        cgFadeOut: 0.42,
+        blueWorksVinyl: 0.5
     };
 
     const state = {
@@ -115,6 +155,18 @@
         if (!id) return null;
         const asset = window.AUDIO_ASSETS?.[category]?.[id] || null;
         if (!asset) warnMissing(category, id);
+        return asset;
+    }
+
+    function pickAsset(category, id) {
+        const asset = getAsset(category, id);
+        if (Array.isArray(asset)) {
+            if (!asset.length) {
+                warnMissing(category, id);
+                return null;
+            }
+            return asset[Math.floor(Math.random() * asset.length)];
+        }
         return asset;
     }
 
@@ -201,10 +253,10 @@
         return source;
     }
 
-    async function loadBuffer(category, id) {
-        const asset = getAsset(category, id);
+    async function loadBuffer(category, id, explicitAsset = null) {
+        const asset = explicitAsset || getAsset(category, id);
         if (!asset || !state.context) return null;
-        const cacheKey = `${category}:${id}`;
+        const cacheKey = `${category}:${id}:${asset}`;
         if (state.decodedBuffers.has(cacheKey)) return state.decodedBuffers.get(cacheKey);
         if (state.pendingLoads.has(cacheKey)) return state.pendingLoads.get(cacheKey);
 
@@ -325,6 +377,7 @@
 
     async function playSFX(id, options = {}) {
         if (!id || !state.unlocked) return;
+        if (totalActiveSFXCount() >= MAX_ACTIVE_SFX) return;
         const nowMs = performance.now();
         const throttle = sfxThrottleMs[id] || options.throttleMs || 0;
         const last = state.lastSFXAt.get(id) || 0;
@@ -334,13 +387,16 @@
         const limit = options.limit || sfxLimits[id] || 4;
         if (active.size >= limit) return;
 
-        const buffer = await loadBuffer("sfx", id);
+        const asset = pickAsset("sfx", id);
+        if (!asset) return;
+        const buffer = await loadBuffer("sfx", id, asset);
         if (!buffer || !state.unlocked) return;
+        if (totalActiveSFXCount() >= MAX_ACTIVE_SFX) return;
 
         const source = state.context.createBufferSource();
         const gain = state.context.createGain();
         source.buffer = buffer;
-        gain.gain.value = clamp01(options.volume ?? 1);
+        gain.gain.value = clamp01(options.volume ?? sfxDefaultVolumes[id] ?? 1);
         source.connect(gain);
         gain.connect(state.categoryGains.sfx);
         active.add(source);
@@ -404,7 +460,16 @@
     function preloadGroup(groupId) {
         if (!state.unlocked) return Promise.resolve([]);
         const group = window.AUDIO_PRELOAD_GROUPS?.[groupId] || [];
-        return Promise.all(group.map(([category, id]) => loadBuffer(category, id)));
+        const loads = [];
+        group.forEach(([category, id]) => {
+            const asset = getAsset(category, id);
+            if (Array.isArray(asset)) {
+                asset.forEach(path => loads.push(loadBuffer(category, id, path)));
+            } else {
+                loads.push(loadBuffer(category, id, asset));
+            }
+        });
+        return Promise.all(loads);
     }
 
     function handleVisibilityHidden() {

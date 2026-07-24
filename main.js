@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.9.5 — Audio Foundation
+   Version 0.9.6 — Core Sound Effects
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -488,6 +488,7 @@ function showChapterIntro(chapterId, onComplete) {
 function showChapterEnding(chapterId, onComplete) {
 
     const chapter = typeof chapterId === "string" ? CHAPTERS[chapterId] : chapterId;
+    window.AudioManager?.playSFX?.("chapterComplete");
     return showChapterCard({ mode: "ending", chapter, onComplete });
 
 }
@@ -665,8 +666,10 @@ function isTypingInField(target) {
 function setCharacterPanelOpen(open) {
 
     if (meetingState.dialogueOpen || !gameStarted || ![GameState.TOKYO, GameState.SYDNEY, GameState.COLES].includes(gameState)) return;
+    if (characterPanelOpen === open) return;
 
     characterPanelOpen = open;
+    window.AudioManager?.playSFX?.(open ? "menuOpen" : "menuClose");
     characterPanel.classList.toggle("hidden", !open);
     characterMenuButton.textContent = open ? "关闭" : "人物";
     characterMenuButton.setAttribute("aria-label", open ? "关闭人物面板" : "打开人物面板");
@@ -1384,6 +1387,7 @@ function setGameState(nextState, options = {}) {
 }
 
 let playerAnimationTime = 0;
+let footstepTimer = 0;
 
 const pressedKeys = new Set();
 const activeControlPointers = new Map();
@@ -1875,6 +1879,23 @@ function setDialoguePage(pageIndex) {
     gameDialogue.dataset.speaker = page.speaker;
     gameDialogueText.textContent = "";
     gameDialogueContinue.classList.add("hidden");
+    playDialogueSpeakerSFX(page.speaker);
+
+}
+
+function playDialogueSpeakerSFX(speaker) {
+
+    if (typeof speaker !== "string") return;
+    if (speaker === "森") window.AudioManager?.playSFX?.("moriVoice");
+    else if (speaker === "乐乐") window.AudioManager?.playSFX?.("leleVoice");
+    else if (speaker === "坨坨") window.AudioManager?.playSFX?.("tuotuoVoice");
+    else if (speaker === "大痣") window.AudioManager?.playSFX?.("dazhiVoice");
+    else if (speaker.includes("坨坨") && speaker.includes("大痣")) {
+
+        window.AudioManager?.playSFX?.("tuotuoVoice");
+        window.AudioManager?.playSFX?.("dazhiVoice");
+
+    }
 
 }
 
@@ -1972,6 +1993,7 @@ function closeMeetingDialogue() {
         characterAlbum.tuotuo.unlocked = true;
         characterAlbum.dazhi.unlocked = true;
         achievements.walkingTogether.unlocked = true;
+        window.AudioManager?.playSFX?.("memoryUnlock");
 
     }
 
@@ -1995,6 +2017,7 @@ function closeMeetingDialogue() {
             piaoziState.completed = true;
             piaoziState.nearby = false;
             storyFlags.gansuPiaozi = true;
+            window.AudioManager?.playSFX?.("memoryUnlock");
             faceToward(le, piaoziIntroZone);
             faceToward(player, piaoziIntroZone);
             cats.forEach(cat => {
@@ -2062,6 +2085,7 @@ function closeMeetingDialogue() {
         if (activeInteraction.memoryId && memoryAlbum[activeInteraction.memoryId]) {
 
             memoryAlbum[activeInteraction.memoryId].unlocked = true;
+            window.AudioManager?.playSFX?.("memoryUnlock");
 
         }
 
@@ -2111,6 +2135,7 @@ function unlockWeddingFloralGateway() {
     if (!storyFlags.weddingSignInViewed || !storyFlags.weddingPhotoAreaViewed || !storyFlags.weddingCeremonyAreaViewed) return;
 
     storyFlags.weddingArchUnlocked = true;
+    window.AudioManager?.playSFX?.("memoryUnlock");
     weddingGatewayNoticeRemaining = 1.8;
 
 }
@@ -2478,6 +2503,7 @@ function showStoryCG({ id, image, dialogue = null, dialoguePurpose = "storyCG", 
     storyCGOverlay.inputReady = false;
     storyCGOverlay.albumMode = "";
     storyCGOverlay.albumPageIndex = 0;
+    window.AudioManager?.playSFX?.(id === "blueWorksMemory" ? "blueWorksVinyl" : "cgFadeIn");
     window.AudioManager?.beginMemory?.(storyCGOverlay.id, config.bgmOverride);
     pressedKeys.clear();
     clearMobileControls();
@@ -2500,6 +2526,7 @@ function showLongnanMemoryAlbum(pageIndex = 0) {
     const id = longnanMemoryAlbumPages[pageIndex];
     if (!id) {
 
+        window.AudioManager?.playSFX?.("albumClose");
         storyFlags.longnanMemoryAlbumViewed = true;
         showChapterEnding("longnan", () => {
 
@@ -2524,6 +2551,7 @@ function showLongnanMemoryAlbum(pageIndex = 0) {
     });
     if (opened) {
 
+        window.AudioManager?.playSFX?.(pageIndex === 0 ? "albumOpen" : "albumPage");
         storyCGOverlay.albumMode = pageIndex === 0 ? "open" : "flip";
         storyCGOverlay.albumPageIndex = pageIndex;
 
@@ -2534,6 +2562,7 @@ function showLongnanMemoryAlbum(pageIndex = 0) {
 function hideStoryCG() {
 
     if (!storyCGOverlay.active || storyCGOverlay.phase === "fadeOut") return;
+    window.AudioManager?.playSFX?.("cgFadeOut");
     storyCGOverlay.phase = "fadeOut";
 
 }
@@ -3383,11 +3412,13 @@ function tryInteraction() {
 
         }
 
+        playInteractionSFX(nearbyWeddingInteraction);
         activeInteraction = nearbyWeddingInteraction;
         openPiaoziDialogue(nearbyWeddingInteraction.pages, "weddingGuide");
 
     } else if (nearbyLongnanInteraction?.id === "railing") {
 
+        window.AudioManager?.playSFX?.("objectInspect");
         showStoryCG({
             id: "longnanHometownView",
             dialogue: longnanHometownPages,
@@ -3402,10 +3433,12 @@ function tryInteraction() {
 
     } else if (nearbyLongnanExit) {
 
+        window.AudioManager?.playSFX?.("doorWood");
         enterLongnanTown();
 
     } else if (nearbyLongnanInteraction) {
 
+        playInteractionSFX(nearbyLongnanInteraction);
         activeInteraction = nearbyLongnanInteraction;
         openPiaoziDialogue(
             nearbyLongnanInteraction.pages,
@@ -3418,28 +3451,57 @@ function tryInteraction() {
 
     } else if (nearbySceneExit && !meetingState.dialogueOpen && !cameraIntro.active) {
 
+        window.AudioManager?.playSFX?.(nearbySceneExit === "coles" ? "doorWood" : "uiConfirm");
         startSceneTransition(nearbySceneExit);
 
     } else if (nearbyStation && !meetingState.dialogueOpen && !cameraIntro.active) {
 
+        window.AudioManager?.playSFX?.("doorWood");
         openTokyoStationDialogue();
 
     } else if (nearbyInteractable && !meetingState.dialogueOpen && !cameraIntro.active) {
 
+        playInteractionSFX(nearbyInteractable);
         openInteractionDialogue(nearbyInteractable);
 
     } else if (nearbyCatEvent && !meetingState.dialogueOpen && !cameraIntro.active) {
 
+        window.AudioManager?.playSFX?.("npcInteraction");
         openCatDialogue();
 
     } else if (piaoziState.nearby && !meetingState.dialogueOpen) {
 
+        window.AudioManager?.playSFX?.("objectInspect");
         startPiaoziStoryCG();
 
     } else if (nearbyColesInspectable && !meetingState.dialogueOpen) {
 
+        window.AudioManager?.playSFX?.("objectInspect");
         activeColesInspectable = nearbyColesInspectable;
         openPiaoziDialogue(nearbyColesInspectable.pages, "colesInspect");
+
+    }
+
+}
+
+function playInteractionSFX(interactable) {
+
+    const id = interactable?.id || "";
+    if (id.includes("Shrine") || id.includes("shrine") || id === "weddingCeremonyArea") {
+
+        window.AudioManager?.playSFX?.("shrineWindBell");
+
+    } else if (id.includes("river") || id === "bridgePiaozi") {
+
+        window.AudioManager?.playSFX?.(id === "bridgePiaozi" ? "bridgeCreak" : "riverTouch");
+
+    } else if (id.includes("bench") || id.includes("flower") || id === "weddingPhotoArea") {
+
+        window.AudioManager?.playSFX?.("flowerRustle");
+
+    } else {
+
+        window.AudioManager?.playSFX?.("objectInspect");
 
     }
 
@@ -5523,6 +5585,7 @@ function updatePlayer(deltaTime) {
         player.moving = false;
         player.velocityX = 0;
         player.velocityY = 0;
+        footstepTimer = 0;
         return;
 
     }
@@ -5586,6 +5649,42 @@ function updatePlayer(deltaTime) {
         else player.velocityY = 0;
 
     }
+
+    updatePlayerFootsteps(deltaTime);
+
+}
+
+function getCurrentFootstepSFX() {
+
+    if (currentChapter === "coles") return "footstepIndoor";
+    if (currentChapter === "weddingXiaoyuan") return "footstepGrass";
+    if (currentChapter === "longnanLookout") return "footstepWood";
+    if (currentChapter === "longnanTown") {
+
+        const onBridge = player.x > 610 && player.x < 820 && player.y > 435 && player.y < 690;
+        return onBridge ? "footstepWood" : "footstepStone";
+
+    }
+    if (currentChapter === "tokyo" || currentChapter === "sydney") return "footstepStone";
+    return "footstepStone";
+
+}
+
+function updatePlayerFootsteps(deltaTime) {
+
+    if (!player.moving) {
+
+        footstepTimer = 0;
+        return;
+
+    }
+
+    const speedFactor = pressedKeys.has("ShiftLeft") || pressedKeys.has("ShiftRight") ? 0.78 : 1;
+    footstepTimer -= deltaTime;
+    if (footstepTimer > 0) return;
+
+    window.AudioManager?.playSFX?.(getCurrentFootstepSFX());
+    footstepTimer = 0.27 * speedFactor;
 
 }
 
