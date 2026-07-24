@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.9.6 — Core Sound Effects
+   Version 0.9.6.1 — Audio Activation Hotfix
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -1387,7 +1387,7 @@ function setGameState(nextState, options = {}) {
 }
 
 let playerAnimationTime = 0;
-let footstepTimer = 0;
+let footstepDistance = 0;
 
 const pressedKeys = new Set();
 const activeControlPointers = new Map();
@@ -1925,7 +1925,9 @@ function updateDialogueTypewriter(deltaTime) {
         meetingState.typeTimer -= delay;
         meetingState.characterIndex++;
         gameDialogueText.textContent = page.text.slice(0, meetingState.characterIndex);
-        if (!/\s/.test(character)) window.AudioManager?.playSFX?.("dialogueTick");
+        if (!/[\s。！？!?，、；：:,.…（）()《》“”"']/u.test(character)) {
+            window.AudioManager?.playSFX?.("dialogueTick");
+        }
 
     }
 
@@ -5585,7 +5587,7 @@ function updatePlayer(deltaTime) {
         player.moving = false;
         player.velocityX = 0;
         player.velocityY = 0;
-        footstepTimer = 0;
+        footstepDistance = 0;
         return;
 
     }
@@ -5636,6 +5638,9 @@ function updatePlayer(deltaTime) {
             && y + player.height <= sydneyLookoutWalkableZone.y + sydneyLookoutWalkableZone.height
         : (exteriorMap.complete && exteriorMap.naturalWidth ? canMoveOnOfficialMap(x, y) : canMoveTo(x, y));
 
+    const previousX = player.x;
+    const previousY = player.y;
+
     if (canMovePlayerTo(destinationX, destinationY)) {
 
         player.x = destinationX;
@@ -5650,7 +5655,7 @@ function updatePlayer(deltaTime) {
 
     }
 
-    updatePlayerFootsteps(deltaTime);
+    updatePlayerFootsteps(previousX, previousY);
 
 }
 
@@ -5670,21 +5675,25 @@ function getCurrentFootstepSFX() {
 
 }
 
-function updatePlayerFootsteps(deltaTime) {
+function updatePlayerFootsteps(previousX, previousY) {
 
     if (!player.moving) {
 
-        footstepTimer = 0;
+        footstepDistance = 0;
         return;
 
     }
 
-    const speedFactor = pressedKeys.has("ShiftLeft") || pressedKeys.has("ShiftRight") ? 0.78 : 1;
-    footstepTimer -= deltaTime;
-    if (footstepTimer > 0) return;
+    const distance = Math.hypot(player.x - previousX, player.y - previousY);
+    if (distance < 0.01) return;
+
+    footstepDistance += distance;
+    const isSprinting = pressedKeys.has("ShiftLeft") || pressedKeys.has("ShiftRight");
+    const stepDistance = isSprinting ? 38 : 30;
+    if (footstepDistance < stepDistance) return;
 
     window.AudioManager?.playSFX?.(getCurrentFootstepSFX());
-    footstepTimer = 0.27 * speedFactor;
+    footstepDistance %= stepDistance;
 
 }
 

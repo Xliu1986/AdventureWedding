@@ -1,5 +1,5 @@
 /* AdventureWedding — AudioManager
-   Build v0.9.6 Core Sound Effects
+   Build v0.9.6.1 Audio Activation Hotfix
 
    This file intentionally contains no approved music. It provides the shared
    architecture so future chapters can add assets without scene-local audio.
@@ -9,10 +9,10 @@
     "use strict";
 
     const DEFAULT_SETTINGS = {
-        master: 0.85,
-        bgm: 0.65,
+        master: 0.90,
+        bgm: 0.60,
         ambient: 0.45,
-        sfx: 0.75,
+        sfx: 0.85,
         muted: {
             bgm: false,
             ambient: false,
@@ -25,6 +25,22 @@
     const BUFFER_CACHE_LIMIT = 32;
     const MAX_ACTIVE_SFX = 8;
     const DEV_WARNINGS = true;
+    const CORE_SFX_IDS = [
+        "pressStart",
+        "uiMove",
+        "uiConfirm",
+        "uiBack",
+        "dialogueTick",
+        "dialogueNext",
+        "interactionPrompt",
+        "albumOpen",
+        "albumPage",
+        "albumClose",
+        "footstepStone",
+        "footstepGrass",
+        "footstepWood",
+        "footstepIndoor"
+    ];
 
     const sfxLimits = {
         dialogueTick: 1,
@@ -103,6 +119,7 @@
         decodedBuffers: new Map(),
         pendingLoads: new Map(),
         missingWarnings: new Set(),
+        failedAssets: new Map(),
         currentBGM: null,
         bgmSource: null,
         bgmStartedAt: 0,
@@ -114,7 +131,8 @@
         lastScene: null,
         pausedByVisibility: false,
         memoryStack: [],
-        unlockListenersAttached: false
+        unlockListenersAttached: false,
+        lastPlayedSFX: null
     };
 
     function createContext() {
@@ -151,6 +169,30 @@
         }
     }
 
+    function recordFailedAsset(category, id, url, error, meta = {}) {
+        const key = `${category}:${id}:${url}`;
+        if (state.failedAssets.has(key)) return;
+        state.failedAssets.set(key, {
+            category,
+            id,
+            url,
+            status: meta.status ?? null,
+            contentType: meta.contentType ?? "",
+            contextState: state.context?.state ?? "missing",
+            error: error?.message || String(error || "unknown")
+        });
+        if (DEV_WARNINGS && console?.warn) {
+            console.warn(`[Audio] Failed to load "${id}": ${url}`, {
+                assetId: id,
+                url,
+                httpStatus: meta.status ?? null,
+                contentType: meta.contentType ?? "",
+                contextState: state.context?.state ?? "missing",
+                error
+            });
+        }
+    }
+
     function getAsset(category, id) {
         if (!id) return null;
         const asset = window.AUDIO_ASSETS?.[category]?.[id] || null;
@@ -168,6 +210,53 @@
             return asset[Math.floor(Math.random() * asset.length)];
         }
         return asset;
+    }
+
+    async function fetchAudioArrayBuffer(url) {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                const error = new Error(`HTTP ${response.status}`);
+                error.__audioMeta = {
+                    status: response.status,
+                    contentType: response.headers?.get?.("content-type") || ""
+                };
+                throw error;
+            }
+            return {
+                arrayBuffer: await response.arrayBuffer(),
+                status: response.status,
+                contentType: response.headers?.get?.("content-type") || ""
+            };
+        } catch (fetchError) {
+            return new Promise((resolve, reject) => {
+                const request = new XMLHttpRequest();
+                request.open("GET", url, true);
+                request.responseType = "arraybuffer";
+                request.onload = () => {
+                    if (request.status === 0 || (request.status >= 200 && request.status < 300)) {
+                        resolve({
+                            arrayBuffer: request.response,
+                            status: request.status || 200,
+                            contentType: request.getResponseHeader("Content-Type") || ""
+                        });
+                    } else {
+                        const error = new Error(`HTTP ${request.status}`);
+                        error.__audioMeta = {
+                            status: request.status,
+                            contentType: request.getResponseHeader("Content-Type") || ""
+                        };
+                        reject(error);
+                    }
+                };
+                request.onerror = () => {
+                    const error = new Error(fetchError?.message || "network error");
+                    error.__audioMeta = fetchError?.__audioMeta || {};
+                    reject(error);
+                };
+                request.send();
+            });
+        }
     }
 
     function gainSet(gainNode, value, fadeMs = 0) {
@@ -260,9 +349,8 @@
         if (state.decodedBuffers.has(cacheKey)) return state.decodedBuffers.get(cacheKey);
         if (state.pendingLoads.has(cacheKey)) return state.pendingLoads.get(cacheKey);
 
-        const loadPromise = fetch(asset)
-            .then(response => response.ok ? response.arrayBuffer() : Promise.reject(new Error(`${response.status}`)))
-            .then(arrayBuffer => state.context.decodeAudioData(arrayBuffer))
+        const loadPromise = fetchAudioArrayBuffer(asset)
+            .then(payload => state.context.decodeAudioData(payload.arrayBuffer))
             .then(buffer => {
                 state.decodedBuffers.set(cacheKey, buffer);
                 state.pendingLoads.delete(cacheKey);
@@ -271,12 +359,7 @@
             })
             .catch(error => {
                 state.pendingLoads.delete(cacheKey);
-                if (!state.missingWarnings.has(cacheKey)) {
-                    state.missingWarnings.add(cacheKey);
-                    if (DEV_WARNINGS && console?.debug) {
-                        console.debug(`[AudioManager] Failed to load ${cacheKey}`, error);
-                    }
-                }
+                recordFailedAsset(category, id, asset, error, error?.__audioMeta || {});
                 return null;
             });
 
@@ -376,7 +459,11 @@
     }
 
     async function playSFX(id, options = {}) {
-        if (!id || !state.unlocked) return;
+        if (!id) return;
+        if (!state.unlocked) {
+            AudioManager.unlock();
+            return;
+        }
         if (totalActiveSFXCount() >= MAX_ACTIVE_SFX) return;
         const nowMs = performance.now();
         const throttle = sfxThrottleMs[id] || options.throttleMs || 0;
@@ -408,6 +495,7 @@
         };
         try {
             source.start(0);
+            state.lastPlayedSFX = id;
         } catch {
             active.delete(source);
         }
@@ -510,15 +598,29 @@
             try {
                 if (context.state !== "running") await context.resume();
                 await playSilentUnlockBuffer();
+                if (context.state !== "running") {
+                    state.unlocked = false;
+                    attachUnlockListeners();
+                    return false;
+                }
                 state.unlocked = true;
                 detachUnlockListeners();
+                AudioManager.preloadGroup("core-ui");
                 if (state.lastScene) {
                     const scene = state.lastScene;
                     state.lastScene = null;
                     applySceneAudio(scene);
                 }
                 return true;
-            } catch {
+            } catch (error) {
+                state.unlocked = false;
+                attachUnlockListeners();
+                if (DEV_WARNINGS && console?.warn) {
+                    console.warn("[Audio] Unlock failed; waiting for the next user gesture.", {
+                        contextState: context.state,
+                        error
+                    });
+                }
                 return false;
             }
         },
@@ -534,6 +636,48 @@
         beginMemory,
         endMemory,
         preloadGroup,
+
+        async testAsset(id) {
+            const asset = getAsset("sfx", id);
+            const url = Array.isArray(asset) ? asset[0] : asset;
+            const result = {
+                id,
+                url: url || null,
+                registered: Boolean(url),
+                fetched: false,
+                decoded: false,
+                duration: 0,
+                playable: false,
+                error: null
+            };
+            if (!url) {
+                result.error = "not registered";
+                return result;
+            }
+            const context = createContext();
+            if (!context) {
+                result.error = "AudioContext missing";
+                return result;
+            }
+            try {
+                const buffer = await loadBuffer("sfx", id, url);
+                result.fetched = Boolean(buffer);
+                result.decoded = Boolean(buffer);
+                result.duration = buffer?.duration || 0;
+                result.playable = Boolean(buffer && state.unlocked && context.state === "running");
+            } catch (error) {
+                result.error = error?.message || String(error);
+            }
+            return result;
+        },
+
+        async testCoreSFX() {
+            const results = {};
+            for (const id of CORE_SFX_IDS) {
+                results[id] = await AudioManager.testAsset(id);
+            }
+            return results;
+        },
 
         setMasterVolume(value) {
             state.settings.master = clamp01(value);
@@ -568,20 +712,52 @@
 
         getStatus() {
             return {
+                initialized: state.initialized,
                 unlocked: state.unlocked,
-                contextState: state.context?.state || "unavailable",
+                contextState: state.context?.state || "missing",
                 currentBGM: state.currentBGM,
                 currentAmbient: state.currentAmbient,
                 bgmVolume: state.settings.bgm,
                 ambientVolume: state.settings.ambient,
                 sfxVolume: state.settings.sfx,
                 masterVolume: state.settings.master,
+                masterMuted: false,
+                sfxMuted: state.settings.muted.sfx,
                 activeSFXCount: totalActiveSFXCount(),
-                decodedBufferCount: state.decodedBuffers.size
+                decodedBufferCount: state.decodedBuffers.size,
+                loadedBuffers: state.decodedBuffers.size,
+                failedAssetCount: state.failedAssets.size,
+                failedAssets: Array.from(state.failedAssets.values()),
+                lastPlayedSFX: state.lastPlayedSFX
             };
         }
     };
 
+    Object.defineProperties(AudioManager, {
+        initialized: { get: () => state.initialized },
+        unlocked: { get: () => state.unlocked },
+        context: { get: () => state.context },
+        masterVolume: { get: () => state.settings.master },
+        sfxVolume: { get: () => state.settings.sfx },
+        masterMuted: { get: () => false },
+        sfxMuted: { get: () => state.settings.muted.sfx },
+        loadedBuffers: { get: () => state.decodedBuffers.size },
+        failedAssets: { get: () => Array.from(state.failedAssets.values()) },
+        lastPlayedSFX: { get: () => state.lastPlayedSFX }
+    });
+
     window.AudioManager = AudioManager;
-    window.getAudioStatus = () => AudioManager.getStatus();
+    window.getAudioStatus = () => ({
+        initialized: AudioManager.initialized,
+        unlocked: AudioManager.unlocked,
+        contextState: AudioManager.context?.state ?? "missing",
+        masterVolume: AudioManager.masterVolume,
+        sfxVolume: AudioManager.sfxVolume,
+        masterMuted: AudioManager.masterMuted,
+        sfxMuted: AudioManager.sfxMuted,
+        loadedBuffers: AudioManager.loadedBuffers,
+        failedAssets: AudioManager.failedAssets,
+        lastPlayedSFX: AudioManager.lastPlayedSFX
+    });
+    window.testCoreSFX = () => AudioManager.testCoreSFX();
 })();

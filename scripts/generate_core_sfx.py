@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate AdventureWedding v0.9.6 placeholder core SFX.
+"""Generate AdventureWedding v0.9.6.1 placeholder core SFX.
 
 These are tiny original synthesized WAVs: warm, low-tech, and intentionally
 easy to replace when final recorded assets arrive.
@@ -12,7 +12,7 @@ import random
 import wave
 from pathlib import Path
 
-SAMPLE_RATE = 22050
+SAMPLE_RATE = 44100
 PEAK = 10 ** (-3 / 20)
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "assets" / "audio" / "sfx"
@@ -192,9 +192,11 @@ def main() -> None:
         meow(f"dazhi-voice-{i}.wav", 0.16 + i * 0.012, 520 + i * 18, 430 + i * 16, 40 + i)
 
     for surface in ["stone", "grass", "wood", "indoor", "sand"]:
+        footstep(f"footstep-{surface}.wav", surface, 200 + hash(surface) % 100)
         for i in range(1, 9):
             footstep(f"footstep-{surface}-{i}.wav", surface, 100 + hash(surface) % 100 + i)
 
+    wood("interaction.wav", 0.10, 360, 50)
     wood("object-inspect.wav", 0.10, 360, 51)
     tone("npc-interaction.wav", 0.12, [698.46, 1046.5], decay=7.0, seed=52)
     shimmer("memory-unlock.wav", 0.62, 53)

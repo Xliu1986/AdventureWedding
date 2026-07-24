@@ -1,5 +1,5 @@
 /* AdventureWedding — Core Sound Effects registry
-   Build v0.9.6
+   Build v0.9.6.1
 
    BGM and ambient values remain intentionally empty until approved music and
    ambience arrive. Core SFX are tiny original handmade placeholder WAVs.
@@ -44,7 +44,7 @@ const AUDIO_ASSETS = {
         leleVoice: `${SFX_BASE}lele-voice.wav`,
         tuotuoVoice: numberedSFX("tuotuo-voice", 3),
         dazhiVoice: numberedSFX("dazhi-voice", 3),
-        interactionPrompt: `${SFX_BASE}object-inspect.wav`,
+        interactionPrompt: `${SFX_BASE}interaction.wav`,
         objectInspect: `${SFX_BASE}object-inspect.wav`,
         npcInteraction: `${SFX_BASE}npc-interaction.wav`,
         albumOpen: `${SFX_BASE}album-open.wav`,
@@ -61,11 +61,16 @@ const AUDIO_ASSETS = {
         shrineWindBell: `${SFX_BASE}shrine-wind-bell.wav`,
         riverTouch: `${SFX_BASE}river-touch.wav`,
         blueWorksVinyl: `${SFX_BASE}blueworks-vinyl.wav`,
-        footstepStone: numberedSFX("footstep-stone", 8),
-        footstepGrass: numberedSFX("footstep-grass", 8),
-        footstepWood: numberedSFX("footstep-wood", 8),
-        footstepIndoor: numberedSFX("footstep-indoor", 8),
-        footstepSand: numberedSFX("footstep-sand", 8)
+        footstepStone: `${SFX_BASE}footstep-stone.wav`,
+        footstepGrass: `${SFX_BASE}footstep-grass.wav`,
+        footstepWood: `${SFX_BASE}footstep-wood.wav`,
+        footstepIndoor: `${SFX_BASE}footstep-indoor.wav`,
+        footstepSand: `${SFX_BASE}footstep-sand.wav`,
+        footstepStoneVariants: numberedSFX("footstep-stone", 8),
+        footstepGrassVariants: numberedSFX("footstep-grass", 8),
+        footstepWoodVariants: numberedSFX("footstep-wood", 8),
+        footstepIndoorVariants: numberedSFX("footstep-indoor", 8),
+        footstepSandVariants: numberedSFX("footstep-sand", 8)
     }
 };
 
@@ -78,7 +83,15 @@ const AUDIO_PRELOAD_GROUPS = {
         ["sfx", "menuClose"],
         ["sfx", "dialogueTick"],
         ["sfx", "dialogueNext"],
-        ["sfx", "objectInspect"]
+        ["sfx", "interactionPrompt"],
+        ["sfx", "objectInspect"],
+        ["sfx", "albumOpen"],
+        ["sfx", "albumPage"],
+        ["sfx", "albumClose"],
+        ["sfx", "footstepStone"],
+        ["sfx", "footstepGrass"],
+        ["sfx", "footstepWood"],
+        ["sfx", "footstepIndoor"]
     ],
     tokyo: [
         ["bgm", "tokyoTheme"],
