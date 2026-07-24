@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate AdventureWedding v0.9.6.1 placeholder core SFX.
+"""Generate AdventureWedding v0.9.6.2 placeholder core SFX.
 
 These are tiny original synthesized WAVs: warm, low-tech, and intentionally
 easy to replace when final recorded assets arrive.
@@ -98,39 +98,24 @@ def paper(name: str, duration: float, seed: int, fold: bool = False) -> None:
     write_wav(name, samples)
 
 
-def meow(name: str, duration: float, start: float, end: float, seed: int) -> None:
+def companion_voice(name: str, duration: float, notes: list[float], seed: int, *, brightness: float) -> None:
     random.seed(seed)
     total = int(duration * SAMPLE_RATE)
     samples = []
-    phase = 0.0
+    phases = [random.random() * math.tau for _ in notes]
     for index in range(total):
         t = index / SAMPLE_RATE
-        ratio = index / max(1, total - 1)
-        freq = start + (end - start) * ratio + math.sin(t * math.tau * 11) * 18
-        phase += math.tau * freq / SAMPLE_RATE
-        voice = math.sin(phase) + 0.25 * math.sin(phase * 2.01)
-        samples.append(voice * env(index, total, 0.018, 0.07) * math.exp(-1.25 * t))
-    write_wav(name, samples)
-
-
-def footstep(name: str, surface: str, seed: int) -> None:
-    random.seed(seed)
-    duration = 0.115 + random.random() * 0.025
-    total = int(duration * SAMPLE_RATE)
-    base = {
-        "stone": (155, 0.38, 34),
-        "grass": (95, 0.55, 18),
-        "wood": (180, 0.34, 25),
-        "indoor": (130, 0.30, 22),
-        "sand": (70, 0.62, 12),
-    }[surface]
-    pitch, noise_amount, decay = base
-    samples = []
-    for index in range(total):
-        t = index / SAMPLE_RATE
-        thump = math.sin(pitch * math.tau * t) * math.exp(-decay * t)
-        noise = (random.random() * 2 - 1) * noise_amount * math.exp(-(decay * 0.72) * t)
-        samples.append((thump + noise) * env(index, total, 0.002, duration * 0.38) * 0.45)
+        body = 0.0
+        for note_index, note in enumerate(notes):
+            start = note_index * duration / max(1, len(notes) + 1)
+            if t < start:
+                continue
+            local = t - start
+            chirp = note + math.sin(local * math.tau * 18) * brightness
+            body += math.sin(chirp * math.tau * local + phases[note_index]) * math.exp(-10.5 * local)
+            body += 0.18 * math.sin(chirp * 2.02 * math.tau * local + phases[note_index]) * math.exp(-14 * local)
+        bead = (random.random() * 2 - 1) * 0.018 * math.exp(-18 * t)
+        samples.append((body + bead) * env(index, total, 0.006, 0.045))
     write_wav(name, samples)
 
 
@@ -182,19 +167,28 @@ def main() -> None:
     wood("ui-back.wav", 0.08, 260, 13)
     paper("menu-open.wav", 0.15, 14)
     paper("menu-close.wav", 0.12, 15, fold=True)
-    wood("dialogue-tick.wav", 0.038, 440, 16)
     tone("dialogue-next.wav", 0.09, [587.33, 880.0], decay=8.4, seed=17)
     wood("mori-voice.wav", 0.08, 210, 18)
     tone("lele-voice.wav", 0.09, [880.0, 1320.0], decay=9.0, seed=19)
 
-    for i in range(1, 4):
-        meow(f"tuotuo-voice-{i}.wav", 0.12 + i * 0.012, 760 + i * 22, 650 + i * 18, 30 + i)
-        meow(f"dazhi-voice-{i}.wav", 0.16 + i * 0.012, 520 + i * 18, 430 + i * 16, 40 + i)
-
-    for surface in ["stone", "grass", "wood", "indoor", "sand"]:
-        footstep(f"footstep-{surface}.wav", surface, 200 + hash(surface) % 100)
-        for i in range(1, 9):
-            footstep(f"footstep-{surface}-{i}.wav", surface, 100 + hash(surface) % 100 + i)
+    tuotuo_patterns = [
+        (0.12, [1046.5, 1318.5]),
+        (0.14, [987.77, 1174.66, 1396.91]),
+        (0.13, [1174.66, 1567.98]),
+        (0.16, [880.0, 1046.5, 1318.5]),
+        (0.15, [1318.5, 1174.66])
+    ]
+    dazhi_patterns = [
+        (0.16, [392.0, 493.88]),
+        (0.18, [349.23, 440.0, 392.0]),
+        (0.17, [440.0, 523.25]),
+        (0.20, [329.63, 392.0]),
+        (0.19, [392.0, 349.23, 440.0])
+    ]
+    for i, (duration, notes) in enumerate(tuotuo_patterns, start=1):
+        companion_voice(f"tuotuo-voice-{i}.wav", duration, notes, 30 + i, brightness=9)
+    for i, (duration, notes) in enumerate(dazhi_patterns, start=1):
+        companion_voice(f"dazhi-voice-{i}.wav", duration, notes, 40 + i, brightness=5)
 
     wood("interaction.wav", 0.10, 360, 50)
     wood("object-inspect.wav", 0.10, 360, 51)

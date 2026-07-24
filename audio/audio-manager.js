@@ -1,5 +1,5 @@
 /* AdventureWedding — AudioManager
-   Build v0.9.6.1 Audio Activation Hotfix
+   Build v0.9.6.2 Audio & Memory Refinement
 
    This file intentionally contains no approved music. It provides the shared
    architecture so future chapters can add assets without scene-local audio.
@@ -30,29 +30,23 @@
         "uiMove",
         "uiConfirm",
         "uiBack",
-        "dialogueTick",
         "dialogueNext",
         "interactionPrompt",
         "albumOpen",
         "albumPage",
         "albumClose",
-        "footstepStone",
-        "footstepGrass",
-        "footstepWood",
-        "footstepIndoor"
+        "memoryUnlock",
+        "chapterComplete",
+        "cgFadeIn",
+        "cgFadeOut",
+        "blueWorksVinyl"
     ];
 
     const sfxLimits = {
-        dialogueTick: 1,
         dialogueNext: 2,
         uiConfirm: 2,
         uiMove: 2,
         uiBack: 2,
-        footstepStone: 2,
-        footstepGrass: 2,
-        footstepWood: 2,
-        footstepIndoor: 2,
-        footstepSand: 2,
         tuotuoVoice: 1,
         dazhiVoice: 1,
         blueWorksVinyl: 1,
@@ -60,26 +54,15 @@
     };
 
     const sfxThrottleMs = {
-        dialogueTick: 45,
-        footstepStone: 80,
-        footstepGrass: 80,
-        footstepWood: 80,
-        footstepIndoor: 80,
-        footstepSand: 80
+        dialogueNext: 80
     };
 
     const sfxDefaultVolumes = {
-        dialogueTick: 0.72,
         dialogueNext: 0.78,
         moriVoice: 0.72,
         leleVoice: 0.74,
         tuotuoVoice: 0.76,
         dazhiVoice: 0.76,
-        footstepStone: 0.34,
-        footstepGrass: 0.28,
-        footstepWood: 0.34,
-        footstepIndoor: 0.30,
-        footstepSand: 0.25,
         uiMove: 0.56,
         uiConfirm: 0.64,
         uiBack: 0.54,
@@ -128,6 +111,7 @@
         ambientSource: null,
         activeSFX: new Map(),
         lastSFXAt: new Map(),
+        lastPickedAsset: new Map(),
         lastScene: null,
         pausedByVisibility: false,
         memoryStack: [],
@@ -207,7 +191,12 @@
                 warnMissing(category, id);
                 return null;
             }
-            return asset[Math.floor(Math.random() * asset.length)];
+            if (asset.length === 1) return asset[0];
+            const last = state.lastPickedAsset.get(`${category}:${id}`);
+            const choices = asset.filter(candidate => candidate !== last);
+            const picked = choices[Math.floor(Math.random() * choices.length)];
+            state.lastPickedAsset.set(`${category}:${id}`, picked);
+            return picked;
         }
         return asset;
     }

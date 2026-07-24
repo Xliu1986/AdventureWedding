@@ -1,5 +1,5 @@
 /* AdventureWedding — Hidden Audio Diagnostics
-   Build v0.9.6.1
+   Build v0.9.6.2
 
    Shift + A opens this lightweight panel. It uses the existing AudioManager and
    never creates another AudioContext.
@@ -13,16 +13,17 @@
         ["uiMove", "Cursor"],
         ["uiConfirm", "Confirm"],
         ["uiBack", "Back"],
-        ["dialogueTick", "Type"],
         ["dialogueNext", "Next"],
         ["interactionPrompt", "Interact"],
         ["albumOpen", "Album Open"],
         ["albumPage", "Page"],
         ["albumClose", "Album Close"],
-        ["footstepStone", "Stone"],
-        ["footstepGrass", "Grass"],
-        ["footstepWood", "Wood"],
-        ["footstepIndoor", "Indoor"]
+        ["memoryUnlock", "Memory"],
+        ["chapterComplete", "Chapter"],
+        ["cgFadeIn", "CG In"],
+        ["cgFadeOut", "CG Out"],
+        ["tuotuoVoice", "Tuotuo"],
+        ["dazhiVoice", "Dazhi"]
     ];
 
     let panel = null;

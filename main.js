@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.9.6.1 — Audio Activation Hotfix
+   Version 0.9.6.2 — Audio & Memory Refinement
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -1114,7 +1114,8 @@ const storyCGs = {
     },
     sydneyCooking: {
         src: "assets/cg/sydney/cg-cooking-together.png",
-        location: "Crows Nest",
+        locationTitle: "Crows Nest",
+        locationSubtitle: "Crows Nest",
         focalX: 0.55,
         focalY: 0.42,
         sourceHeight: 941,
@@ -1124,7 +1125,8 @@ const storyCGs = {
     },
     sydneyWatchingTheSea: {
         src: "assets/cg/sydney/cg-seaside-jump.png",
-        location: "Cronulla",
+        locationTitle: "Cronulla",
+        locationSubtitle: "Cronulla",
         focalX: 0.51,
         focalY: 0.45,
         sourceHeight: 1024,
@@ -1132,14 +1134,16 @@ const storyCGs = {
     },
     tasmaniaAdventure: {
         src: "assets/cg/sydney/cg-tasmania-trip.png?v=0.9.4-bicheno",
-        location: "比舍诺",
+        locationTitle: "莫玛塔斯马尼亚",
+        locationSubtitle: "Moma Tasmania",
         focalX: 0.53,
         focalY: 0.47,
         mobileDisplay: "contain"
     },
     blueWorksMemory: {
         src: "assets/cg/sydney/cg-blueworks.png?v=0.9.4-blueworks",
-        location: "Blue Works Vintage Store",
+        locationTitle: "蓝工古着",
+        locationSubtitle: "Blue Works Vintage Store",
         focalX: 0.5,
         focalY: 0.48,
         bgmOverride: "blueWorksTheme",
@@ -1155,6 +1159,8 @@ const storyCGs = {
     },
     longnanHometownView: {
         src: "assets/cg/longnan/cg-kangxian-hometown.png?v=0.8.6",
+        locationTitle: "甘肃陇南 · 青龙山",
+        locationSubtitle: "Qinglong Mountain",
         focalX: 0.5,
         focalY: 0.48,
         mobileDisplay: "contain"
@@ -1387,8 +1393,6 @@ function setGameState(nextState, options = {}) {
 }
 
 let playerAnimationTime = 0;
-let footstepDistance = 0;
-
 const pressedKeys = new Set();
 const activeControlPointers = new Map();
 
@@ -1925,10 +1929,6 @@ function updateDialogueTypewriter(deltaTime) {
         meetingState.typeTimer -= delay;
         meetingState.characterIndex++;
         gameDialogueText.textContent = page.text.slice(0, meetingState.characterIndex);
-        if (!/[\s。！？!?，、；：:,.…（）()《》“”"']/u.test(character)) {
-            window.AudioManager?.playSFX?.("dialogueTick");
-        }
-
     }
 
     meetingState.pageComplete = true;
@@ -4973,9 +4973,9 @@ function drawStoryCG() {
     drawStoryCGAmbience(config, storyFrame);
     drawMemoryAlbumTransition(storyFrame);
 
-    if (config.location && storyFrame) {
+    if ((config.locationTitle || config.location || config.locationSubtitle) && storyFrame) {
 
-        drawStoryCGLocation(config.location, storyFrame);
+        drawStoryCGLocation(config, storyFrame);
 
     }
 
@@ -4996,16 +4996,22 @@ function drawStoryCG() {
 
 }
 
-function drawStoryCGLocation(location, frame) {
+function drawStoryCGLocation(config, frame) {
 
     const fontSize = Math.max(13, Math.min(22, Math.round(frame.width * 0.035)));
+    const subtitleFontSize = Math.max(9, Math.round(fontSize * 0.68));
     const paddingX = Math.max(10, Math.round(fontSize * 0.7));
     const paddingY = Math.max(7, Math.round(fontSize * 0.55));
+    const title = config.locationTitle || config.location || "";
+    const subtitle = config.locationSubtitle || "";
 
     gameCtx.save();
     gameCtx.font = `${fontSize}px Fusion Pixel, monospace`;
-    const labelWidth = Math.min(frame.width - 16, Math.ceil(gameCtx.measureText(location).width) + paddingX * 2);
-    const labelHeight = fontSize + paddingY * 2;
+    const titleWidth = gameCtx.measureText(title).width;
+    gameCtx.font = `${subtitleFontSize}px Fusion Pixel, monospace`;
+    const subtitleWidth = subtitle ? gameCtx.measureText(subtitle).width : 0;
+    const labelWidth = Math.min(frame.width - 16, Math.ceil(Math.max(titleWidth, subtitleWidth)) + paddingX * 2);
+    const labelHeight = subtitle ? fontSize + subtitleFontSize + paddingY * 2 + 4 : fontSize + paddingY * 2;
     const labelX = frame.x + 8;
     const labelY = frame.y + 8;
 
@@ -5016,8 +5022,16 @@ function drawStoryCGLocation(location, frame) {
     gameCtx.strokeRect(labelX, labelY, labelWidth, labelHeight);
     gameCtx.fillStyle = "#fff2cc";
     gameCtx.textAlign = "left";
-    gameCtx.textBaseline = "middle";
-    gameCtx.fillText(location, labelX + paddingX, labelY + labelHeight / 2 + 1);
+    gameCtx.textBaseline = "top";
+    gameCtx.font = `${fontSize}px Fusion Pixel, monospace`;
+    gameCtx.fillText(title, labelX + paddingX, labelY + paddingY);
+    if (subtitle) {
+
+        gameCtx.globalAlpha = 0.82;
+        gameCtx.font = `${subtitleFontSize}px Fusion Pixel, monospace`;
+        gameCtx.fillText(subtitle, labelX + paddingX, labelY + paddingY + fontSize + 4);
+
+    }
     gameCtx.restore();
 
 }
@@ -5587,7 +5601,6 @@ function updatePlayer(deltaTime) {
         player.moving = false;
         player.velocityX = 0;
         player.velocityY = 0;
-        footstepDistance = 0;
         return;
 
     }
@@ -5638,9 +5651,6 @@ function updatePlayer(deltaTime) {
             && y + player.height <= sydneyLookoutWalkableZone.y + sydneyLookoutWalkableZone.height
         : (exteriorMap.complete && exteriorMap.naturalWidth ? canMoveOnOfficialMap(x, y) : canMoveTo(x, y));
 
-    const previousX = player.x;
-    const previousY = player.y;
-
     if (canMovePlayerTo(destinationX, destinationY)) {
 
         player.x = destinationX;
@@ -5654,46 +5664,6 @@ function updatePlayer(deltaTime) {
         else player.velocityY = 0;
 
     }
-
-    updatePlayerFootsteps(previousX, previousY);
-
-}
-
-function getCurrentFootstepSFX() {
-
-    if (currentChapter === "coles") return "footstepIndoor";
-    if (currentChapter === "weddingXiaoyuan") return "footstepGrass";
-    if (currentChapter === "longnanLookout") return "footstepWood";
-    if (currentChapter === "longnanTown") {
-
-        const onBridge = player.x > 610 && player.x < 820 && player.y > 435 && player.y < 690;
-        return onBridge ? "footstepWood" : "footstepStone";
-
-    }
-    if (currentChapter === "tokyo" || currentChapter === "sydney") return "footstepStone";
-    return "footstepStone";
-
-}
-
-function updatePlayerFootsteps(previousX, previousY) {
-
-    if (!player.moving) {
-
-        footstepDistance = 0;
-        return;
-
-    }
-
-    const distance = Math.hypot(player.x - previousX, player.y - previousY);
-    if (distance < 0.01) return;
-
-    footstepDistance += distance;
-    const isSprinting = pressedKeys.has("ShiftLeft") || pressedKeys.has("ShiftRight");
-    const stepDistance = isSprinting ? 38 : 30;
-    if (footstepDistance < stepDistance) return;
-
-    window.AudioManager?.playSFX?.(getCurrentFootstepSFX());
-    footstepDistance %= stepDistance;
 
 }
 

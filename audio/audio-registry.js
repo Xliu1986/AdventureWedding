@@ -1,5 +1,5 @@
 /* AdventureWedding — Core Sound Effects registry
-   Build v0.9.6.1
+   Build v0.9.6.2
 
    BGM and ambient values remain intentionally empty until approved music and
    ambience arrive. Core SFX are tiny original handmade placeholder WAVs.
@@ -38,12 +38,11 @@ const AUDIO_ASSETS = {
         uiBack: `${SFX_BASE}ui-back.wav`,
         menuOpen: `${SFX_BASE}menu-open.wav`,
         menuClose: `${SFX_BASE}menu-close.wav`,
-        dialogueTick: `${SFX_BASE}dialogue-tick.wav`,
         dialogueNext: `${SFX_BASE}dialogue-next.wav`,
         moriVoice: `${SFX_BASE}mori-voice.wav`,
         leleVoice: `${SFX_BASE}lele-voice.wav`,
-        tuotuoVoice: numberedSFX("tuotuo-voice", 3),
-        dazhiVoice: numberedSFX("dazhi-voice", 3),
+        tuotuoVoice: numberedSFX("tuotuo-voice", 5),
+        dazhiVoice: numberedSFX("dazhi-voice", 5),
         interactionPrompt: `${SFX_BASE}interaction.wav`,
         objectInspect: `${SFX_BASE}object-inspect.wav`,
         npcInteraction: `${SFX_BASE}npc-interaction.wav`,
@@ -61,16 +60,7 @@ const AUDIO_ASSETS = {
         shrineWindBell: `${SFX_BASE}shrine-wind-bell.wav`,
         riverTouch: `${SFX_BASE}river-touch.wav`,
         blueWorksVinyl: `${SFX_BASE}blueworks-vinyl.wav`,
-        footstepStone: `${SFX_BASE}footstep-stone.wav`,
-        footstepGrass: `${SFX_BASE}footstep-grass.wav`,
-        footstepWood: `${SFX_BASE}footstep-wood.wav`,
-        footstepIndoor: `${SFX_BASE}footstep-indoor.wav`,
-        footstepSand: `${SFX_BASE}footstep-sand.wav`,
-        footstepStoneVariants: numberedSFX("footstep-stone", 8),
-        footstepGrassVariants: numberedSFX("footstep-grass", 8),
-        footstepWoodVariants: numberedSFX("footstep-wood", 8),
-        footstepIndoorVariants: numberedSFX("footstep-indoor", 8),
-        footstepSandVariants: numberedSFX("footstep-sand", 8)
+        // Footstep audio was intentionally removed in v0.9.6.2.
     }
 };
 
@@ -81,23 +71,17 @@ const AUDIO_PRELOAD_GROUPS = {
         ["sfx", "uiBack"],
         ["sfx", "menuOpen"],
         ["sfx", "menuClose"],
-        ["sfx", "dialogueTick"],
         ["sfx", "dialogueNext"],
         ["sfx", "interactionPrompt"],
         ["sfx", "objectInspect"],
         ["sfx", "albumOpen"],
         ["sfx", "albumPage"],
-        ["sfx", "albumClose"],
-        ["sfx", "footstepStone"],
-        ["sfx", "footstepGrass"],
-        ["sfx", "footstepWood"],
-        ["sfx", "footstepIndoor"]
+        ["sfx", "albumClose"]
     ],
     tokyo: [
         ["bgm", "tokyoTheme"],
         ["ambient", "tokyoStation"],
         ["ambient", "tokyoShrine"],
-        ["sfx", "footstepStone"],
         ["sfx", "flowerRustle"],
         ["sfx", "shrineWindBell"]
     ],
@@ -106,22 +90,16 @@ const AUDIO_PRELOAD_GROUPS = {
         ["bgm", "blueWorksTheme"],
         ["ambient", "sydneyHarbour"],
         ["ambient", "colesStore"],
-        ["sfx", "footstepStone"],
-        ["sfx", "footstepIndoor"],
         ["sfx", "blueWorksVinyl"]
     ],
     longnan: [
         ["bgm", "longnanTheme"],
         ["ambient", "longnanTown"],
-        ["sfx", "footstepStone"],
-        ["sfx", "footstepWood"],
         ["sfx", "riverTouch"]
     ],
     wedding: [
         ["bgm", "weddingTheme"],
         ["ambient", "xiaoyuanGarden"],
-        ["sfx", "footstepGrass"],
-        ["sfx", "footstepWood"],
         ["sfx", "chapterComplete"]
     ]
 };
