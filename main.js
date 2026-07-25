@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.9.9 — Longnan Chapter Final Polish
+   Version 0.9.10 — Xiaoyuan Chapter Lock
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -917,6 +917,7 @@ let gameplayPauseRemaining = 0;
 const TOKYO_SAVE_KEY = "AdventureWedding.tokyo.progress.v0.9.7";
 const SYDNEY_SAVE_KEY = "AdventureWedding.sydney.progress.v0.9.8";
 const LONGNAN_SAVE_KEY = "AdventureWedding.longnan.progress.v0.9.6.6";
+const WEDDING_SAVE_KEY = "AdventureWedding.wedding.progress.v0.9.10";
 const storyFlags = {
     prologueViewed: false,
     tokyoChapterStarted: false,
@@ -958,6 +959,7 @@ const storyFlags = {
     weddingArchSequenceStarted: false,
     weddingInvitationViewed: false,
     weddingChapterComplete: false,
+    weddingEndingViewed: false,
     gameComplete: false
 };
 let activeColesInspectable = null;
@@ -980,6 +982,21 @@ const sydneyPersistedFlags = [
     "sydneyAirportMemory",
     "sydneyColesDinnerDialogueCompleted",
     "sydneyChapterComplete"
+];
+
+const weddingPersistedFlags = [
+    "weddingChapterStarted",
+    "weddingMapEntered",
+    "weddingIntroShown",
+    "weddingSignInViewed",
+    "weddingPhotoAreaViewed",
+    "weddingCeremonyAreaViewed",
+    "weddingArchUnlocked",
+    "weddingArchSequenceStarted",
+    "weddingInvitationViewed",
+    "weddingChapterComplete",
+    "weddingEndingViewed",
+    "gameComplete"
 ];
 
 function loadTokyoProgress() {
@@ -1063,6 +1080,52 @@ function saveSydneyProgress() {
 }
 
 loadSydneyProgress();
+
+function loadWeddingProgress() {
+
+    try {
+
+        const saved = JSON.parse(localStorage.getItem(WEDDING_SAVE_KEY) || "{}");
+        weddingPersistedFlags.forEach(flag => {
+            if (typeof saved[flag] === "boolean") storyFlags[flag] = saved[flag];
+        });
+        if (storyFlags.weddingChapterComplete) {
+
+            storyFlags.weddingChapterStarted = true;
+            storyFlags.weddingMapEntered = true;
+            storyFlags.weddingIntroShown = true;
+            storyFlags.weddingSignInViewed = true;
+            storyFlags.weddingPhotoAreaViewed = true;
+            storyFlags.weddingCeremonyAreaViewed = true;
+            storyFlags.weddingArchUnlocked = true;
+            storyFlags.weddingArchSequenceStarted = true;
+            storyFlags.weddingInvitationViewed = true;
+            storyFlags.weddingEndingViewed = true;
+            storyFlags.gameComplete = true;
+
+        }
+
+    } catch {
+        // Local save is optional; corrupted progress should never block play.
+    }
+
+}
+
+function saveWeddingProgress() {
+
+    try {
+
+        const payload = {};
+        weddingPersistedFlags.forEach(flag => payload[flag] = Boolean(storyFlags[flag]));
+        localStorage.setItem(WEDDING_SAVE_KEY, JSON.stringify(payload));
+
+    } catch {
+        // Safari private mode or file:// restrictions can reject storage.
+    }
+
+}
+
+loadWeddingProgress();
 
 const piaoziState = {
     introSeen: false,
