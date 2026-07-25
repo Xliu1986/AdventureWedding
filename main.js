@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.9.7 — Tokyo Chapter Final Polish
+   Version 0.9.7.2 — Story Interaction Indicators
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -1771,6 +1771,8 @@ const birds = [
 
 let windTime = 0;
 let interactionPromptAlpha = 0;
+const INTERACTION_INDICATOR_RADIUS = 160;
+const MAX_INTERACTION_INDICATORS = 8;
 
 function limitArrayLength(items, length) {
 
@@ -2202,6 +2204,7 @@ function closeMeetingDialogue() {
 
     if (dialoguePurpose === "interaction" && activeInteraction) {
 
+        activeInteraction.discovered = true;
         if (!activeInteraction.repeatable) activeInteraction.completed = true;
         if (activeInteraction.flag) {
 
@@ -2308,12 +2311,14 @@ function closeMeetingDialogue() {
 
     if (dialoguePurpose === "longnanMemory" && activeInteraction) {
 
+        activeInteraction.discovered = true;
         if (!activeInteraction.repeatable) activeInteraction.completed = true;
 
     }
 
     if (dialoguePurpose === "longnanPiaozi" && activeInteraction) {
 
+        activeInteraction.discovered = true;
         if (activeInteraction.memoryId && memoryAlbum[activeInteraction.memoryId]) {
 
             memoryAlbum[activeInteraction.memoryId].unlocked = true;
@@ -2332,6 +2337,7 @@ function closeMeetingDialogue() {
 
     if (dialoguePurpose === "weddingGuide" && activeInteraction) {
 
+        activeInteraction.discovered = true;
         const viewedFlagById = {
             weddingSignIn: "weddingSignInViewed",
             weddingPhotoArea: "weddingPhotoAreaViewed",
@@ -5577,6 +5583,199 @@ function drawLongnanBridgePiaozi() {
 
 }
 
+function getIndicatorPoint(item) {
+
+    return {
+        x: item.markerX ?? (item.x + (item.width || 0) / 2),
+        y: item.markerY ?? (item.y - 18)
+    };
+
+}
+
+function isInteractionDiscovered(item) {
+
+    if (!item) return false;
+    if (item.flag && storyFlags[item.flag]) return true;
+    if (item.completed || item.discovered) return true;
+    if (item.id === "bench" || item.id === "vending" || item.id === "shrine") return Boolean(item.completed);
+    return false;
+
+}
+
+function addInteractionIndicatorTarget(targets, item, options = {}) {
+
+    if (!item) return;
+    const point = options.point || getIndicatorPoint(item);
+    const playerCenterX = player.x + player.width / 2;
+    const playerCenterY = player.y + player.height / 2;
+    const distance = Math.hypot(playerCenterX - point.x, playerCenterY - point.y);
+    if (distance > INTERACTION_INDICATOR_RADIUS) return;
+
+    targets.push({
+        x: point.x,
+        y: point.y,
+        distance,
+        discovered: options.discovered ?? isInteractionDiscovered(item)
+    });
+
+}
+
+function collectInteractionIndicatorTargets() {
+
+    if (chapterCardState.active || cameraIntro.active || meetingState.dialogueOpen || storyCGOverlay.active) return [];
+
+    const targets = [];
+
+    if (currentChapter === "tokyo") {
+
+        if (!meetingState.triggered) addInteractionIndicatorTarget(targets, le, { point: { x: le.x + le.width / 2, y: le.y - 26 } });
+        if (le.companion) {
+
+            interactables.forEach(item => addInteractionIndicatorTarget(targets, item));
+            if (!sakuraAvenueMoment.discovered) {
+
+                addInteractionIndicatorTarget(targets, sakuraAvenueMoment, {
+                    point: {
+                        x: sakuraAvenueMoment.x + sakuraAvenueMoment.width / 2,
+                        y: sakuraAvenueMoment.y + sakuraAvenueMoment.height / 2
+                    },
+                    discovered: false
+                });
+
+            }
+            if (!hiddenCatEvent.discovered) {
+
+                addInteractionIndicatorTarget(targets, hiddenCatEvent, {
+                    point: {
+                        x: hiddenCatEvent.x + hiddenCatEvent.width / 2,
+                        y: hiddenCatEvent.y - 12
+                    },
+                    discovered: false
+                });
+
+            }
+            if (tokyoStoryComplete() && !chapterTransition.completed) {
+
+                addInteractionIndicatorTarget(targets, stationDepartureZone, {
+                    point: {
+                        x: stationDepartureZone.x + stationDepartureZone.width / 2,
+                        y: stationDepartureZone.y + 26
+                    },
+                    discovered: false
+                });
+
+            }
+
+        }
+
+    } else if (currentChapter === "sydney") {
+
+        if (!sydneyNewYearSnackTrigger.completed) addInteractionIndicatorTarget(targets, sydneyNewYearSnackTrigger);
+        addInteractionIndicatorTarget(targets, sydneyToColesExit, {
+            point: { x: sydneyToColesExit.x + sydneyToColesExit.width / 2, y: sydneyToColesExit.y + 18 },
+            discovered: false
+        });
+
+    } else if (currentChapter === "coles") {
+
+        colesInspectables.forEach(item => addInteractionIndicatorTarget(targets, item));
+        addInteractionIndicatorTarget(targets, piaoziIntroZone, {
+            point: { x: piaoziIntroZone.x + piaoziIntroZone.width / 2, y: piaoziIntroZone.y - 18 },
+            discovered: piaoziState.completed
+        });
+        addInteractionIndicatorTarget(targets, colesToSydneyExit, {
+            point: { x: colesToSydneyExit.x + colesToSydneyExit.width / 2, y: colesToSydneyExit.y + 18 },
+            discovered: false
+        });
+
+    } else if (currentChapter === "longnanLookout") {
+
+        addInteractionIndicatorTarget(targets, longnanLookoutRailing, {
+            discovered: longnanLookoutRailing.completed
+        });
+
+    } else if (currentChapter === "longnanTown") {
+
+        longnanTownInteractionPoints.forEach(item => addInteractionIndicatorTarget(targets, item, {
+            discovered: isLongnanMemoryDiscovered(item)
+        }));
+        addInteractionIndicatorTarget(targets, longnanMemoryAlbumTrigger, {
+            point: { x: longnanMemoryAlbumTrigger.x, y: longnanMemoryAlbumTrigger.y - 24 },
+            discovered: storyFlags.longnanMemoryAlbumViewed
+        });
+
+    } else if (currentChapter === "weddingXiaoyuan") {
+
+        weddingInteractables.forEach(item => {
+
+            const viewed = ({
+                weddingSignIn: storyFlags.weddingSignInViewed,
+                weddingPhotoArea: storyFlags.weddingPhotoAreaViewed,
+                weddingCeremonyArea: storyFlags.weddingCeremonyAreaViewed
+            })[item.id];
+            addInteractionIndicatorTarget(targets, item, { discovered: Boolean(viewed) });
+
+        });
+        if (storyFlags.weddingArchUnlocked && !storyFlags.weddingArchSequenceStarted) {
+
+            addInteractionIndicatorTarget(targets, weddingFloralGateway, {
+                point: { x: weddingFloralGateway.x, y: weddingFloralGateway.y - 42 },
+                discovered: false
+            });
+
+        }
+
+    }
+
+    return targets
+        .sort((left, right) => left.distance - right.distance)
+        .slice(0, MAX_INTERACTION_INDICATORS);
+
+}
+
+function drawPixelSparkle(x, y, discovered) {
+
+    const roundedX = Math.round(x);
+    const roundedY = Math.round(y);
+
+    if (discovered) {
+
+        gameCtx.fillStyle = "#2f4156";
+        gameCtx.fillRect(roundedX - 3, roundedY - 3, 6, 6);
+        gameCtx.fillStyle = "#f4cf7a";
+        gameCtx.fillRect(roundedX - 1, roundedY - 3, 2, 6);
+        gameCtx.fillRect(roundedX - 3, roundedY - 1, 6, 2);
+        return;
+
+    }
+
+    const phase = (windTime % 1.2) / 1.2 * Math.PI * 2;
+    const floatY = Math.sin(phase) * 2;
+    const alpha = 0.52 + (Math.sin(phase) + 1) * 0.18;
+    const py = Math.round(roundedY + floatY);
+
+    gameCtx.globalAlpha = alpha;
+    gameCtx.fillStyle = "#f4cf7a";
+    gameCtx.fillRect(roundedX - 1, py - 4, 2, 8);
+    gameCtx.fillRect(roundedX - 4, py - 1, 8, 2);
+    gameCtx.globalAlpha = Math.min(1, alpha + 0.18);
+    gameCtx.fillStyle = "#fff0b6";
+    gameCtx.fillRect(roundedX - 1, py - 1, 2, 2);
+    gameCtx.globalAlpha = 1;
+
+}
+
+function drawStoryInteractionIndicators() {
+
+    const targets = collectInteractionIndicatorTargets();
+    if (!targets.length) return;
+
+    gameCtx.save();
+    targets.forEach(target => drawPixelSparkle(target.x, target.y, target.discovered));
+    gameCtx.restore();
+
+}
+
 function drawSceneTransitionOverlay() {
 
     if (!sceneTransition.active) return;
@@ -5821,6 +6020,7 @@ function drawGame() {
     drawWorldAtmosphere();
     if (currentChapter === "coles") drawColesAmbientShoppers();
     if (currentChapter === "weddingXiaoyuan") drawWeddingGatewayVisuals();
+    drawStoryInteractionIndicators();
 
     const showOpeningParty = !(
         currentChapter === "tokyo"
