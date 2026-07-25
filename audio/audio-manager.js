@@ -1,5 +1,5 @@
 /* AdventureWedding — AudioManager
-   Build v0.9.6.3.1 Companion Voice Timbre Correction
+   Build v0.9.6.4 Memory Album Standardization
 
    This file intentionally contains no approved music. It provides the shared
    architecture so future chapters can add assets without scene-local audio.
@@ -24,6 +24,7 @@
     const DEFAULT_AMBIENT_FADE_MS = 400;
     const BUFFER_CACHE_LIMIT = 32;
     const MAX_ACTIVE_SFX = 8;
+    const SFX_ENABLED = false;
     const DEV_WARNINGS = true;
     const CORE_SFX_IDS = [
         "pressStart",
@@ -457,6 +458,13 @@
     }
 
     async function playSFX(id, options = {}) {
+        // Build v0.9.6.4 temporarily mutes every sound effect while keeping
+        // the audio architecture and future BGM support intact.
+        if (!SFX_ENABLED) return false;
+        return playSFXInternal(id, options);
+    }
+
+    async function playSFXInternal(id, options = {}) {
         if (!id) return;
         if (!state.unlocked) {
             AudioManager.unlock();
@@ -548,6 +556,7 @@
         const group = window.AUDIO_PRELOAD_GROUPS?.[groupId] || [];
         const loads = [];
         group.forEach(([category, id]) => {
+            if (category === "sfx" && !SFX_ENABLED) return;
             const asset = getAsset(category, id);
             if (Array.isArray(asset)) {
                 asset.forEach(path => loads.push(loadBuffer(category, id, path)));
@@ -718,6 +727,7 @@
                 bgmVolume: state.settings.bgm,
                 ambientVolume: state.settings.ambient,
                 sfxVolume: state.settings.sfx,
+                sfxEnabled: SFX_ENABLED,
                 masterVolume: state.settings.master,
                 masterMuted: false,
                 sfxMuted: state.settings.muted.sfx,
@@ -751,6 +761,7 @@
         contextState: AudioManager.context?.state ?? "missing",
         masterVolume: AudioManager.masterVolume,
         sfxVolume: AudioManager.sfxVolume,
+        sfxEnabled: SFX_ENABLED,
         masterMuted: AudioManager.masterMuted,
         sfxMuted: AudioManager.sfxMuted,
         loadedBuffers: AudioManager.loadedBuffers,

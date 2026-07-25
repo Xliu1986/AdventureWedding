@@ -1,5 +1,5 @@
 /* AdventureWedding — Core Sound Effects registry
-   Build v0.9.6.3.1
+   Build v0.9.6.4
 
    BGM and ambient values remain intentionally empty until approved music and
    ambience arrive. Core SFX are tiny original handmade placeholder WAVs.

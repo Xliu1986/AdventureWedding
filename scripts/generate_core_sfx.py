@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate AdventureWedding v0.9.6.3.1 placeholder core SFX.
+"""Generate AdventureWedding v0.9.6.4 placeholder core SFX.
 
 These are tiny original synthesized WAVs: warm, low-tech, and intentionally
 easy to replace when final recorded assets arrive.

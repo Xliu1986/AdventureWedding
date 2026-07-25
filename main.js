@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.9.6.3.1 — Companion Voice Timbre Correction
+   Version 0.9.6.4 — Memory Album Standardization
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -894,7 +894,7 @@ const achievements = {
 // Story memories are intentionally lightweight: unlocking one records it for
 // the future album without introducing inventory or reward mechanics.
 const memoryAlbum = {
-    longnanBridgePiaozi: { unlocked: false, title: "桥上的瓢子" }
+    longnanBridgePiaozi: { unlocked: false, title: "Piaozi" }
 };
 
 let nearbyCatEvent = false;
@@ -1104,6 +1104,7 @@ const storyCGs = {
     colesPiaozi: {
         src: "assets/cg/coles-piaozi-story.png?v=0.8.3",
         image: piaoziStoryCG,
+        locationTitle: "Piaozi",
         focalX: 0.54,
         focalY: 0.42,
         // The current legacy file includes an authored dialogue area at its base.
@@ -1116,7 +1117,6 @@ const storyCGs = {
     sydneyCooking: {
         src: "assets/cg/sydney/cg-cooking-together.png",
         locationTitle: "Crows Nest",
-        locationSubtitle: "Crows Nest",
         focalX: 0.55,
         focalY: 0.42,
         sourceHeight: 941,
@@ -1127,7 +1127,6 @@ const storyCGs = {
     sydneyWatchingTheSea: {
         src: "assets/cg/sydney/cg-seaside-jump.png",
         locationTitle: "Cronulla",
-        locationSubtitle: "Cronulla",
         focalX: 0.51,
         focalY: 0.45,
         sourceHeight: 1024,
@@ -1135,16 +1134,14 @@ const storyCGs = {
     },
     tasmaniaAdventure: {
         src: "assets/cg/sydney/cg-tasmania-trip.png?v=0.9.4-bicheno",
-        locationTitle: "莫玛塔斯马尼亚",
-        locationSubtitle: "Moma Tasmania",
+        locationTitle: "Moma Tasmania",
         focalX: 0.53,
         focalY: 0.47,
         mobileDisplay: "contain"
     },
     blueWorksMemory: {
         src: "assets/cg/sydney/cg-blueworks.png?v=0.9.4-blueworks",
-        locationTitle: "蓝工古着",
-        locationSubtitle: "Blue Works Vintage Store",
+        locationTitle: "Blue Works Vintage Store",
         focalX: 0.5,
         focalY: 0.48,
         bgmOverride: "blueWorksTheme",
@@ -1153,6 +1150,7 @@ const storyCGs = {
     sydneyAirport: {
         // Approved airport departure CG: preserved as supplied.
         src: "assets/cg/sydney/cg-sydney-airport.png",
+        locationTitle: "Sydney Airport",
         focalX: 0.5,
         focalY: 0.48,
         sourceHeight: 941,
@@ -1160,8 +1158,7 @@ const storyCGs = {
     },
     longnanHometownView: {
         src: "assets/cg/longnan/cg-kangxian-hometown.png?v=0.8.6",
-        locationTitle: "甘肃陇南 · 青龙山",
-        locationSubtitle: "Qinglong Mountain",
+        locationTitle: "Qinglong Mountain",
         focalX: 0.5,
         focalY: 0.48,
         mobileDisplay: "contain"
@@ -1188,6 +1185,7 @@ const storyCGs = {
     },
     longnanAlbumWildFruit: {
         src: "assets/cg/memory-album/tokyo-wild-fruit.png?v=0.8.7",
+        locationTitle: "Kang County",
         focalX: 0.5,
         focalY: 0.5,
         mobileDisplay: "contain",
@@ -1196,6 +1194,7 @@ const storyCGs = {
     },
     longnanAlbumPiaozi: {
         src: "assets/cg/memory-album/longnan-piaozi.png?v=0.8.7",
+        locationTitle: "Piaozi",
         focalX: 0.5,
         focalY: 0.5,
         mobileDisplay: "contain",
@@ -1204,6 +1203,7 @@ const storyCGs = {
     },
     longnanAlbumMoment: {
         src: "assets/cg/memory-album/sydney-moment.png?v=0.8.7",
+        locationTitle: "Kang County",
         focalX: 0.5,
         focalY: 0.5,
         mobileDisplay: "contain",
@@ -1212,6 +1212,7 @@ const storyCGs = {
     },
     longnanAlbumWedding: {
         src: "assets/cg/memory-album/wedding-portrait.png?v=0.8.7",
+        locationTitle: "Wedding Preparation",
         focalX: 0.5,
         focalY: 0.5,
         mobileDisplay: "contain",
@@ -1220,12 +1221,13 @@ const storyCGs = {
     },
     weddingInvitation: {
         src: "assets/cg/wedding/wedding-invitation.png?v=0.9.2",
+        locationTitle: "Wedding Invitation",
         focalX: 0.5,
         focalY: 0.5,
         mobileDisplay: "contain",
         fallbackPlaceholder: true,
         placeholderTitle: "Wedding Invitation",
-        placeholderSubtitle: "北京 · 晓园",
+        placeholderSubtitle: "",
         requiresContinue: true,
         fadeFromWhite: true
     }
@@ -5004,19 +5006,16 @@ function drawStoryCG() {
 function drawStoryCGLocation(config, frame) {
 
     const fontSize = Math.max(13, Math.min(22, Math.round(frame.width * 0.035)));
-    const subtitleFontSize = Math.max(9, Math.round(fontSize * 0.68));
     const paddingX = Math.max(10, Math.round(fontSize * 0.7));
     const paddingY = Math.max(7, Math.round(fontSize * 0.55));
-    const title = config.locationTitle || config.location || "";
-    const subtitle = config.locationSubtitle || "";
+    const title = config.locationTitle || config.location || config.locationSubtitle || "";
+    if (!title) return;
 
     gameCtx.save();
     gameCtx.font = `${fontSize}px Fusion Pixel, monospace`;
     const titleWidth = gameCtx.measureText(title).width;
-    gameCtx.font = `${subtitleFontSize}px Fusion Pixel, monospace`;
-    const subtitleWidth = subtitle ? gameCtx.measureText(subtitle).width : 0;
-    const labelWidth = Math.min(frame.width - 16, Math.ceil(Math.max(titleWidth, subtitleWidth)) + paddingX * 2);
-    const labelHeight = subtitle ? fontSize + subtitleFontSize + paddingY * 2 + 4 : fontSize + paddingY * 2;
+    const labelWidth = Math.min(frame.width - 16, Math.ceil(titleWidth) + paddingX * 2);
+    const labelHeight = fontSize + paddingY * 2;
     const labelX = frame.x + 8;
     const labelY = frame.y + 8;
 
@@ -5026,17 +5025,10 @@ function drawStoryCGLocation(config, frame) {
     gameCtx.lineWidth = 2;
     gameCtx.strokeRect(labelX, labelY, labelWidth, labelHeight);
     gameCtx.fillStyle = "#fff2cc";
-    gameCtx.textAlign = "left";
+    gameCtx.textAlign = "center";
     gameCtx.textBaseline = "top";
     gameCtx.font = `${fontSize}px Fusion Pixel, monospace`;
-    gameCtx.fillText(title, labelX + paddingX, labelY + paddingY);
-    if (subtitle) {
-
-        gameCtx.globalAlpha = 0.82;
-        gameCtx.font = `${subtitleFontSize}px Fusion Pixel, monospace`;
-        gameCtx.fillText(subtitle, labelX + paddingX, labelY + paddingY + fontSize + 4);
-
-    }
+    gameCtx.fillText(title, labelX + labelWidth / 2, labelY + paddingY);
     gameCtx.restore();
 
 }
