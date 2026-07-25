@@ -829,45 +829,12 @@ const moriPositionHistory = [];
 
 const interactables = [
     {
-        id: "bench",
-        x: 1510, y: 1120, width: 90, height: 70,
-        pages: [
-            { speaker: "乐乐", text: "东京有很多这样的公园。\n以前我喜欢一个人坐在这里。" },
-            { speaker: "森", text: "以后。\n就不是一个人了。" }
-        ],
-        completed: false
-    },
-    {
-        id: "vending",
-        x: 1180, y: 1750, width: 80, height: 80,
-        pages: [
-            { speaker: "乐乐", text: "日本的自动售货机，\n什么都有。" },
-            { speaker: "森", text: "真的吗？" },
-            { speaker: "乐乐", text: "以后慢慢带你发现。" }
-        ],
-        completed: false
-    },
-    {
         id: "shrine",
-        x: 1700, y: 890, width: 140, height: 110,
+        x: 1760, y: 1040, width: 170, height: 120,
+        prompt: "神社门口",
         pages: [
-            { speaker: "乐乐", text: "来东京的人。\n都会来这里。" },
-            { speaker: "森", text: "那我们也许个愿吧。" },
-            { speaker: "乐乐", text: "好。" }
+            { speaker: "乐乐", text: "悄悄许个愿吧～" }
         ],
-        completed: false,
-        pauseAfter: 3
-    },
-    {
-        id: "emaBoard",
-        x: 1840, y: 760, width: 90, height: 90,
-        prompt: "绘马板",
-        pages: [
-            { speaker: "乐乐", text: "以后，\n还要一起回来。" }
-        ],
-        repeatable: true,
-        autoOnce: true,
-        flag: "tokyoShrineMemoryCompleted",
         completed: false
     },
     {
@@ -3035,8 +3002,6 @@ function tokyoStoryComplete() {
 
     return meetingState.triggered
         && le.companion
-        && interactables.find(item => item.id === "vending")?.completed
-        && interactables.find(item => item.id === "bench")?.completed
         && interactables.find(item => item.id === "shrine")?.completed
         && sakuraAvenueMoment.discovered
         && hiddenCatEvent.discovered
