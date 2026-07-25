@@ -1,10 +1,11 @@
-/* AdventureWedding — Core Sound Effects registry
-   Build v0.9.6.4
+/* AdventureWedding — Audio asset registry
+   Build v0.9.10 Music Foundation
 
-   BGM and ambient values remain intentionally empty until approved music and
-   ambience arrive. Core SFX are tiny original handmade placeholder WAVs.
+   Chapter BGM assets are original handmade JRPG-style loops. SFX remain
+   registered for future use, but playback is currently disabled by AudioManager.
 */
 
+const BGM_BASE = "assets/audio/bgm/";
 const SFX_BASE = "assets/audio/sfx/";
 const VOICE_BASE = `${SFX_BASE}voices/`;
 const numberedSFX = (prefix, count) => Array.from(
@@ -18,13 +19,13 @@ const numberedVoiceSFX = (prefix, count) => Array.from(
 
 const AUDIO_ASSETS = {
     bgm: {
-        titleTheme: null,
-        tokyoTheme: null,
-        sydneyTheme: null,
-        blueWorksTheme: null,
-        longnanTheme: null,
-        weddingTheme: null,
-        creditsTheme: null
+        titleTheme: `${BGM_BASE}title-theme.wav`,
+        tokyoTheme: `${BGM_BASE}tokyo-theme.wav`,
+        sydneyTheme: `${BGM_BASE}sydney-theme.wav`,
+        blueWorksTheme: `${BGM_BASE}blueworks-theme.wav`,
+        longnanTheme: `${BGM_BASE}longnan-theme.wav`,
+        weddingTheme: `${BGM_BASE}wedding-theme.wav`,
+        creditsTheme: `${BGM_BASE}credits-theme.wav`
     },
 
     ambient: {
