@@ -529,6 +529,12 @@ function requestChapterCardSkip() {
 function updateChapterCard(deltaTime) {
 
     if (!chapterCardState.active) return;
+    if (chapterCardState.mode === "weddingEnding") {
+
+        updateWeddingEndingCard(deltaTime);
+        return;
+
+    }
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const fadeDuration = reduceMotion ? 0.18 : 0.55;
     const baseHoldDuration = chapterCardState.mode === "prologue"
@@ -583,6 +589,48 @@ function updateChapterCard(deltaTime) {
 
 }
 
+function updateWeddingEndingCard(deltaTime) {
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const fadeDuration = reduceMotion ? 0.18 : 0.7;
+    chapterCardState.elapsed += deltaTime;
+
+    if (chapterCardState.phase === "fadeIn") {
+
+        chapterCard.style.opacity = String(Math.min(1, chapterCardState.elapsed / fadeDuration));
+        if (chapterCardState.elapsed >= fadeDuration) {
+
+            chapterCardState.phase = "hold";
+            chapterCardState.elapsed = 0;
+
+        }
+        return;
+
+    }
+
+    const endingSteps = [
+        { title: "Thank You", at: 0 },
+        { title: "AdventureWedding", at: 1.65 },
+        { title: "森 × 乐", at: 3.3 },
+        { title: "END", at: 4.95 }
+    ];
+    const currentStep = endingSteps
+        .slice()
+        .reverse()
+        .find(step => chapterCardState.elapsed >= step.at) || endingSteps[0];
+
+    chapterCardTitleZh.textContent = currentStep.title;
+    if (currentStep.title === "END" && !storyFlags.weddingEndingViewed) {
+
+        storyFlags.weddingEndingViewed = true;
+        storyFlags.weddingChapterComplete = true;
+        storyFlags.gameComplete = true;
+        saveWeddingProgress();
+
+    }
+
+}
+
 window.testChapterCard = (chapterId, mode = "intro") => {
 
     if (mode === "prologue") return showPrologue();
@@ -598,6 +646,7 @@ function completeWeddingChapter() {
 
         storyFlags.weddingChapterComplete = true;
         storyFlags.gameComplete = true;
+        saveWeddingProgress();
         showFinalEnding();
 
     });
@@ -992,7 +1041,6 @@ const weddingPersistedFlags = [
     "weddingPhotoAreaViewed",
     "weddingCeremonyAreaViewed",
     "weddingArchUnlocked",
-    "weddingArchSequenceStarted",
     "weddingInvitationViewed",
     "weddingChapterComplete",
     "weddingEndingViewed",
@@ -1539,6 +1587,8 @@ const storyCGs = {
         placeholderTitle: "Wedding Invitation",
         placeholderSubtitle: "",
         requiresContinue: true,
+        mobileContinueText: "Tap to Continue",
+        desktopContinueText: "Click to Continue",
         fadeFromWhite: true
     }
 };
@@ -1651,6 +1701,28 @@ const weddingInteractables = [
     }
 ];
 let nearbyWeddingInteraction = null;
+const weddingInteractionFlags = {
+    weddingSignIn: "weddingSignInViewed",
+    weddingPhotoArea: "weddingPhotoAreaViewed",
+    weddingCeremonyArea: "weddingCeremonyAreaViewed"
+};
+const weddingInteractionOrder = ["weddingSignIn", "weddingPhotoArea", "weddingCeremonyArea"];
+
+function isWeddingInteractionViewed(interactableOrId) {
+
+    const id = typeof interactableOrId === "string" ? interactableOrId : interactableOrId?.id;
+    const flag = weddingInteractionFlags[id];
+    return flag ? Boolean(storyFlags[flag]) : false;
+
+}
+
+function getNextWeddingInteraction() {
+
+    const nextId = weddingInteractionOrder.find(id => !isWeddingInteractionViewed(id));
+    return weddingInteractables.find(item => item.id === nextId) || null;
+
+}
+
 const weddingFloralGateway = { id: "weddingFloralGateway", label: "进入花拱门", x: 725, y: 274, range: 116 };
 const weddingGatewaySequence = {
     active: false,
@@ -2454,14 +2526,10 @@ function closeMeetingDialogue() {
     if (dialoguePurpose === "weddingGuide" && activeInteraction) {
 
         activeInteraction.discovered = true;
-        const viewedFlagById = {
-            weddingSignIn: "weddingSignInViewed",
-            weddingPhotoArea: "weddingPhotoAreaViewed",
-            weddingCeremonyArea: "weddingCeremonyAreaViewed"
-        };
-        const viewedFlag = viewedFlagById[activeInteraction.id];
+        const viewedFlag = weddingInteractionFlags[activeInteraction.id];
         if (viewedFlag) storyFlags[viewedFlag] = true;
         unlockWeddingFloralGateway();
+        saveWeddingProgress();
 
     }
 
@@ -2470,7 +2538,8 @@ function closeMeetingDialogue() {
     if (dialoguePurpose === "weddingInvitation") {
 
         storyFlags.weddingInvitationViewed = true;
-        storyCGOverlay.onComplete = showWeddingContinuation;
+        saveWeddingProgress();
+        storyCGOverlay.onComplete = showWeddingEnding;
         storyCGOverlay.phase = "endingHold";
         storyCGOverlay.revealDelay = 0.55;
 
@@ -2499,6 +2568,7 @@ function unlockWeddingFloralGateway() {
     storyFlags.weddingArchUnlocked = true;
     window.AudioManager?.playSFX?.("memoryUnlock");
     weddingGatewayNoticeRemaining = 1.8;
+    saveWeddingProgress();
 
 }
 
@@ -2558,10 +2628,12 @@ function showWeddingInvitation() {
     weddingGatewaySequence.active = false;
     weddingGatewaySequence.phase = "invitation";
     weddingGatewaySequence.invitationReady = false;
+    storyFlags.weddingInvitationViewed = true;
+    saveWeddingProgress();
     transitionInputLockUntil = performance.now() + 350;
     mobileControls.classList.remove("hidden");
     mobileControls.classList.add("invitationMode");
-    showStoryCG({ id: "weddingInvitation", revealDelay: 0.25 });
+    showStoryCG({ id: "weddingInvitation", revealDelay: 5 });
 
 }
 
@@ -2572,32 +2644,42 @@ function continueWeddingInvitation() {
 
     transitionInputLockUntil = performance.now() + 350;
     storyCGOverlay.inputReady = false;
-    openPiaoziDialogue([
-        { speaker: "乐乐", text: "谢谢你，\n\n陪我们一路走到了这里。" },
-        { speaker: "森", text: "谢谢大家，\n\n来参加我们的婚礼。" }
-    ], "weddingInvitation");
+    storyCGOverlay.onComplete = showWeddingEnding;
+    storyCGOverlay.phase = "endingHold";
+    storyCGOverlay.revealDelay = 0.12;
+
+}
+
+function showWeddingEnding() {
+
+    lockForChapterCard();
+    mobileControls.classList.remove("invitationMode");
+    storyFlags.weddingChapterComplete = true;
+    storyFlags.gameComplete = true;
+    saveWeddingProgress();
+    setGameState(GameState.WEDDING_CONTINUATION);
+    chapterCardState.active = true;
+    chapterCardState.mode = "weddingEnding";
+    chapterCardState.chapterId = "wedding";
+    chapterCardState.phase = "fadeIn";
+    chapterCardState.elapsed = 0;
+    chapterCardState.onComplete = null;
+    chapterCardState.finalCard = true;
+    chapterCardState.inputUnlocked = false;
+    chapterCardLabel.textContent = "";
+    chapterCardTitleZh.textContent = "Thank You";
+    chapterCardTitleEn.textContent = "";
+    chapterCardTheme.textContent = "";
+    chapterCardMessage.textContent = "";
+    chapterCard.dataset.mode = "weddingEnding";
+    chapterCard.style.opacity = "0";
+    chapterCard.classList.remove("hidden");
 
 }
 
 function showWeddingContinuation() {
 
-    lockForChapterCard();
-    mobileControls.classList.remove("invitationMode");
-    setGameState(GameState.WEDDING_CONTINUATION);
-    chapterCardState.active = true;
-    chapterCardState.mode = "weddingContinuation";
-    chapterCardState.chapterId = "wedding";
-    chapterCardState.phase = "hold";
-    chapterCardState.finalCard = true;
-    chapterCardState.inputUnlocked = false;
-    chapterCardLabel.textContent = "Wedding";
-    chapterCardTitleZh.textContent = "婚礼即将开始……";
-    chapterCardTitleEn.textContent = "";
-    chapterCardTheme.textContent = "北京 · 晓园";
-    chapterCardMessage.textContent = "";
-    chapterCard.dataset.mode = "continuation";
-    chapterCard.style.opacity = "1";
-    chapterCard.classList.remove("hidden");
+    showWeddingEnding();
 
 }
 
@@ -3543,6 +3625,7 @@ function updateNearbyWedding() {
 
     const centerX = player.x + player.width / 2;
     const centerY = player.y + player.height / 2;
+    const nextWeddingInteraction = getNextWeddingInteraction();
     if (storyFlags.weddingArchUnlocked && !storyFlags.weddingArchSequenceStarted
         && Math.hypot(centerX - weddingFloralGateway.x, centerY - weddingFloralGateway.y) <= weddingFloralGateway.range) {
 
@@ -3550,7 +3633,12 @@ function updateNearbyWedding() {
         return;
 
     }
-    nearbyWeddingInteraction = findNearestInteraction(weddingInteractables, centerX, centerY, 108);
+    const availableWeddingInteractions = weddingInteractables.filter(item => {
+
+        return isWeddingInteractionViewed(item) || item === nextWeddingInteraction;
+
+    });
+    nearbyWeddingInteraction = findNearestInteraction(availableWeddingInteractions, centerX, centerY, 108);
 
 }
 
@@ -3645,7 +3733,7 @@ function updateWeddingGatewaySequence(deltaTime) {
 
         player.moving = false;
         le.moving = false;
-        if (weddingGatewaySequence.elapsed >= 0.75) {
+        if (weddingGatewaySequence.elapsed >= 0.85) {
 
             weddingGatewaySequence.phase = "coupleEnter";
             weddingGatewaySequence.elapsed = 0;
@@ -3677,7 +3765,7 @@ function updateWeddingGatewaySequence(deltaTime) {
 
     if (weddingGatewaySequence.phase === "whiteFade") {
 
-        weddingGatewaySequence.whiteFade = Math.min(1, weddingGatewaySequence.elapsed / 1.45);
+        weddingGatewaySequence.whiteFade = Math.min(1, weddingGatewaySequence.elapsed / 1.6);
         if (weddingGatewaySequence.whiteFade >= 1) {
 
             weddingGatewaySequence.phase = "whiteHold";
@@ -3688,7 +3776,7 @@ function updateWeddingGatewaySequence(deltaTime) {
 
     }
 
-    if (weddingGatewaySequence.phase === "whiteHold" && weddingGatewaySequence.elapsed >= 0.55) showWeddingInvitation();
+    if (weddingGatewaySequence.phase === "whiteHold" && weddingGatewaySequence.elapsed >= 0.7) showWeddingInvitation();
 
 }
 
@@ -5397,6 +5485,14 @@ function drawMemoryAlbumTransition(frame) {
 
 }
 
+function getStoryCGContinueText(config) {
+
+    return gameViewportState.isMobile
+        ? (config?.mobileContinueText || "点击 A 继续")
+        : (config?.desktopContinueText || "按 E 继续");
+
+}
+
 function drawStoryCG() {
 
     gameCtx.fillStyle = storyCGOverlay.config?.fadeFromWhite ? "#fff8e7" : "#02070d";
@@ -5420,8 +5516,9 @@ function drawStoryCG() {
         gameCtx.fillText(config.placeholderSubtitle || "", gameViewportState.width / 2, gameViewportState.height / 2 + 24);
         if (storyCGOverlay.inputReady) {
 
+            const promptText = getStoryCGContinueText(config);
             gameCtx.font = "15px Fusion Pixel, monospace";
-            gameCtx.fillText(gameViewportState.isMobile ? "点击 A 继续" : "按 E 继续", gameViewportState.width / 2, gameViewportState.height - 62);
+            gameCtx.fillText(promptText, gameViewportState.width / 2, gameViewportState.height - 62);
 
         }
         gameCtx.textAlign = "left";
@@ -5495,15 +5592,17 @@ function drawStoryCG() {
 
     if (storyCGOverlay.inputReady) {
 
+        const promptText = getStoryCGContinueText(config);
+        gameCtx.font = "14px Fusion Pixel, monospace";
+        const promptWidth = Math.max(164, Math.ceil(gameCtx.measureText(promptText).width) + 36);
         gameCtx.fillStyle = "rgba(5, 17, 33, .76)";
-        gameCtx.fillRect(gameViewportState.width / 2 - 82, gameViewportState.height - 58, 164, 30);
+        gameCtx.fillRect(gameViewportState.width / 2 - promptWidth / 2, gameViewportState.height - 58, promptWidth, 30);
         gameCtx.strokeStyle = "#d8aa54";
         gameCtx.lineWidth = 2;
-        gameCtx.strokeRect(gameViewportState.width / 2 - 82, gameViewportState.height - 58, 164, 30);
+        gameCtx.strokeRect(gameViewportState.width / 2 - promptWidth / 2, gameViewportState.height - 58, promptWidth, 30);
         gameCtx.fillStyle = "#fff2cc";
         gameCtx.textAlign = "center";
-        gameCtx.font = "14px Fusion Pixel, monospace";
-        gameCtx.fillText(gameViewportState.isMobile ? "点击 A 继续" : "按 E 继续", gameViewportState.width / 2, gameViewportState.height - 37);
+        gameCtx.fillText(promptText, gameViewportState.width / 2, gameViewportState.height - 37);
         gameCtx.textAlign = "left";
 
     }
@@ -6057,18 +6156,16 @@ function collectInteractionIndicatorTargets() {
 
     } else if (currentChapter === "weddingXiaoyuan") {
 
+        const nextWeddingInteraction = getNextWeddingInteraction();
         weddingInteractables.forEach(item => {
 
-            const viewed = ({
-                weddingSignIn: storyFlags.weddingSignInViewed,
-                weddingPhotoArea: storyFlags.weddingPhotoAreaViewed,
-                weddingCeremonyArea: storyFlags.weddingCeremonyAreaViewed
-            })[item.id];
+            const viewed = isWeddingInteractionViewed(item);
+            if (!viewed && item !== nextWeddingInteraction) return;
             const count = beforeAdd();
             addInteractionIndicatorTarget(item, {
                 type: "story",
                 discovered: Boolean(viewed),
-                replayable: true
+                replayable: Boolean(viewed)
             });
             afterAdd(count);
 

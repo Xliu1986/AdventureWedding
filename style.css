@@ -188,6 +188,24 @@ body{
     box-shadow:0 0 0 12px rgba(3, 9, 20, .7), 0 0 54px rgba(232, 185, 76, .18), inset 0 0 36px rgba(226, 177, 73, .14);
 }
 
+#chapterCard[data-mode="weddingEnding"]{
+    background:#fffaf0;
+    color:#6a2427;
+}
+
+#chapterCard[data-mode="weddingEnding"] .chapterCardFrame{
+    border-color:#d8aa54;
+    outline-color:#a97836;
+    background:rgba(255, 250, 240, .92);
+    box-shadow:0 0 0 12px rgba(255, 255, 255, .42), 0 18px 60px rgba(142, 93, 42, .14);
+}
+
+#chapterCard[data-mode="weddingEnding"] .chapterCardTitleZh{
+    color:#6a2427;
+    text-shadow:none;
+    letter-spacing:.04em;
+}
+
 @media (max-width:600px), (orientation:portrait){
     .chapterCardFrame{
         width:min(88vw, 520px);
