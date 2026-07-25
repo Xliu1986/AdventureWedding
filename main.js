@@ -3148,7 +3148,6 @@ function tokyoStoryComplete() {
     return meetingState.triggered
         && le.companion
         && interactables.find(item => item.id === "shrine")?.completed
-        && sakuraAvenueMoment.discovered
         && hiddenCatEvent.discovered
         && partyHasAllCompanions();
 
@@ -3333,7 +3332,7 @@ function updateChapterTransition(deltaTime) {
     if (chapterTransition.phase === "walk") {
 
         const arrived = chapterTransition.partyTargets
-            .map((target, index) => moveActorIntoStation(target.actor, target, deltaTime, index < 2 ? 118 : 100))
+            .map(target => moveActorIntoStation(target.actor, target, deltaTime, 118))
             .every(Boolean);
 
         if (arrived) {
@@ -4127,11 +4126,13 @@ function updateLeCompanion(deltaTime) {
 
     const horizontal = (delayedPoint.x - le.x) / distance;
     const vertical = (delayedPoint.y - le.y) / distance;
-    const speed = sakuraAvenueMoment.active ? 160 : 190;
+    const speed = currentChapter === "tokyo"
+        ? (distance > 120 ? 360 : 245)
+        : (sakuraAvenueMoment.active ? 160 : 190);
     const nextX = Math.max(0, Math.min(le.x + horizontal * speed * deltaTime, getWorldWidth() - le.width));
     const nextY = Math.max(0, Math.min(le.y + vertical * speed * deltaTime, getWorldHeight() - le.height));
 
-    if (canMoveOnOfficialMap(nextX, nextY)) {
+    if (canActorMoveOnOfficialMap(le, nextX, nextY)) {
 
         le.x = nextX;
         le.y = nextY;
@@ -4229,26 +4230,36 @@ function updateCatCompanion(cat, index, deltaTime) {
     }
 
     cat.animationTime += deltaTime;
-    if (!isWorldObjectInView(cat.x, cat.y, 64, 96)) return;
+    const tightTokyoFollow = currentChapter === "tokyo";
 
-    updateOrganicIdleOffset(cat, deltaTime);
-    cat.idleTimer -= deltaTime;
+    if (!tightTokyoFollow) {
 
-    if (cat.idleTimer <= 0 && !cat.moving) {
+        updateOrganicIdleOffset(cat, deltaTime);
+        cat.idleTimer -= deltaTime;
 
-        const behaviours = cat.id === "tuotuo"
-            ? ["tail", "lookLeft", "lookRight", "blink", "sit", "stand"]
-            : ["blink", "tail", "ear", "lookPlayer", "stretch"];
-        cat.behaviour = behaviours[Math.floor(Math.random() * behaviours.length)];
-        cat.behaviourTime = 0.55 + Math.random() * 1.15;
-        cat.idleTimer = 3 + Math.random() * 5;
-        if (cat.behaviour === "lookLeft") cat.direction = "left";
-        if (cat.behaviour === "lookRight") cat.direction = "right";
-        if (cat.behaviour === "lookPlayer") faceToward(cat, player);
+        if (cat.idleTimer <= 0 && !cat.moving) {
+
+            const behaviours = cat.id === "tuotuo"
+                ? ["tail", "lookLeft", "lookRight", "blink", "sit", "stand"]
+                : ["blink", "tail", "ear", "lookPlayer", "stretch"];
+            cat.behaviour = behaviours[Math.floor(Math.random() * behaviours.length)];
+            cat.behaviourTime = 0.55 + Math.random() * 1.15;
+            cat.idleTimer = 3 + Math.random() * 5;
+            if (cat.behaviour === "lookLeft") cat.direction = "left";
+            if (cat.behaviour === "lookRight") cat.direction = "right";
+            if (cat.behaviour === "lookPlayer") faceToward(cat, player);
+
+        }
+
+    } else {
+
+        cat.idleOffsetX = index === 0 ? -4 : 4;
+        cat.idleOffsetY = 2;
+        cat.behaviourTime = 0;
 
     }
 
-    if (cat.behaviourTime > 0) {
+    if (!tightTokyoFollow && cat.behaviourTime > 0) {
 
         cat.behaviourTime -= deltaTime;
         cat.moving = false;
@@ -4256,7 +4267,8 @@ function updateCatCompanion(cat, index, deltaTime) {
 
     }
 
-    const historyPoint = moriPositionHistory[Math.max(0, moriPositionHistory.length - 24 - index * 10)];
+    const historyDelay = tightTokyoFollow ? 20 + index * 7 : 24 + index * 10;
+    const historyPoint = moriPositionHistory[Math.max(0, moriPositionHistory.length - historyDelay)];
     const delayedPoint = historyPoint && {
         x: historyPoint.x + cat.idleOffsetX,
         y: historyPoint.y + cat.idleOffsetY
@@ -4275,15 +4287,17 @@ function updateCatCompanion(cat, index, deltaTime) {
 
     }
 
-    if (distance < 32) {
+    if (distance < (tightTokyoFollow ? 24 : 32)) {
 
         cat.moving = false;
         return;
 
     }
 
-    cat.behaviour = Math.random() < 0.025 ? "run" : "walk";
-    const speed = cat.behaviour === "run" ? 275 : 190;
+    cat.behaviour = tightTokyoFollow ? "walk" : (Math.random() < 0.025 ? "run" : "walk");
+    const speed = tightTokyoFollow
+        ? (distance > 120 ? 380 : 245)
+        : (cat.behaviour === "run" ? 275 : 190);
     const horizontal = (delayedPoint.x - cat.x) / distance;
     const vertical = (delayedPoint.y - cat.y) / distance;
     const nextX = Math.max(0, Math.min(cat.x + horizontal * speed * deltaTime, getWorldWidth() - cat.width));
@@ -4293,10 +4307,20 @@ function updateCatCompanion(cat, index, deltaTime) {
 
         cat.x = nextX;
         cat.y = nextY;
+        cat.moving = true;
+
+    } else if (tightTokyoFollow && distance > 120 && canActorMoveOnOfficialMap(cat, delayedPoint.x, delayedPoint.y)) {
+
+        cat.x = delayedPoint.x;
+        cat.y = delayedPoint.y;
+        cat.moving = false;
+
+    } else {
+
+        cat.moving = false;
 
     }
 
-    cat.moving = true;
     faceMovementDirection(cat, horizontal, vertical);
 
 }
