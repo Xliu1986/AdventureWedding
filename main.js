@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.9.6.4 — Memory Album Standardization
+   Version 0.9.7 — Tokyo Chapter Lock
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -459,16 +459,34 @@ function showChapterCard({ mode, chapter, onComplete = null }) {
     else if (isFinal) setGameState(GameState.FINAL_ENDING);
     else setGameState(GameState.CHAPTER_INTRO);
 
-    chapterCardLabel.textContent = isFinal ? "AdventureWedding" : (isEnding ? chapter.endingLabel : chapter.introLabel);
-    chapterCardTitleZh.textContent = isFinal ? "The End" : (isEnding ? `${chapter.titleZh} · ${chapter.theme}` : chapter.titleZh);
-    chapterCardTitleEn.textContent = isFinal ? "2026.09.09" : (isEnding ? "" : chapter.titleEn);
-    chapterCardTheme.textContent = isFinal ? "森 ❤ 乐" : (isEnding ? "" : chapter.theme);
-    chapterCardMessage.textContent = isFinal ? "谢谢你，\n陪我们走过这段旅程。\n\nPRESS START AGAIN" : (isEnding ? chapter.endingMessage : chapter.introMessage);
+    const chapterCardText = getChapterCardText(mode, chapter);
+    chapterCardLabel.textContent = "";
+    chapterCardTitleZh.textContent = chapterCardText.title;
+    chapterCardTitleEn.textContent = chapterCardText.subtitle;
+    chapterCardTheme.textContent = "";
+    chapterCardMessage.textContent = "";
     chapterCard.dataset.mode = mode;
     chapterCard.style.opacity = "0";
     chapterCard.classList.remove("hidden");
     transitionInputLockUntil = performance.now() + 350;
     return true;
+
+}
+
+function getChapterCardText(mode, chapter) {
+
+    if (mode === "finalEnding") return { title: "The End", subtitle: "" };
+    if (mode === "prologue") return { title: "AdventureWedding", subtitle: "一段始于东京的故事" };
+
+    const englishTitle = chapter.titleEn || chapter.english || chapter.titleZh || "AdventureWedding";
+    if (mode === "ending" && (chapter.id === "tokyo" || englishTitle === "Tokyo")) {
+
+        return { title: "CHAPTER 1 COMPLETE", subtitle: "Tokyo" };
+
+    }
+
+    if (mode === "ending") return { title: `${englishTitle} Completed`, subtitle: "" };
+    return { title: englishTitle, subtitle: "" };
 
 }
 
@@ -513,7 +531,12 @@ function updateChapterCard(deltaTime) {
     if (!chapterCardState.active) return;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const fadeDuration = reduceMotion ? 0.18 : 0.55;
-    const holdDuration = reduceMotion ? 1.1 : 2.8;
+    const baseHoldDuration = chapterCardState.mode === "prologue"
+        ? 2
+        : (chapterCardState.mode === "ending" && chapterCardState.chapterId === "tokyo")
+        ? 2.5
+        : 2.8;
+    const holdDuration = reduceMotion ? Math.min(1.1, baseHoldDuration) : baseHoldDuration;
     chapterCardState.elapsed += deltaTime;
 
     if (chapterCardState.phase === "fadeIn") {
@@ -900,9 +923,16 @@ const memoryAlbum = {
 let nearbyCatEvent = false;
 let activeInteraction = null;
 let gameplayPauseRemaining = 0;
+const TOKYO_SAVE_KEY = "AdventureWedding.tokyo.progress.v0.9.7";
+const LONGNAN_SAVE_KEY = "AdventureWedding.longnan.progress.v0.9.6.6";
 const storyFlags = {
     prologueViewed: false,
     tokyoChapterStarted: false,
+    tokyoIntroductionCompleted: false,
+    tokyoOpeningCameraCompleted: false,
+    tokyoIntroFreeExploreCompleted: false,
+    tokyoShrineMemoryCompleted: false,
+    tokyoFirstMemoryUnlocked: false,
     tokyoChapterComplete: false,
     sydneyChapterStarted: false,
     gansuPiaozi: false,
@@ -913,7 +943,15 @@ const storyFlags = {
     sydneyChapterComplete: false,
     longnanChapterStarted: false,
     longnanMemoryAlbumViewed: false,
+    longnanSchoolGateMemory: false,
+    longnanBridgeMemory: false,
+    longnanRoadMemory: false,
+    longnanBusStopMemory: false,
+    longnanPiaoziMemory: false,
+    longnanAllMemoriesCompleted: false,
+    longnanFinalDialogueCompleted: false,
     longnanChapterComplete: false,
+    chapter3Completed: false,
     weddingChapterStarted: false,
     weddingMapEntered: false,
     weddingIntroShown: false,
@@ -927,6 +965,46 @@ const storyFlags = {
     gameComplete: false
 };
 let activeColesInspectable = null;
+
+const tokyoPersistedFlags = [
+    "tokyoIntroductionCompleted",
+    "tokyoOpeningCameraCompleted",
+    "tokyoIntroFreeExploreCompleted",
+    "tokyoShrineMemoryCompleted",
+    "tokyoFirstMemoryUnlocked",
+    "tokyoChapterComplete"
+];
+
+function loadTokyoProgress() {
+
+    try {
+
+        const saved = JSON.parse(localStorage.getItem(TOKYO_SAVE_KEY) || "{}");
+        tokyoPersistedFlags.forEach(flag => {
+            if (typeof saved[flag] === "boolean") storyFlags[flag] = saved[flag];
+        });
+
+    } catch {
+        // Local save is optional; corrupted progress should never block play.
+    }
+
+}
+
+function saveTokyoProgress() {
+
+    try {
+
+        const payload = {};
+        tokyoPersistedFlags.forEach(flag => payload[flag] = Boolean(storyFlags[flag]));
+        localStorage.setItem(TOKYO_SAVE_KEY, JSON.stringify(payload));
+
+    } catch {
+        // Safari private mode or file:// restrictions can reject storage.
+    }
+
+}
+
+loadTokyoProgress();
 
 const piaoziState = {
     introSeen: false,
@@ -1013,6 +1091,7 @@ let activeChapterComplete = null;
 let nearbyLongnanInteraction = null;
 let nearbyLongnanExit = false;
 let nearbyLongnanMemoryAlbum = false;
+const longnanMemorySparkle = { active: false, id: "", timer: 0, x: 0, y: 0 };
 const longnanLookoutPages = [
     { speaker: "乐乐", text: "欢迎来到陇南。\n这里，\n就是我长大的地方。" },
     { speaker: "森", text: "真漂亮。\n难怪，\n你的作品里，\n总会出现这些山。" }
@@ -1025,31 +1104,129 @@ const longnanHometownPages = [
 ];
 const longnanLookoutRailing = { id: "railing", x: 740, y: 345, text: "远眺乐乐的家", completed: false };
 const longnanTownMemories = [
-    { id: "schoolEntrance", label: "学校门口", x: 748, y: 330, repeatable: true, pages: [{ speaker: "乐乐", text: "我可是重点中学的尖子生哦。" }] },
-    { id: "bridgeFlood", label: "桥上的回忆", x: 718, y: 570, repeatable: true, pages: [{ speaker: "乐乐", text: "当年大暴雨，\n大到这条路被大水淹没了呢！" }] },
-    { id: "roadMemory", label: "路边的回忆", x: 1040, y: 405, repeatable: true, pages: [{ speaker: "乐乐", text: "每天在家就能看到学校。" }] },
-    { id: "busStop", label: "公交站", x: 1025, y: 700, repeatable: true, pages: [{ speaker: "乐乐", text: "这里的变化好大啊～" }] }
+    { id: "schoolEntrance", flag: "longnanSchoolGateMemory", label: "学校门口", x: 748, y: 330, repeatable: true, pages: [{ speaker: "乐乐", text: "我可是重点中学的尖子生哦。" }] },
+    { id: "bridgeFlood", flag: "longnanBridgeMemory", label: "桥上的回忆", x: 718, y: 570, repeatable: true, pages: [{ speaker: "乐乐", text: "当年大暴雨，\n大到这条路被大水淹没了呢！" }] },
+    { id: "roadMemory", flag: "longnanRoadMemory", label: "路边的回忆", x: 1040, y: 405, repeatable: true, pages: [{ speaker: "乐乐", text: "每天在家就能看到学校。" }] },
+    { id: "busStop", flag: "longnanBusStopMemory", label: "公交站", x: 1025, y: 700, repeatable: true, pages: [{ speaker: "乐乐", text: "这里的变化好大啊～" }] }
 ];
 const longnanTownPiaozi = {
     id: "bridgePiaozi",
-    label: "查看瓢子",
+    flag: "longnanPiaoziMemory",
+    label: "调查",
     x: 732,
     y: 620,
     memoryId: "longnanBridgePiaozi",
     repeatable: true,
     pages: [
-        { speaker: "乐乐", text: "看，在我们这里，\n野生的瓢子都会当天被人采摘，\n然后装盒售卖。" },
-        { speaker: "乐乐", text: "放几天瓢子就会烂掉，\n所以这是一种赏味期限十分短暂的\n美味小浆果。" },
-        { speaker: "森", text: "要不是认识了你，\n我可能都不会有机会吃到\n这么特别的东西～" },
-        { speaker: "乐乐", text: "所以命运是个奇妙的东西，\n让我们在东京相识，\n在悉尼相知，\n在陇南相伴。" },
-        { speaker: "乐乐", text: "相信以后，\n我们还会去更多的地方，\n一起体验不一样的人生💗" },
-        { speaker: "坨坨", text: "我也要一起喵～" },
-        { speaker: "大痣", text: "我也是喵呜～" },
-        { speaker: "森，乐乐", text: "（笑）" }
+        { speaker: "乐乐", text: "看，在我们这里，\n野生的瓢子都会当天被人采摘然后装盒售卖。\n\n放几天瓢子就会烂掉，\n所以这是一种赏味期限十分短暂的美味小浆果。" },
+        { speaker: "森", text: "要不是认识了你，\n我可能都不会有机会吃到这么特别的东西～" },
+        { speaker: "乐乐", text: "相信以后我们还会去更多的地方，\n一起体验不一样的人生💗" },
+        { speaker: "坨坨", text: "我也要一起！" },
+        { speaker: "大痣", text: "当然少不了我！" },
+        { speaker: "森 & 乐乐", text: "（笑）" }
     ]
 };
 const longnanTownInteractionPoints = [...longnanTownMemories, longnanTownPiaozi];
 const longnanMemoryAlbumTrigger = { x: 768, y: 915, radius: 96 };
+const longnanFinalDialoguePages = [
+    { speaker: "乐乐", text: "谢谢你陪我重新走了一遍小时候的路。" },
+    { speaker: "森", text: "以后，\n我们一起创造更多新的回忆。" },
+    { speaker: "乐乐", text: "好呀。\n约好了。" },
+    { speaker: "坨坨", text: "那下一站也要带上我！" },
+    { speaker: "大痣", text: "当然还有我！" },
+    { speaker: "森 & 乐乐", text: "（笑）" }
+];
+const longnanPersistedFlags = [
+    "longnanSchoolGateMemory",
+    "longnanBridgeMemory",
+    "longnanRoadMemory",
+    "longnanBusStopMemory",
+    "longnanPiaoziMemory",
+    "longnanAllMemoriesCompleted",
+    "longnanFinalDialogueCompleted",
+    "chapter3Completed"
+];
+
+function loadLongnanProgress() {
+
+    try {
+
+        const saved = JSON.parse(localStorage.getItem(LONGNAN_SAVE_KEY) || "{}");
+        longnanPersistedFlags.forEach(flag => {
+            if (typeof saved[flag] === "boolean") storyFlags[flag] = saved[flag];
+        });
+        if (storyFlags.longnanPiaoziMemory) memoryAlbum.longnanBridgePiaozi.unlocked = true;
+        if (storyFlags.chapter3Completed) storyFlags.longnanChapterComplete = true;
+
+    } catch {
+        // Local save is optional; corrupted progress should never block play.
+    }
+
+}
+
+function saveLongnanProgress() {
+
+    try {
+
+        const payload = {};
+        longnanPersistedFlags.forEach(flag => payload[flag] = Boolean(storyFlags[flag]));
+        localStorage.setItem(LONGNAN_SAVE_KEY, JSON.stringify(payload));
+
+    } catch {
+        // Safari private mode or file:// restrictions can reject storage.
+    }
+
+}
+
+function isLongnanMemoryDiscovered(interaction) {
+
+    return Boolean(interaction?.flag && storyFlags[interaction.flag]);
+
+}
+
+function updateLongnanMemoryCompletion() {
+
+    const completed = [
+        storyFlags.longnanSchoolGateMemory,
+        storyFlags.longnanBridgeMemory,
+        storyFlags.longnanRoadMemory,
+        storyFlags.longnanBusStopMemory,
+        storyFlags.longnanPiaoziMemory
+    ].every(Boolean);
+
+    if (completed && !storyFlags.longnanAllMemoriesCompleted) {
+
+        storyFlags.longnanAllMemoriesCompleted = true;
+        saveLongnanProgress();
+
+    }
+
+    return completed;
+
+}
+
+function markLongnanMemoryDiscovered(interaction) {
+
+    if (!interaction?.flag || storyFlags[interaction.flag]) return;
+
+    storyFlags[interaction.flag] = true;
+    if (interaction.memoryId && memoryAlbum[interaction.memoryId]) memoryAlbum[interaction.memoryId].unlocked = true;
+    updateLongnanMemoryCompletion();
+    saveLongnanProgress();
+
+}
+
+function showLongnanMemorySparkle(interaction) {
+
+    longnanMemorySparkle.active = true;
+    longnanMemorySparkle.id = interaction.id;
+    longnanMemorySparkle.timer = 0.8;
+    longnanMemorySparkle.x = le.x + le.width / 2;
+    longnanMemorySparkle.y = le.y - 18;
+
+}
+
+loadLongnanProgress();
 const longnanCGSequence = [
     { id: "longnanChildhoodDrawing", pages: [{ speaker: "乐乐", text: "小时候，\n我最喜欢画这些山。" }] },
     { id: "longnanPiaozi", pages: [{ speaker: "乐乐", text: "第一次摘到瓢子，\n也是在这里。" }] },
@@ -4630,28 +4807,14 @@ function drawTransitionPetals() {
 
 }
 
-function drawChapterCard(title, subtitle, detail) {
+function drawChapterCard(title) {
 
-    const cardWidth = Math.min(520, gameViewportState.width - 64);
-    const cardHeight = 210;
-    const cardX = Math.round((gameViewportState.width - cardWidth) / 2);
-    const cardY = Math.round((gameViewportState.height - cardHeight) / 2);
-
-    gameCtx.fillStyle = "#061326";
-    gameCtx.fillRect(cardX, cardY, cardWidth, cardHeight);
-    gameCtx.strokeStyle = "#d9ae5e";
-    gameCtx.lineWidth = 4;
-    gameCtx.strokeRect(cardX + 3, cardY + 3, cardWidth - 6, cardHeight - 6);
-    gameCtx.fillStyle = "#f6d78c";
+    gameCtx.fillStyle = "#02060d";
+    gameCtx.fillRect(0, 0, gameViewportState.width, gameViewportState.height);
+    gameCtx.fillStyle = "#fff2cc";
     gameCtx.textAlign = "center";
-    gameCtx.font = "22px Fusion Pixel, monospace";
-    gameCtx.fillText(title, gameViewportState.width / 2, cardY + 58);
-    gameCtx.fillStyle = "#ffffff";
-    gameCtx.font = "38px Fusion Pixel, monospace";
-    gameCtx.fillText(subtitle, gameViewportState.width / 2, cardY + 116);
-    gameCtx.fillStyle = "#f1c86a";
-    gameCtx.font = "20px Fusion Pixel, monospace";
-    gameCtx.fillText(detail, gameViewportState.width / 2, cardY + 163);
+    gameCtx.font = `${Math.max(34, Math.min(68, Math.round(gameViewportState.width * 0.085)))}px Fusion Pixel, monospace`;
+    gameCtx.fillText(title, gameViewportState.width / 2, gameViewportState.height / 2);
     gameCtx.textAlign = "left";
 
 }
@@ -4676,11 +4839,7 @@ function drawChapterTransitionOverlay() {
         gameCtx.fillStyle = "#02060d";
         gameCtx.fillRect(0, 0, gameViewportState.width, gameViewportState.height);
         const chapter = phase === "chapterOne" ? CHAPTERS.tokyo : CHAPTERS.sydney;
-        drawChapterCard(
-            phase === "chapterOne" ? chapter.endingLabel : chapter.introLabel,
-            phase === "chapterOne" ? chapter.titleZh : chapter.titleEn,
-            phase === "chapterOne" ? chapter.endingMessage.replace("\n", " ") : chapter.titleZh
-        );
+        drawChapterCard(phase === "chapterOne" ? "Tokyo Completed" : "Sydney");
         return;
 
     }
