@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.9.7.2 — Story Interaction Indicators
+   Version 0.9.8.1 — Sydney Coles Dialogue Polish
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -948,6 +948,7 @@ let nearbyCatEvent = false;
 let activeInteraction = null;
 let gameplayPauseRemaining = 0;
 const TOKYO_SAVE_KEY = "AdventureWedding.tokyo.progress.v0.9.7";
+const SYDNEY_SAVE_KEY = "AdventureWedding.sydney.progress.v0.9.8";
 const LONGNAN_SAVE_KEY = "AdventureWedding.longnan.progress.v0.9.6.6";
 const storyFlags = {
     prologueViewed: false,
@@ -959,11 +960,15 @@ const storyFlags = {
     tokyoFirstMemoryUnlocked: false,
     tokyoChapterComplete: false,
     sydneyChapterStarted: false,
+    sydneyHarbourMemory: false,
     gansuPiaozi: false,
     sydneyCooking: false,
     sydneySeaside: false,
     tasmaniaAdventure: false,
     blueWorksMemory: false,
+    blueWorksFollowupDialogue: false,
+    sydneyAirportMemory: false,
+    sydneyColesDinnerDialogueCompleted: false,
     sydneyChapterComplete: false,
     longnanChapterStarted: false,
     longnanMemoryAlbumViewed: false,
@@ -997,6 +1002,17 @@ const tokyoPersistedFlags = [
     "tokyoShrineMemoryCompleted",
     "tokyoFirstMemoryUnlocked",
     "tokyoChapterComplete"
+];
+
+const sydneyPersistedFlags = [
+    "sydneyChapterStarted",
+    "sydneyHarbourMemory",
+    "blueWorksMemory",
+    "blueWorksFollowupDialogue",
+    "tasmaniaAdventure",
+    "sydneyAirportMemory",
+    "sydneyColesDinnerDialogueCompleted",
+    "sydneyChapterComplete"
 ];
 
 function loadTokyoProgress() {
@@ -1039,6 +1055,48 @@ function saveTokyoProgress() {
 
 loadTokyoProgress();
 
+function loadSydneyProgress() {
+
+    try {
+
+        const saved = JSON.parse(localStorage.getItem(SYDNEY_SAVE_KEY) || "{}");
+        sydneyPersistedFlags.forEach(flag => {
+            if (typeof saved[flag] === "boolean") storyFlags[flag] = saved[flag];
+        });
+        if (storyFlags.sydneyChapterComplete) {
+
+            storyFlags.sydneyChapterStarted = true;
+            storyFlags.sydneyHarbourMemory = true;
+            storyFlags.blueWorksMemory = true;
+            storyFlags.blueWorksFollowupDialogue = true;
+            storyFlags.tasmaniaAdventure = true;
+            storyFlags.sydneyAirportMemory = true;
+            storyFlags.sydneyColesDinnerDialogueCompleted = true;
+
+        }
+
+    } catch {
+        // Local save is optional; corrupted progress should never block play.
+    }
+
+}
+
+function saveSydneyProgress() {
+
+    try {
+
+        const payload = {};
+        sydneyPersistedFlags.forEach(flag => payload[flag] = Boolean(storyFlags[flag]));
+        localStorage.setItem(SYDNEY_SAVE_KEY, JSON.stringify(payload));
+
+    } catch {
+        // Safari private mode or file:// restrictions can reject storage.
+    }
+
+}
+
+loadSydneyProgress();
+
 const piaoziState = {
     introSeen: false,
     completed: false,
@@ -1056,6 +1114,18 @@ const colesInspectables = [
     { id: "checkout", x: 1160, y: 584, completed: false, pages: [{ speaker: "森", text: "今天看来客人不是很多。" }, { speaker: "乐乐", text: "那我们可以好好的在这里\n溜达溜达。" }] }
 ];
 let nearbyColesInspectable = null;
+let nearbyColesDinnerDialogue = false;
+
+const colesDinnerDialogueZones = [
+    { x: 1036, y: 510, width: 410, height: 230 },
+    { x: 560, y: 706, width: 430, height: 230 }
+];
+
+const colesDinnerDialoguePages = [
+    { speaker: "乐乐", text: "今晚吃什么呀？" },
+    { speaker: "森", text: "老当家特制魔幻折箩 ：P" },
+    { speaker: "乐乐", text: "哈哈哈，又开始了～" }
+];
 
 const piaoziIntroPages = [
     { speaker: "森", text: "这个好可爱，\n是白草莓么？" },
@@ -1069,7 +1139,7 @@ const piaoziIntroPages = [
 ];
 
 const sydneyLifeSequence = [
-    { id: "sydneyCooking", cg: "sydneyCooking", flag: "sydneyCooking", hold: 0.8, pages: [
+    { id: "sydneyCooking", cg: "sydneyCooking", flag: "sydneyCooking", revealDelay: 0.85, hold: 1.15, pages: [
         { speaker: "乐乐", text: "嘿嘿，\n今天晚餐超级丰富！" },
         { speaker: "森", text: "原来一起做饭，\n比想象中还开心。" },
         { speaker: "乐乐", text: "你也有帮忙呀。" },
@@ -1077,20 +1147,20 @@ const sydneyLifeSequence = [
         { speaker: "坨坨", text: "喵～" },
         { speaker: "大痣", text: "喵呜～" }
     ] },
-    { id: "sydneySeaside", cg: "sydneyWatchingTheSea", flag: "sydneySeaside", hold: 1, pages: [
+    { id: "sydneySeaside", cg: "sydneyWatchingTheSea", flag: "sydneySeaside", revealDelay: 0.9, hold: 1.3, pages: [
         { speaker: "森", text: "和你在一起，\n去哪里都很开心！" },
         { speaker: "乐乐", text: "以后，\n还有很多地方，\n我们一起去。" },
         { speaker: "坨坨", text: "喵～" },
         { speaker: "大痣", text: "喵喵～" }
     ] },
-    { id: "tasmaniaAdventure", cg: "tasmaniaAdventure", flag: "tasmaniaAdventure", hold: 0.8, pages: [
+    { id: "tasmaniaAdventure", cg: "tasmaniaAdventure", flag: "tasmaniaAdventure", revealDelay: 0.85, hold: 1.15, pages: [
         { speaker: "森", text: "澳洲还有很多地方，\n想带你去。" },
         { speaker: "乐乐", text: "那以后，\n我们一个一个地方，\n慢慢去看。" },
         { speaker: "森", text: "和你在一起，\n去哪里都很漂亮。" },
         { speaker: "坨坨", text: "喵～" },
         { speaker: "大痣", text: "喵呜～" }
     ] },
-    { id: "blueWorksMemory", cg: "blueWorksMemory", flag: "blueWorksMemory", hold: 0.9, pages: [
+    { id: "blueWorksMemory", cg: "blueWorksMemory", flag: "blueWorksMemory", revealDelay: 0.9, hold: 1.25, pages: [
         { speaker: "森", text: "这是我在悉尼最常去的宝藏小店，\n老朋友杜老板品味没得说！" },
         { speaker: "乐乐", text: "哇，\n那一定要去逛一逛！" },
         { speaker: "坨坨", text: "我也要去喵～" },
@@ -1906,6 +1976,11 @@ const sydneyNewYearSnackTrigger = {
         { speaker: "坨坨，大痣", text: "饿了喵～" }
     ]
 };
+const sydneyOpeningPause = {
+    pending: false,
+    elapsed: 0,
+    duration: 0.85
+};
 // Sydney is a single lookout tableau. The stone terrace is walkable; water,
 // gardens and stairs remain outside the playable space.
 const sydneyLookoutWalkableZone = { x: 118, y: 738, width: 1684, height: 270 };
@@ -2373,6 +2448,14 @@ function closeMeetingDialogue() {
 
     if (dialoguePurpose === "colesInspect" && activeColesInspectable) activeColesInspectable.completed = true;
 
+    if (dialoguePurpose === "colesDinner") {
+
+        storyFlags.sydneyColesDinnerDialogueCompleted = true;
+        nearbyColesDinnerDialogue = false;
+        saveSydneyProgress();
+
+    }
+
     activeInteraction = null;
     activeColesInspectable = null;
 
@@ -2566,7 +2649,12 @@ function playSydneyLifeScene() {
     }
 
     setGameState(GameState.SYDNEY_MEMORY);
-    showStoryCG({ id: scene.cg, dialogue: scene.pages, dialoguePurpose: "sydneyLife", revealDelay: 0.55 });
+    showStoryCG({
+        id: scene.cg,
+        dialogue: scene.pages,
+        dialoguePurpose: "sydneyLife",
+        revealDelay: scene.revealDelay ?? 0.75
+    });
 
 }
 
@@ -2589,7 +2677,12 @@ function finishSydneyLifeScene() {
 function startSydneyAirportSequence() {
 
     setGameState(GameState.SYDNEY_AIRPORT);
-    showStoryCG({ id: "sydneyAirport", dialogue: sydneyAirportPages, dialoguePurpose: "sydneyAirport", revealDelay: 0.7 });
+    showStoryCG({
+        id: "sydneyAirport",
+        dialogue: sydneyAirportPages,
+        dialoguePurpose: "sydneyAirport",
+        revealDelay: 0.95
+    });
 
 }
 
@@ -3045,6 +3138,31 @@ function moveActorIntoStation(actor, target, deltaTime, speed) {
 
 }
 
+function queueSydneyOpeningDialogue() {
+
+    sydneyOpeningPause.pending = true;
+    sydneyOpeningPause.elapsed = 0;
+    setGameState(GameState.SYDNEY_LOOKOUT);
+    pressedKeys.clear();
+    clearMobileControls();
+    player.moving = false;
+    le.moving = false;
+    cats.forEach(cat => cat.moving = false);
+    gameDialogue.classList.add("hidden");
+
+}
+
+function updateSydneyOpeningPause(deltaTime) {
+
+    if (!sydneyOpeningPause.pending || meetingState.dialogueOpen || storyCGOverlay.active || chapterCardState.active) return;
+    sydneyOpeningPause.elapsed += deltaTime;
+    if (sydneyOpeningPause.elapsed < sydneyOpeningPause.duration) return;
+    sydneyOpeningPause.pending = false;
+    sydneyOpeningPause.elapsed = 0;
+    startSydneyDialogue();
+
+}
+
 function startSydneyDialogue() {
 
     activeDialoguePages = [
@@ -3057,6 +3175,8 @@ function startSydneyDialogue() {
         { speaker: "森", text: "欢迎回家。" }
     ];
     dialoguePurpose = "sydney";
+    sydneyOpeningPause.pending = false;
+    sydneyOpeningPause.elapsed = 0;
     setGameState(GameState.SYDNEY_LOOKOUT);
     meetingState.dialogueOpen = true;
     pressedKeys.clear();
@@ -3334,6 +3454,31 @@ function updateNearbyColesInspectable() {
     const playerCenterX = player.x + player.width / 2;
     const playerCenterY = player.y + player.height / 2;
     nearbyColesInspectable = findNearestInteraction(colesInspectables, playerCenterX, playerCenterY, 86, item => !item.completed);
+
+}
+
+function updateNearbyColesDinnerDialogue() {
+
+    nearbyColesDinnerDialogue = false;
+    if (currentChapter !== "coles"
+        || meetingState.dialogueOpen
+        || storyCGOverlay.active
+        || !storyFlags.gansuPiaozi
+        || !piaoziState.completed
+        || storyFlags.sydneyColesDinnerDialogueCompleted
+        || piaoziState.nearby
+        || nearbyColesInspectable) return;
+
+    const playerCenterX = player.x + player.width / 2;
+    const playerCenterY = player.y + player.height / 2;
+
+    nearbyColesDinnerDialogue = colesDinnerDialogueZones.some(zone => {
+
+        const closestX = Math.max(zone.x, Math.min(playerCenterX, zone.x + zone.width));
+        const closestY = Math.max(zone.y, Math.min(playerCenterY, zone.y + zone.height));
+        return Math.hypot(playerCenterX - closestX, playerCenterY - closestY) <= 92;
+
+    });
 
 }
 
@@ -3747,6 +3892,15 @@ function tryInteraction() {
             nearbyLongnanInteraction.id === "bridgePiaozi" ? "longnanPiaozi" : "longnanMemory"
         );
 
+    } else if (nearbyColesDinnerDialogue && !meetingState.dialogueOpen) {
+
+        pressedKeys.clear();
+        clearMobileControls();
+        player.moving = false;
+        le.moving = false;
+        cats.forEach(cat => cat.moving = false);
+        openPiaoziDialogue(colesDinnerDialoguePages, "colesDinner");
+
     } else if (nearbySceneExit === "sydneyLife" && !meetingState.dialogueOpen && !cameraIntro.active) {
 
         startSydneyLifeSequence();
@@ -3876,7 +4030,7 @@ function updateLeCompanion(deltaTime) {
 
 function drawInteractionPrompt() {
 
-    if ((!nearbyInteractable && !nearbyCatEvent && !nearbyStation && !nearbySceneExit && !piaoziState.nearby && !nearbyColesInspectable && !nearbyLongnanInteraction && !nearbyLongnanExit && !nearbyLongnanMemoryAlbum && !nearbyWeddingInteraction) || meetingState.dialogueOpen) return;
+    if ((!nearbyInteractable && !nearbyCatEvent && !nearbyStation && !nearbySceneExit && !piaoziState.nearby && !nearbyColesInspectable && !nearbyColesDinnerDialogue && !nearbyLongnanInteraction && !nearbyLongnanExit && !nearbyLongnanMemoryAlbum && !nearbyWeddingInteraction) || meetingState.dialogueOpen) return;
 
     const mobilePrompt = mobileControls.classList.contains("isTouchMode");
     const promptText = nearbyLongnanExit
@@ -3895,6 +4049,8 @@ function drawInteractionPrompt() {
         ? (mobilePrompt ? "好像发现了特别的水果…… 点击 A 查看" : "好像发现了特别的水果…… 按 E 查看")
         : nearbyColesInspectable
         ? (mobilePrompt ? "点击 A 查看" : "按 E 查看")
+        : nearbyColesDinnerDialogue
+        ? (mobilePrompt ? "点击 A 聊聊晚餐" : "按 E 聊聊晚餐")
         : nearbySceneExit === "coles"
         ? (mobilePrompt ? "点击 A 前往 Coles" : "按 E 前往 Coles")
         : nearbySceneExit === "sydney"
@@ -3908,7 +4064,7 @@ function drawInteractionPrompt() {
         : nearbyInteractable?.prompt
         ? (mobilePrompt ? `点击 A ${nearbyInteractable.prompt}` : `按 E 查看 ${nearbyInteractable.prompt}`)
         : (mobilePrompt ? "点击 A 互动" : "按 E / 点击互动");
-    const promptWidth = nearbyWeddingInteraction?.id === "weddingFloralGateway" ? 150 : nearbyWeddingInteraction ? 126 : nearbyLongnanExit ? 190 : nearbyLongnanMemoryAlbum ? 160 : nearbyLongnanInteraction ? 190 : piaoziState.nearby ? 240 : nearbySceneExit === "sydneyLife" ? 220 : nearbySceneExit ? 170 : nearbyStation ? 156 : nearbyCatEvent ? 164 : nearbyInteractable?.prompt ? 158 : 112;
+    const promptWidth = nearbyWeddingInteraction?.id === "weddingFloralGateway" ? 150 : nearbyWeddingInteraction ? 126 : nearbyLongnanExit ? 190 : nearbyLongnanMemoryAlbum ? 160 : nearbyLongnanInteraction ? 190 : piaoziState.nearby ? 240 : nearbySceneExit === "sydneyLife" ? 220 : nearbyColesDinnerDialogue ? 156 : nearbySceneExit ? 170 : nearbyStation ? 156 : nearbyCatEvent ? 164 : nearbyInteractable?.prompt ? 158 : 112;
 
     gameCtx.save();
     gameCtx.globalAlpha = interactionPromptAlpha;
@@ -3937,7 +4093,7 @@ function updateInteractionPromptFade(deltaTime) {
 
     const visible = !meetingState.dialogueOpen && Boolean(
         nearbyInteractable || nearbyCatEvent || nearbyStation || nearbySceneExit
-        || piaoziState.nearby || nearbyColesInspectable || nearbyLongnanInteraction
+        || piaoziState.nearby || nearbyColesInspectable || nearbyColesDinnerDialogue || nearbyLongnanInteraction
         || nearbyLongnanExit || nearbyLongnanMemoryAlbum || nearbyWeddingInteraction
     );
     const target = visible ? 1 : 0;
@@ -5796,6 +5952,19 @@ function collectInteractionIndicatorTargets() {
             replayable: false
         });
         afterAdd(piaoziCount);
+        if (storyFlags.gansuPiaozi && piaoziState.completed && !storyFlags.sydneyColesDinnerDialogueCompleted) {
+
+            const dinnerCount = beforeAdd();
+            addInteractionIndicatorTarget(colesToSydneyExit, {
+                id: "colesDinnerDialogue",
+                type: "story",
+                point: { x: colesToSydneyExit.x + colesToSydneyExit.width / 2, y: colesToSydneyExit.y - 22 },
+                discovered: false,
+                hideAfterComplete: true
+            });
+            afterAdd(dinnerCount);
+
+        }
         const exitCount = beforeAdd();
         addInteractionIndicatorTarget(colesToSydneyExit, {
             id: "colesExit",
@@ -6419,6 +6588,7 @@ function gameLoop(timestamp) {
         updateNearbySceneExit();
         updateNearbyPiaozi();
         updateNearbyColesInspectable();
+        updateNearbyColesDinnerDialogue();
         updateNearbyLongnan();
         updateNearbyWedding();
 
@@ -6496,7 +6666,7 @@ function triggerMobileAction() {
 
     if (!gameStarted || characterPanelOpen || cameraIntro.active || meetingState.pending) return;
 
-    if (nearbyInteractable || nearbyCatEvent || nearbyStation || nearbySceneExit || piaoziState.nearby || nearbyColesInspectable || nearbyLongnanInteraction || nearbyLongnanExit || nearbyLongnanMemoryAlbum || nearbyWeddingInteraction) {
+    if (nearbyInteractable || nearbyCatEvent || nearbyStation || nearbySceneExit || piaoziState.nearby || nearbyColesInspectable || nearbyColesDinnerDialogue || nearbyLongnanInteraction || nearbyLongnanExit || nearbyLongnanMemoryAlbum || nearbyWeddingInteraction) {
 
         window.AudioManager?.playSFX?.("uiConfirm");
         tryInteraction();
@@ -6639,7 +6809,7 @@ window.addEventListener("keydown", event => {
 
     }
 
-    if (!meetingState.pending && (event.code === "KeyE" || event.code === "Enter" || event.code === "Space") && (nearbyInteractable || nearbyCatEvent || nearbyStation || nearbySceneExit || piaoziState.nearby || nearbyColesInspectable || nearbyLongnanInteraction || nearbyLongnanExit || nearbyLongnanMemoryAlbum || nearbyWeddingInteraction)) {
+    if (!meetingState.pending && (event.code === "KeyE" || event.code === "Enter" || event.code === "Space") && (nearbyInteractable || nearbyCatEvent || nearbyStation || nearbySceneExit || piaoziState.nearby || nearbyColesInspectable || nearbyColesDinnerDialogue || nearbyLongnanInteraction || nearbyLongnanExit || nearbyLongnanMemoryAlbum || nearbyWeddingInteraction)) {
 
         event.preventDefault();
         window.AudioManager?.playSFX?.("uiConfirm");
