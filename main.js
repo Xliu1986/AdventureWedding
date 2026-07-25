@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.9.7 — Tokyo Chapter Lock
+   Version 0.9.7 — Tokyo Chapter Final Polish
 ====================================== */
 
 const canvas = document.getElementById("background");
