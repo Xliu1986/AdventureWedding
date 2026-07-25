@@ -653,9 +653,18 @@ function playOpeningPrologue() {
 
     // Compatibility entry point for older callers; Build 0.9.1 uses the
     // reusable chapter-card system rather than the retired timed prologue.
+    if (storyFlags.tokyoIntroductionCompleted) {
+
+        showChapterIntro("tokyo", beginTokyoGameplay);
+        return;
+
+    }
+
     showPrologue(() => {
 
         storyFlags.prologueViewed = true;
+        storyFlags.tokyoIntroductionCompleted = true;
+        saveTokyoProgress();
         showChapterIntro("tokyo", beginTokyoGameplay);
 
     });
@@ -791,6 +800,8 @@ const walkableZones = [
 
 const meetingState = {
     triggered: false,
+    pending: false,
+    pendingTimer: 0,
     dialogueOpen: false,
     pageIndex: 0,
     characterIndex: 0,
@@ -798,6 +809,7 @@ const meetingState = {
     pageComplete: false,
     lastVoiceCueKey: ""
 };
+let tokyoIntroFreeExploreTimer = 0;
 
 const meetingDialoguePages = [
     {
@@ -845,6 +857,18 @@ const interactables = [
         ],
         completed: false,
         pauseAfter: 3
+    },
+    {
+        id: "emaBoard",
+        x: 1840, y: 760, width: 90, height: 90,
+        prompt: "绘马板",
+        pages: [
+            { speaker: "乐乐", text: "以后，\n还要一起回来。" }
+        ],
+        repeatable: true,
+        autoOnce: true,
+        flag: "tokyoShrineMemoryCompleted",
+        completed: false
     },
     {
         // The central ramen storefront on the Tokyo shopping street.
@@ -983,6 +1007,15 @@ function loadTokyoProgress() {
         tokyoPersistedFlags.forEach(flag => {
             if (typeof saved[flag] === "boolean") storyFlags[flag] = saved[flag];
         });
+        if (storyFlags.tokyoChapterComplete) {
+
+            storyFlags.tokyoIntroductionCompleted = true;
+            storyFlags.tokyoOpeningCameraCompleted = true;
+            storyFlags.tokyoIntroFreeExploreCompleted = true;
+            storyFlags.tokyoShrineMemoryCompleted = true;
+            storyFlags.tokyoFirstMemoryUnlocked = true;
+
+        }
 
     } catch {
         // Local save is optional; corrupted progress should never block play.
@@ -1817,7 +1850,10 @@ const cameraIntro = {
     active: false,
     elapsed: 0,
     overviewDuration: 1.2,
-    transitionDuration: 1.8
+    transitionDuration: 1.8,
+    duration: 3,
+    waypoints: [],
+    zoom: 1
 };
 
 const stationDepartureZone = { x: 800, y: 490, width: 460, height: 250 };
@@ -1835,6 +1871,8 @@ const chapterTransition = {
         { actor: null, x: 912, y: 640 }
     ]
 };
+
+chapterTransition.completed = Boolean(storyFlags.tokyoChapterComplete);
 
 // Scene exits are intentionally explicit: this keeps exploration player-led on
 // both desktop and touch devices.
@@ -2038,6 +2076,8 @@ function faceMovementDirection(actor, horizontal, vertical) {
 function openMeetingDialogue() {
 
     meetingState.triggered = true;
+    meetingState.pending = false;
+    meetingState.pendingTimer = 0;
     meetingState.dialogueOpen = true;
     pressedKeys.clear();
     clearMobileControls();
@@ -2163,6 +2203,12 @@ function closeMeetingDialogue() {
     if (dialoguePurpose === "interaction" && activeInteraction) {
 
         if (!activeInteraction.repeatable) activeInteraction.completed = true;
+        if (activeInteraction.flag) {
+
+            storyFlags[activeInteraction.flag] = true;
+            if (activeInteraction.flag.startsWith("tokyo")) saveTokyoProgress();
+
+        }
 
         if (activeInteraction.pauseAfter) {
 
@@ -2820,13 +2866,52 @@ function updateStoryCG(deltaTime) {
 
 }
 
-function checkFirstMeeting() {
+function checkFirstMeeting(deltaTime) {
+
+    if (tokyoIntroFreeExploreTimer > 0) {
+
+        tokyoIntroFreeExploreTimer = Math.max(0, tokyoIntroFreeExploreTimer - deltaTime);
+        if (tokyoIntroFreeExploreTimer === 0 && !storyFlags.tokyoIntroFreeExploreCompleted) {
+
+            storyFlags.tokyoIntroFreeExploreCompleted = true;
+            saveTokyoProgress();
+
+        }
+        return;
+
+    }
 
     if (chapterCardState.active || meetingState.triggered || cameraIntro.active) return;
 
+    if (meetingState.pending) {
+
+        meetingState.pendingTimer = Math.max(0, meetingState.pendingTimer - deltaTime);
+        pressedKeys.clear();
+        clearMobileControls();
+        player.moving = false;
+        le.moving = false;
+        faceToward(player, le);
+        faceToward(le, player);
+
+        if (meetingState.pendingTimer === 0) openMeetingDialogue();
+        return;
+
+    }
+
     const distance = Math.hypot(player.x - le.x, player.y - le.y);
 
-    if (distance <= 100) openMeetingDialogue();
+    if (distance <= 100) {
+
+        meetingState.pending = true;
+        meetingState.pendingTimer = 0.3;
+        pressedKeys.clear();
+        clearMobileControls();
+        player.moving = false;
+        le.moving = false;
+        faceToward(player, le);
+        faceToward(le, player);
+
+    }
 
 }
 
@@ -3019,7 +3104,9 @@ function updateChapterTransition(deltaTime) {
 
         chapterTransition.active = false;
         chapterTransition.completed = true;
+        storyFlags.tokyoFirstMemoryUnlocked = true;
         storyFlags.tokyoChapterComplete = true;
+        saveTokyoProgress();
         showChapterEnding("tokyo", () => {
 
             showChapterIntro("sydney", () => {
@@ -3072,6 +3159,18 @@ function updateNearbyInteractable() {
     }
 
     nearbyInteractable = findNearestInteraction(interactables, player.x, player.y, 100, item => item.repeatable || !item.completed);
+
+    if (
+        nearbyInteractable?.autoOnce
+        && nearbyInteractable.flag
+        && !storyFlags[nearbyInteractable.flag]
+        && !chapterTransition.active
+        && !storyCGOverlay.active
+    ) {
+
+        openInteractionDialogue(nearbyInteractable);
+
+    }
 
 }
 
@@ -4052,13 +4151,42 @@ function clampCameraToWorld() {
 
 }
 
+function getCameraPositionForWorldCenter(centerX, centerY, zoom) {
+
+    const visibleWidth = gameViewportState.width / zoom;
+    const visibleHeight = gameViewportState.height / zoom;
+    const maxX = Math.max(0, getWorldWidth() - visibleWidth);
+    const maxY = Math.max(0, getWorldHeight() - visibleHeight);
+
+    return {
+        x: Math.max(0, Math.min(centerX - visibleWidth / 2, maxX)),
+        y: Math.max(0, Math.min(centerY - visibleHeight / 2, maxY))
+    };
+
+}
+
 function startCameraIntro() {
 
-    const overviewZoom = getCameraIntroOverviewZoom();
+    if (storyFlags.tokyoOpeningCameraCompleted) {
 
-    camera.x = Math.max(0, (getWorldWidth() - gameViewportState.width / overviewZoom) / 2);
-    camera.y = Math.max(0, (getWorldHeight() - gameViewportState.height / overviewZoom) / 2);
-    camera.zoom = overviewZoom;
+        cameraIntro.active = false;
+        centerCameraOnPlayer();
+        return;
+
+    }
+
+    const introZoom = getCameraFollowZoom();
+    cameraIntro.zoom = introZoom;
+    cameraIntro.duration = 3;
+    cameraIntro.waypoints = [
+        getCameraPositionForWorldCenter(1024, 520, introZoom),
+        getCameraPositionForWorldCenter(1660, 1480, introZoom),
+        getCameraPositionForWorldCenter(1760, 760, introZoom),
+        getCameraTarget(introZoom)
+    ];
+    camera.x = cameraIntro.waypoints[0].x;
+    camera.y = cameraIntro.waypoints[0].y;
+    camera.zoom = introZoom;
     cameraIntro.active = true;
     cameraIntro.elapsed = 0;
 
@@ -4125,24 +4253,28 @@ function updateCamera(deltaTime) {
 
         cameraIntro.elapsed += deltaTime;
 
-        const overviewZoom = getCameraIntroOverviewZoom();
-        const overviewX = Math.max(0, (getWorldWidth() - gameViewportState.width / overviewZoom) / 2);
-        const overviewY = Math.max(0, (getWorldHeight() - gameViewportState.height / overviewZoom) / 2);
-        target = getCameraTarget(followZoom);
+        const waypoints = cameraIntro.waypoints.length >= 2
+            ? cameraIntro.waypoints
+            : [camera, getCameraTarget(followZoom)];
+        const totalProgress = Math.min(1, cameraIntro.elapsed / cameraIntro.duration);
+        const segmentCount = waypoints.length - 1;
+        const rawSegment = Math.min(segmentCount - 1, Math.floor(totalProgress * segmentCount));
+        const segmentProgress = totalProgress * segmentCount - rawSegment;
+        const ease = segmentProgress * segmentProgress * (3 - 2 * segmentProgress);
+        const from = waypoints[rawSegment];
+        const to = waypoints[rawSegment + 1];
 
-        if (cameraIntro.elapsed > cameraIntro.overviewDuration) {
+        camera.x = from.x + (to.x - from.x) * ease;
+        camera.y = from.y + (to.y - from.y) * ease;
+        camera.zoom = cameraIntro.zoom || followZoom;
+        clampCameraToWorld();
 
-            const progress = Math.min(
-                1,
-                (cameraIntro.elapsed - cameraIntro.overviewDuration) / cameraIntro.transitionDuration
-            );
-            const ease = progress * progress * (3 - 2 * progress);
+        if (totalProgress === 1) {
 
-            camera.x = overviewX + (target.x - overviewX) * ease;
-            camera.y = overviewY + (target.y - overviewY) * ease;
-            camera.zoom = overviewZoom + (followZoom - overviewZoom) * ease;
-
-            if (progress === 1) cameraIntro.active = false;
+            cameraIntro.active = false;
+            storyFlags.tokyoOpeningCameraCompleted = true;
+            tokyoIntroFreeExploreTimer = storyFlags.tokyoIntroFreeExploreCompleted ? 0 : 2;
+            saveTokyoProgress();
 
         }
 
@@ -5752,7 +5884,7 @@ function drawGame() {
 
 function updatePlayer(deltaTime) {
 
-    if (chapterCardState.active || cameraIntro.active || meetingState.dialogueOpen || characterPanelOpen || gameplayPauseRemaining || chapterTransition.active || sceneTransition.active || storyCGOverlay.active || ![GameState.TOKYO, GameState.SYDNEY, GameState.COLES, GameState.LONGNAN_LOOKOUT, GameState.LONGNAN_TOWN, GameState.WEDDING_XIAOYUAN].includes(gameState)) {
+    if (chapterCardState.active || cameraIntro.active || meetingState.pending || meetingState.dialogueOpen || characterPanelOpen || gameplayPauseRemaining || chapterTransition.active || sceneTransition.active || storyCGOverlay.active || ![GameState.TOKYO, GameState.SYDNEY, GameState.COLES, GameState.LONGNAN_LOOKOUT, GameState.LONGNAN_TOWN, GameState.WEDDING_XIAOYUAN].includes(gameState)) {
 
         player.moving = false;
         player.velocityX = 0;
@@ -5867,7 +5999,7 @@ function gameLoop(timestamp) {
 
     }
     updatePlayer(deltaTime);
-    if (currentChapter === "tokyo") checkFirstMeeting();
+    if (currentChapter === "tokyo") checkFirstMeeting(deltaTime);
     moriPositionHistory.push({ x: player.x, y: player.y });
 
     if (moriPositionHistory.length > MAX_FOLLOW_HISTORY) {
@@ -5968,7 +6100,7 @@ function triggerMobileAction() {
 
     }
 
-    if (!gameStarted || characterPanelOpen || cameraIntro.active) return;
+    if (!gameStarted || characterPanelOpen || cameraIntro.active || meetingState.pending) return;
 
     if (nearbyInteractable || nearbyCatEvent || nearbyStation || nearbySceneExit || piaoziState.nearby || nearbyColesInspectable || nearbyLongnanInteraction || nearbyLongnanExit || nearbyLongnanMemoryAlbum || nearbyWeddingInteraction) {
 
@@ -6021,7 +6153,7 @@ mobileControls.querySelectorAll("button[data-control]").forEach(button => {
 
         }
 
-        if (!gameStarted || chapterCardState.active || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active) return;
+        if (!gameStarted || chapterCardState.active || meetingState.pending || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active) return;
 
         activeControlPointers.set(event.pointerId, control);
         pressedKeys.add(mobileControlKeys[control]);
@@ -6113,7 +6245,7 @@ window.addEventListener("keydown", event => {
 
     }
 
-    if ((event.code === "KeyE" || event.code === "Enter" || event.code === "Space") && (nearbyInteractable || nearbyCatEvent || nearbyStation || nearbySceneExit || piaoziState.nearby || nearbyColesInspectable || nearbyLongnanInteraction || nearbyLongnanExit || nearbyLongnanMemoryAlbum || nearbyWeddingInteraction)) {
+    if (!meetingState.pending && (event.code === "KeyE" || event.code === "Enter" || event.code === "Space") && (nearbyInteractable || nearbyCatEvent || nearbyStation || nearbySceneExit || piaoziState.nearby || nearbyColesInspectable || nearbyLongnanInteraction || nearbyLongnanExit || nearbyLongnanMemoryAlbum || nearbyWeddingInteraction)) {
 
         event.preventDefault();
         window.AudioManager?.playSFX?.("uiConfirm");
@@ -6122,7 +6254,7 @@ window.addEventListener("keydown", event => {
 
     }
 
-    if (["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "ShiftLeft", "ShiftRight"].includes(event.code)) {
+    if (!meetingState.pending && ["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "ShiftLeft", "ShiftRight"].includes(event.code)) {
 
         event.preventDefault();
         pressedKeys.add(event.code);
