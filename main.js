@@ -1772,7 +1772,18 @@ const birds = [
 let windTime = 0;
 let interactionPromptAlpha = 0;
 const INTERACTION_INDICATOR_RADIUS = 160;
+const INTERACTION_INDICATOR_RADIUS_SQ = INTERACTION_INDICATOR_RADIUS * INTERACTION_INDICATOR_RADIUS;
 const MAX_INTERACTION_INDICATORS = 8;
+const INDICATOR_CYCLE_SECONDS = 1.2;
+const interactionIndicatorTargets = [];
+const indicatorPriority = { mainStory: 0, memory: 1, story: 2 };
+let interactionIndicatorStatus = {
+    activeScene: "",
+    registeredCount: 0,
+    visibleCount: 0,
+    animatedCount: 0,
+    completedVisibleCount: 0
+};
 
 function limitArrayLength(items, length) {
 
@@ -5586,8 +5597,8 @@ function drawLongnanBridgePiaozi() {
 function getIndicatorPoint(item) {
 
     return {
-        x: item.markerX ?? (item.x + (item.width || 0) / 2),
-        y: item.markerY ?? (item.y - 18)
+        x: item.indicator?.x ?? item.markerX ?? (item.x + (item.width || 0) / 2),
+        y: item.indicator?.y ?? item.markerY ?? (item.y - 22)
     };
 
 }
@@ -5597,72 +5608,152 @@ function isInteractionDiscovered(item) {
     if (!item) return false;
     if (item.flag && storyFlags[item.flag]) return true;
     if (item.completed || item.discovered) return true;
-    if (item.id === "bench" || item.id === "vending" || item.id === "shrine") return Boolean(item.completed);
     return false;
 
 }
 
-function addInteractionIndicatorTarget(targets, item, options = {}) {
+function shouldShowCompletedIndicator(item, options = {}) {
 
-    if (!item) return;
+    if (options.hideAfterComplete) return false;
+    if (options.replayable !== undefined) return options.replayable;
+    return Boolean(item?.repeatable);
+
+}
+
+function isIndicatorInCameraView(x, y) {
+
+    const margin = 32;
+    const visibleWidth = gameViewportState.width / camera.zoom;
+    const visibleHeight = gameViewportState.height / camera.zoom;
+    return x >= camera.x - margin
+        && x <= camera.x + visibleWidth + margin
+        && y >= camera.y - margin
+        && y <= camera.y + visibleHeight + margin;
+
+}
+
+function addInteractionIndicatorTarget(item, options = {}) {
+
+    if (!item || interactionIndicatorTargets.length >= 32) return;
+
+    const discovered = options.discovered ?? isInteractionDiscovered(item);
+    if (discovered && !shouldShowCompletedIndicator(item, options)) return;
+
     const point = options.point || getIndicatorPoint(item);
+    const revealRadius = options.revealRadius || item.indicator?.revealRadius || INTERACTION_INDICATOR_RADIUS;
+    const revealRadiusSq = revealRadius * revealRadius;
     const playerCenterX = player.x + player.width / 2;
     const playerCenterY = player.y + player.height / 2;
-    const distance = Math.hypot(playerCenterX - point.x, playerCenterY - point.y);
-    if (distance > INTERACTION_INDICATOR_RADIUS) return;
+    const dx = playerCenterX - point.x;
+    const dy = playerCenterY - point.y;
+    const distanceSq = dx * dx + dy * dy;
+    if (distanceSq > revealRadiusSq) return;
+    if (!isIndicatorInCameraView(point.x, point.y)) return;
 
-    targets.push({
+    const type = options.type || item.indicator?.type || "story";
+    interactionIndicatorTargets.push({
+        id: item.id || options.id || type,
         x: point.x,
         y: point.y,
-        distance,
-        discovered: options.discovered ?? isInteractionDiscovered(item)
+        type,
+        priority: indicatorPriority[type] ?? indicatorPriority.story,
+        distanceSq,
+        discovered
     });
 
 }
 
 function collectInteractionIndicatorTargets() {
 
-    if (chapterCardState.active || cameraIntro.active || meetingState.dialogueOpen || storyCGOverlay.active) return [];
+    interactionIndicatorTargets.length = 0;
+    interactionIndicatorStatus = {
+        activeScene: currentChapter,
+        registeredCount: 0,
+        visibleCount: 0,
+        animatedCount: 0,
+        completedVisibleCount: 0
+    };
 
-    const targets = [];
+    if (chapterCardState.active || cameraIntro.active || meetingState.pending || meetingState.dialogueOpen || storyCGOverlay.active || sceneTransition.active || chapterTransition.active || weddingGatewaySequence.active) return interactionIndicatorTargets;
+
+    const beforeAdd = () => interactionIndicatorTargets.length;
+    const afterAdd = countBefore => {
+        interactionIndicatorStatus.registeredCount += 1;
+        if (interactionIndicatorTargets.length > countBefore) interactionIndicatorStatus.visibleCount += 1;
+    };
 
     if (currentChapter === "tokyo") {
 
-        if (!meetingState.triggered) addInteractionIndicatorTarget(targets, le, { point: { x: le.x + le.width / 2, y: le.y - 26 } });
+        if (!meetingState.triggered) {
+
+            const count = beforeAdd();
+            addInteractionIndicatorTarget(le, {
+                id: "tokyoLeleFirstEncounter",
+                type: "mainStory",
+                point: { x: le.x + le.width / 2, y: le.y - 26 },
+                hideAfterComplete: true
+            });
+            afterAdd(count);
+
+        }
         if (le.companion) {
 
-            interactables.forEach(item => addInteractionIndicatorTarget(targets, item));
+            interactables.forEach(item => {
+
+                const count = beforeAdd();
+                addInteractionIndicatorTarget(item, {
+                    type: item.id === "emaBoard" ? "memory" : "story",
+                    replayable: Boolean(item.repeatable)
+                });
+                afterAdd(count);
+
+            });
             if (!sakuraAvenueMoment.discovered) {
 
-                addInteractionIndicatorTarget(targets, sakuraAvenueMoment, {
+                const count = beforeAdd();
+                addInteractionIndicatorTarget(sakuraAvenueMoment, {
+                    id: "tokyoSakuraAvenue",
+                    type: "memory",
                     point: {
                         x: sakuraAvenueMoment.x + sakuraAvenueMoment.width / 2,
                         y: sakuraAvenueMoment.y + sakuraAvenueMoment.height / 2
                     },
-                    discovered: false
+                    discovered: false,
+                    hideAfterComplete: true
                 });
+                afterAdd(count);
 
             }
             if (!hiddenCatEvent.discovered) {
 
-                addInteractionIndicatorTarget(targets, hiddenCatEvent, {
+                const count = beforeAdd();
+                addInteractionIndicatorTarget(hiddenCatEvent, {
+                    id: "tokyoHiddenCats",
+                    type: "mainStory",
                     point: {
                         x: hiddenCatEvent.x + hiddenCatEvent.width / 2,
                         y: hiddenCatEvent.y - 12
                     },
-                    discovered: false
+                    discovered: false,
+                    hideAfterComplete: true
                 });
+                afterAdd(count);
 
             }
             if (tokyoStoryComplete() && !chapterTransition.completed) {
 
-                addInteractionIndicatorTarget(targets, stationDepartureZone, {
+                const count = beforeAdd();
+                addInteractionIndicatorTarget(stationDepartureZone, {
+                    id: "tokyoStationExit",
+                    type: "mainStory",
                     point: {
                         x: stationDepartureZone.x + stationDepartureZone.width / 2,
                         y: stationDepartureZone.y + 26
                     },
-                    discovered: false
+                    discovered: false,
+                    hideAfterComplete: true
                 });
+                afterAdd(count);
 
             }
 
@@ -5670,39 +5761,87 @@ function collectInteractionIndicatorTargets() {
 
     } else if (currentChapter === "sydney") {
 
-        if (!sydneyNewYearSnackTrigger.completed) addInteractionIndicatorTarget(targets, sydneyNewYearSnackTrigger);
-        addInteractionIndicatorTarget(targets, sydneyToColesExit, {
+        if (!sydneyNewYearSnackTrigger.completed) {
+
+            const count = beforeAdd();
+            addInteractionIndicatorTarget(sydneyNewYearSnackTrigger, { type: "story", hideAfterComplete: true });
+            afterAdd(count);
+
+        }
+        const count = beforeAdd();
+        addInteractionIndicatorTarget(sydneyToColesExit, {
+            id: "sydneyToColes",
+            type: "mainStory",
             point: { x: sydneyToColesExit.x + sydneyToColesExit.width / 2, y: sydneyToColesExit.y + 18 },
-            discovered: false
+            discovered: false,
+            hideAfterComplete: true
         });
+        afterAdd(count);
 
     } else if (currentChapter === "coles") {
 
-        colesInspectables.forEach(item => addInteractionIndicatorTarget(targets, item));
-        addInteractionIndicatorTarget(targets, piaoziIntroZone, {
+        colesInspectables.forEach(item => {
+
+            const count = beforeAdd();
+            addInteractionIndicatorTarget(item, { type: "story", hideAfterComplete: true });
+            afterAdd(count);
+
+        });
+        const piaoziCount = beforeAdd();
+        addInteractionIndicatorTarget(piaoziIntroZone, {
+            id: "colesPiaozi",
+            type: "memory",
             point: { x: piaoziIntroZone.x + piaoziIntroZone.width / 2, y: piaoziIntroZone.y - 18 },
-            discovered: piaoziState.completed
+            discovered: piaoziState.completed,
+            replayable: false
         });
-        addInteractionIndicatorTarget(targets, colesToSydneyExit, {
+        afterAdd(piaoziCount);
+        const exitCount = beforeAdd();
+        addInteractionIndicatorTarget(colesToSydneyExit, {
+            id: "colesExit",
+            type: "mainStory",
             point: { x: colesToSydneyExit.x + colesToSydneyExit.width / 2, y: colesToSydneyExit.y + 18 },
-            discovered: false
+            discovered: false,
+            hideAfterComplete: true
         });
+        afterAdd(exitCount);
 
     } else if (currentChapter === "longnanLookout") {
 
-        addInteractionIndicatorTarget(targets, longnanLookoutRailing, {
-            discovered: longnanLookoutRailing.completed
+        const count = beforeAdd();
+        addInteractionIndicatorTarget(longnanLookoutRailing, {
+            type: "memory",
+            discovered: longnanLookoutRailing.completed,
+            replayable: true
         });
+        afterAdd(count);
 
     } else if (currentChapter === "longnanTown") {
 
-        longnanTownInteractionPoints.forEach(item => addInteractionIndicatorTarget(targets, item, {
-            discovered: isLongnanMemoryDiscovered(item)
-        }));
-        addInteractionIndicatorTarget(targets, longnanMemoryAlbumTrigger, {
-            point: { x: longnanMemoryAlbumTrigger.x, y: longnanMemoryAlbumTrigger.y - 24 },
-            discovered: storyFlags.longnanMemoryAlbumViewed
+        longnanTownInteractionPoints.forEach(item => {
+
+            const count = beforeAdd();
+            addInteractionIndicatorTarget(item, {
+                type: "memory",
+                discovered: isLongnanMemoryDiscovered(item),
+                replayable: true
+            });
+            afterAdd(count);
+
         });
+        if (storyFlags.longnanAllMemoriesCompleted && !storyFlags.chapter3Completed) {
+
+            const count = beforeAdd();
+            addInteractionIndicatorTarget(longnanMemoryAlbumTrigger, {
+                id: "longnanChapterExit",
+                type: "mainStory",
+                point: { x: longnanMemoryAlbumTrigger.x, y: longnanMemoryAlbumTrigger.y - 24 },
+                discovered: false,
+                hideAfterComplete: true
+            });
+            afterAdd(count);
+
+        }
 
     } else if (currentChapter === "weddingXiaoyuan") {
 
@@ -5713,53 +5852,96 @@ function collectInteractionIndicatorTargets() {
                 weddingPhotoArea: storyFlags.weddingPhotoAreaViewed,
                 weddingCeremonyArea: storyFlags.weddingCeremonyAreaViewed
             })[item.id];
-            addInteractionIndicatorTarget(targets, item, { discovered: Boolean(viewed) });
+            const count = beforeAdd();
+            addInteractionIndicatorTarget(item, {
+                type: "story",
+                discovered: Boolean(viewed),
+                replayable: true
+            });
+            afterAdd(count);
 
         });
         if (storyFlags.weddingArchUnlocked && !storyFlags.weddingArchSequenceStarted) {
 
-            addInteractionIndicatorTarget(targets, weddingFloralGateway, {
+            const count = beforeAdd();
+            addInteractionIndicatorTarget(weddingFloralGateway, {
+                type: "mainStory",
                 point: { x: weddingFloralGateway.x, y: weddingFloralGateway.y - 42 },
-                discovered: false
+                discovered: false,
+                hideAfterComplete: true
             });
+            afterAdd(count);
 
         }
 
     }
 
-    return targets
-        .sort((left, right) => left.distance - right.distance)
-        .slice(0, MAX_INTERACTION_INDICATORS);
+    interactionIndicatorTargets.sort((left, right) => left.priority - right.priority || left.distanceSq - right.distanceSq);
+    if (interactionIndicatorTargets.length > MAX_INTERACTION_INDICATORS) interactionIndicatorTargets.length = MAX_INTERACTION_INDICATORS;
+    interactionIndicatorStatus.animatedCount = interactionIndicatorTargets.filter(target => !target.discovered).length;
+    interactionIndicatorStatus.completedVisibleCount = interactionIndicatorTargets.length - interactionIndicatorStatus.animatedCount;
+    return interactionIndicatorTargets;
 
 }
 
-function drawPixelSparkle(x, y, discovered) {
+function drawPixelSparkle(x, y, type, discovered) {
 
     const roundedX = Math.round(x);
     const roundedY = Math.round(y);
 
     if (discovered) {
 
-        gameCtx.fillStyle = "#2f4156";
+        gameCtx.globalAlpha = 0.72;
+        gameCtx.fillStyle = "#24324a";
         gameCtx.fillRect(roundedX - 3, roundedY - 3, 6, 6);
-        gameCtx.fillStyle = "#f4cf7a";
+        gameCtx.fillStyle = type === "memory" ? "#b9d8ff" : "#d8aa54";
         gameCtx.fillRect(roundedX - 1, roundedY - 3, 2, 6);
         gameCtx.fillRect(roundedX - 3, roundedY - 1, 6, 2);
+        gameCtx.globalAlpha = 1;
         return;
 
     }
 
-    const phase = (windTime % 1.2) / 1.2 * Math.PI * 2;
+    const phase = (windTime % INDICATOR_CYCLE_SECONDS) / INDICATOR_CYCLE_SECONDS * Math.PI * 2;
     const floatY = Math.sin(phase) * 2;
-    const alpha = 0.52 + (Math.sin(phase) + 1) * 0.18;
+    const alpha = 0.55 + (Math.sin(phase) + 1) * 0.225;
     const py = Math.round(roundedY + floatY);
+    const primary = type === "memory" ? "#b9d8ff" : type === "mainStory" ? "#fff0b6" : "#f4cf7a";
+    const secondary = type === "memory" ? "#eef7ff" : type === "mainStory" ? "#ffffff" : "#fff0b6";
 
     gameCtx.globalAlpha = alpha;
-    gameCtx.fillStyle = "#f4cf7a";
-    gameCtx.fillRect(roundedX - 1, py - 4, 2, 8);
-    gameCtx.fillRect(roundedX - 4, py - 1, 8, 2);
+    gameCtx.fillStyle = "#1a2434";
+
+    if (type === "memory") {
+
+        gameCtx.fillRect(roundedX - 1, py - 5, 2, 10);
+        gameCtx.fillRect(roundedX - 5, py - 1, 10, 2);
+        gameCtx.fillStyle = primary;
+        gameCtx.fillRect(roundedX - 1, py - 4, 2, 8);
+        gameCtx.fillRect(roundedX - 4, py - 1, 8, 2);
+
+    } else if (type === "mainStory") {
+
+        gameCtx.fillRect(roundedX - 1, py - 6, 2, 12);
+        gameCtx.fillRect(roundedX - 6, py - 1, 12, 2);
+        gameCtx.fillRect(roundedX - 3, py - 3, 6, 6);
+        gameCtx.fillStyle = primary;
+        gameCtx.fillRect(roundedX - 1, py - 5, 2, 10);
+        gameCtx.fillRect(roundedX - 5, py - 1, 10, 2);
+        gameCtx.fillRect(roundedX - 2, py - 2, 4, 4);
+
+    } else {
+
+        gameCtx.fillRect(roundedX - 1, py - 5, 2, 10);
+        gameCtx.fillRect(roundedX - 5, py - 1, 10, 2);
+        gameCtx.fillStyle = primary;
+        gameCtx.fillRect(roundedX - 1, py - 4, 2, 8);
+        gameCtx.fillRect(roundedX - 4, py - 1, 8, 2);
+
+    }
+
     gameCtx.globalAlpha = Math.min(1, alpha + 0.18);
-    gameCtx.fillStyle = "#fff0b6";
+    gameCtx.fillStyle = secondary;
     gameCtx.fillRect(roundedX - 1, py - 1, 2, 2);
     gameCtx.globalAlpha = 1;
 
@@ -5771,10 +5953,22 @@ function drawStoryInteractionIndicators() {
     if (!targets.length) return;
 
     gameCtx.save();
-    targets.forEach(target => drawPixelSparkle(target.x, target.y, target.discovered));
+    targets.forEach(target => drawPixelSparkle(target.x, target.y, target.type, target.discovered));
     gameCtx.restore();
 
 }
+
+const InteractionIndicatorManager = {
+    register: addInteractionIndicatorTarget,
+    update: collectInteractionIndicatorTargets,
+    draw: drawStoryInteractionIndicators,
+    clearScene() {
+        interactionIndicatorTargets.length = 0;
+    }
+};
+
+window.InteractionIndicatorManager = InteractionIndicatorManager;
+window.getIndicatorStatus = () => ({ ...interactionIndicatorStatus });
 
 function drawSceneTransitionOverlay() {
 
