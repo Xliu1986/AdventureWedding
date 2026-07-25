@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.9.8.1 — Sydney Coles Dialogue Polish
+   Version 0.9.9 — Longnan Chapter Final Polish
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -908,7 +908,7 @@ const achievements = {
 // Story memories are intentionally lightweight: unlocking one records it for
 // the future album without introducing inventory or reward mechanics.
 const memoryAlbum = {
-    longnanBridgePiaozi: { unlocked: false, title: "Piaozi" }
+    longnanBridgePiaozi: { unlocked: false, title: "瓢子" }
 };
 
 let nearbyCatEvent = false;
@@ -1298,10 +1298,10 @@ function showLongnanMemorySparkle(interaction) {
 
 loadLongnanProgress();
 const longnanCGSequence = [
-    { id: "longnanChildhoodDrawing", pages: [{ speaker: "乐乐", text: "小时候，\n我最喜欢画这些山。" }] },
-    { id: "longnanPiaozi", pages: [{ speaker: "乐乐", text: "第一次摘到瓢子，\n也是在这里。" }] },
-    { id: "longnanTogether", pages: [{ speaker: "森", text: "原来，\n这里，\n就是你的世界。" }] },
-    { id: "longnanSunset", pages: [{ speaker: "森", text: "谢谢你，\n带我回来。" }, { speaker: "乐乐", text: "谢谢你，\n一直陪着我。" }] }
+    { id: "longnanChildhoodDrawing", hold: 1.05, pages: [{ speaker: "乐乐", text: "小时候，\n我最喜欢画这些山。" }] },
+    { id: "longnanPiaozi", hold: 1.25, pages: [{ speaker: "乐乐", text: "第一次摘到瓢子，\n也是在这里。" }] },
+    { id: "longnanTogether", hold: 1.15, pages: [{ speaker: "森", text: "原来，\n这里，\n就是你的世界。" }] },
+    { id: "longnanSunset", hold: 1.45, pages: [{ speaker: "森", text: "谢谢你，\n带我回来。" }, { speaker: "乐乐", text: "谢谢你，\n一直陪着我。" }] }
 ];
 
 const TOKYO_WORLD_PROMPT = "Warm 16-bit top-down Tokyo spring neighborhood: Tokyo Station entrance at the top center, park and pond at upper left, shrine at upper right, shopping street on the left, sakura avenue on the right, road and crosswalk below, and a river with wooden bridges along the bottom. Use dense handcrafted pixel-art detail, clear walkable stone paths, no labels, no UI, and no NPCs.";
@@ -1440,8 +1440,8 @@ const storyCGs = {
         memoryAlbum: true
     },
     longnanAlbumPiaozi: {
-        src: "assets/cg/memory-album/longnan-piaozi.png?v=0.8.7",
-        locationTitle: "Piaozi",
+        src: "assets/cg/memory-album/longnan-piaozi.png?v=0.9.9",
+        locationTitle: "瓢子",
         focalX: 0.5,
         focalY: 0.5,
         mobileDisplay: "contain",
@@ -2345,7 +2345,8 @@ function closeMeetingDialogue() {
     if (dialoguePurpose === "longnanHometown") {
 
         storyCGOverlay.phase = "endingHold";
-        storyCGOverlay.revealDelay = 0.45;
+        storyCGOverlay.revealDelay = 0.9;
+        gameplayPauseRemaining = 0.55;
 
     }
 
@@ -2358,26 +2359,25 @@ function closeMeetingDialogue() {
 
         };
         storyCGOverlay.phase = "endingHold";
-        storyCGOverlay.revealDelay = 0.8;
+        storyCGOverlay.revealDelay = longnanCGSequence[longnanCGIndex]?.hold || 1.1;
 
     }
 
     if (dialoguePurpose === "longnanMemory" && activeInteraction) {
 
+        markLongnanMemoryDiscovered(activeInteraction);
         activeInteraction.discovered = true;
         if (!activeInteraction.repeatable) activeInteraction.completed = true;
+        gameplayPauseRemaining = activeInteraction.id === "bridgeFlood" ? 0.75 : 0.45;
 
     }
 
     if (dialoguePurpose === "longnanPiaozi" && activeInteraction) {
 
+        markLongnanMemoryDiscovered(activeInteraction);
         activeInteraction.discovered = true;
-        if (activeInteraction.memoryId && memoryAlbum[activeInteraction.memoryId]) {
-
-            memoryAlbum[activeInteraction.memoryId].unlocked = true;
-            window.AudioManager?.playSFX?.("memoryUnlock");
-
-        }
+        window.AudioManager?.playSFX?.("memoryUnlock");
+        gameplayPauseRemaining = 0.95;
 
     }
 
@@ -3835,7 +3835,7 @@ function tryInteraction() {
             id: "longnanHometownView",
             dialogue: longnanHometownPages,
             dialoguePurpose: "longnanHometown",
-            revealDelay: 0.35
+            revealDelay: 0.5
         });
 
     } else if (nearbyLongnanMemoryAlbum) {
@@ -4259,6 +4259,19 @@ function getCameraTarget(zoom = getCameraFollowZoom()) {
 
     }
 
+    if (currentChapter === "longnanLookout" || currentChapter === "longnanTown") {
+
+        const scenicOffsetY = currentChapter === "longnanLookout"
+            ? (gameViewportState.isMobile && gameViewportState.portrait ? 42 : 18)
+            : (gameViewportState.isMobile && gameViewportState.portrait ? 68 : 26);
+
+        return {
+            x: Math.max(0, Math.min(player.x + player.width / 2 - visibleWidth / 2, maxX)),
+            y: Math.max(0, Math.min(player.y + player.height / 2 + scenicOffsetY - visibleHeight / 2, maxY))
+        };
+
+    }
+
     if (weddingGatewaySequence.active && ["formation", "approach", "catPause", "coupleEnter", "whiteFade", "whiteHold"].includes(weddingGatewaySequence.phase)) {
 
         const partyCenterX = (player.x + le.x + player.width + le.width) / 2;
@@ -4383,7 +4396,9 @@ function updateCamera(deltaTime) {
 
     const followZoom = getCameraFollowZoom();
     let target = getCameraTarget(followZoom);
-    const followAmount = 1 - Math.pow(1 - camera.smoothing, deltaTime * 60);
+    const longnanCameraPacing = currentChapter === "longnanLookout" || currentChapter === "longnanTown";
+    const cameraSmoothing = longnanCameraPacing ? Math.max(0.04, camera.smoothing * 0.62) : camera.smoothing;
+    const followAmount = 1 - Math.pow(1 - cameraSmoothing, deltaTime * 60);
 
     if (characterPanelOpen) return;
 
