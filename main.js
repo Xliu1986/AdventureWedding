@@ -1516,7 +1516,7 @@ const storyCGs = {
     },
     longnanHometownView: {
         src: "assets/cg/longnan/cg-kangxian-hometown.png?v=0.8.6",
-        locationTitle: "Qinglong Mountain",
+        locationTitle: "陇南 康县",
         focalX: 0.5,
         focalY: 0.48,
         mobileDisplay: "contain"
@@ -1543,7 +1543,7 @@ const storyCGs = {
     },
     longnanAlbumWildFruit: {
         src: "assets/cg/memory-album/tokyo-wild-fruit.png?v=0.8.7",
-        locationTitle: "Kang County",
+        locationTitle: "陇南 康县",
         focalX: 0.5,
         focalY: 0.5,
         mobileDisplay: "contain",
@@ -1561,7 +1561,7 @@ const storyCGs = {
     },
     longnanAlbumMoment: {
         src: "assets/cg/memory-album/sydney-moment.png?v=0.8.7",
-        locationTitle: "Kang County",
+        locationTitle: "陇南 康县",
         focalX: 0.5,
         focalY: 0.5,
         mobileDisplay: "contain",
@@ -2817,7 +2817,7 @@ function startLongnanOpening() {
     currentChapter = "longnanLookout";
     setGameState(GameState.LONGNAN_LOOKOUT);
     storyFlags.longnanChapterStarted = true;
-    chapterLocation.textContent = "甘肃 · 陇南";
+    chapterLocation.textContent = "陇南 青龙山";
     chapterLocation.classList.remove("hidden");
     player.x = 812;
     player.y = 640;
