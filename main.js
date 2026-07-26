@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.9.10 — Xiaoyuan Chapter Lock
+   Version 0.9.7.5 — Tokyo Memory Album Lock
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -975,6 +975,7 @@ const storyFlags = {
     tokyoIntroFreeExploreCompleted: false,
     tokyoShrineMemoryCompleted: false,
     tokyoFirstMemoryUnlocked: false,
+    tokyoMemoryAlbumViewed: false,
     tokyoChapterComplete: false,
     sydneyChapterStarted: false,
     sydneyHarbourMemory: false,
@@ -1019,6 +1020,7 @@ const tokyoPersistedFlags = [
     "tokyoIntroFreeExploreCompleted",
     "tokyoShrineMemoryCompleted",
     "tokyoFirstMemoryUnlocked",
+    "tokyoMemoryAlbumViewed",
     "tokyoChapterComplete"
 ];
 
@@ -1062,6 +1064,7 @@ function loadTokyoProgress() {
             storyFlags.tokyoIntroFreeExploreCompleted = true;
             storyFlags.tokyoShrineMemoryCompleted = true;
             storyFlags.tokyoFirstMemoryUnlocked = true;
+            storyFlags.tokyoMemoryAlbumViewed = true;
 
         }
 
@@ -1513,6 +1516,15 @@ const storyCGs = {
         focalY: 0.48,
         sourceHeight: 941,
         mobileDisplay: "contain"
+    },
+    tokyoMemoryAlbum: {
+        src: "assets/cg/memory-album/tokyo-memory-album.png?v=0.9.7.5",
+        focalX: 0.5,
+        focalY: 0.5,
+        mobileDisplay: "contain",
+        autoCloseAfter: 5,
+        memoryAlbum: true,
+        fullScreenMemoryAlbum: true
     },
     longnanHometownView: {
         src: "assets/cg/longnan/cg-kangxian-hometown.png?v=0.8.6",
@@ -2974,6 +2986,38 @@ const longnanMemoryAlbumPages = [
     "longnanAlbumMoment",
     "longnanAlbumWedding"
 ];
+
+const tokyoMemoryAlbumPages = [
+    "tokyoMemoryAlbum"
+];
+
+function showTokyoMemoryAlbum(pageIndex = 0) {
+
+    const id = tokyoMemoryAlbumPages[pageIndex];
+    if (!id) {
+
+        window.AudioManager?.playSFX?.("albumClose");
+        storyFlags.tokyoMemoryAlbumViewed = true;
+        saveTokyoProgress();
+        return;
+
+    }
+
+    const opened = showStoryCG({
+        id,
+        dialoguePurpose: "tokyoMemoryAlbum",
+        revealDelay: 0.3,
+        onComplete: () => showTokyoMemoryAlbum(pageIndex + 1)
+    });
+    if (opened) {
+
+        window.AudioManager?.playSFX?.(pageIndex === 0 ? "albumOpen" : "albumPage");
+        storyCGOverlay.albumMode = pageIndex === 0 ? "open" : "flip";
+        storyCGOverlay.albumPageIndex = pageIndex;
+
+    }
+
+}
 
 function showLongnanMemoryAlbum(pageIndex = 0) {
 
@@ -5561,11 +5605,11 @@ function drawStoryCG() {
         // Every Story CG uses the same iPhone portrait cinema layout: contain
         // the complete approved artwork in the upper visual panel, leave a
         // navy gap for the live dialogue below, and never cover-crop a memory.
-        const controlReserve = 330;
-        const dialogueReserve = 210;
-        const panelTop = 66;
+        const controlReserve = config.fullScreenMemoryAlbum ? 300 : 330;
+        const dialogueReserve = config.fullScreenMemoryAlbum ? 0 : 210;
+        const panelTop = config.fullScreenMemoryAlbum ? 32 : 66;
         const panelBottom = Math.max(360, Math.min(
-            Math.round(gameViewportState.height * 0.52),
+            Math.round(gameViewportState.height * (config.fullScreenMemoryAlbum ? 0.72 : 0.52)),
             gameViewportState.height - controlReserve - dialogueReserve
         ));
         const panelWidth = gameViewportState.width - 24;
