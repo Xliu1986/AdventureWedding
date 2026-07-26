@@ -884,6 +884,7 @@ const interactables = [
         pages: [
             { speaker: "乐乐", text: "悄悄许个愿吧～" }
         ],
+        flag: "tokyoShrineMemoryCompleted",
         completed: false
     },
     {
@@ -897,6 +898,7 @@ const interactables = [
             { speaker: "森", text: "（偷笑）向我们的好朋友张欣致敬～～感谢她促成了这段奇妙的旅程～～" },
             { speaker: "坨坨，大痣", text: "谢谢喵～" }
         ],
+        flag: "tokyoIttenchoMemoryCompleted",
         repeatable: true,
         completed: false
     }
@@ -910,8 +912,14 @@ const sakuraAvenueMoment = {
     width: 380,
     height: 980,
     active: false,
-    discovered: false
+    discovered: false,
+    dialogueCompleted: false
 };
+
+const sakuraAvenueDialoguePages = [
+    { speaker: "森", text: "在这里逛逛真的很舒服。" },
+    { speaker: "乐乐", text: "对啊，我们可以在四周逛逛，那边还有个神社，河边还有些店铺可以去探索一下。" }
+];
 
 const hiddenCatEvent = {
     x: 1290,
@@ -975,6 +983,9 @@ const storyFlags = {
     tokyoIntroFreeExploreCompleted: false,
     tokyoShrineMemoryCompleted: false,
     tokyoFirstMemoryUnlocked: false,
+    tokyoSakuraAvenueDialogueCompleted: false,
+    tokyoHiddenCatsDiscovered: false,
+    tokyoIttenchoMemoryCompleted: false,
     tokyoMemoryAlbumViewed: false,
     tokyoChapterComplete: false,
     sydneyChapterStarted: false,
@@ -1020,6 +1031,9 @@ const tokyoPersistedFlags = [
     "tokyoIntroFreeExploreCompleted",
     "tokyoShrineMemoryCompleted",
     "tokyoFirstMemoryUnlocked",
+    "tokyoSakuraAvenueDialogueCompleted",
+    "tokyoHiddenCatsDiscovered",
+    "tokyoIttenchoMemoryCompleted",
     "tokyoMemoryAlbumViewed",
     "tokyoChapterComplete"
 ];
@@ -1064,7 +1078,16 @@ function loadTokyoProgress() {
             storyFlags.tokyoIntroFreeExploreCompleted = true;
             storyFlags.tokyoShrineMemoryCompleted = true;
             storyFlags.tokyoFirstMemoryUnlocked = true;
+            storyFlags.tokyoSakuraAvenueDialogueCompleted = true;
+            storyFlags.tokyoHiddenCatsDiscovered = true;
+            storyFlags.tokyoIttenchoMemoryCompleted = true;
             storyFlags.tokyoMemoryAlbumViewed = true;
+
+        }
+        if (storyFlags.tokyoHiddenCatsDiscovered) {
+
+            hiddenCatEvent.discovered = true;
+            cats.forEach(cat => cat.following = true);
 
         }
 
@@ -1311,6 +1334,13 @@ const longnanTownPiaozi = {
     ]
 };
 const longnanTownInteractionPoints = [...longnanTownMemories, longnanTownPiaozi];
+const longnanTownMemoryOrder = [
+    "schoolEntrance",
+    "bridgeFlood",
+    "roadMemory",
+    "busStop",
+    "bridgePiaozi"
+];
 const longnanMemoryAlbumTrigger = { x: 768, y: 915, radius: 96 };
 const longnanFinalDialoguePages = [
     { speaker: "乐乐", text: "谢谢你陪我重新走了一遍小时候的路。" },
@@ -1365,6 +1395,23 @@ function saveLongnanProgress() {
 function isLongnanMemoryDiscovered(interaction) {
 
     return Boolean(interaction?.flag && storyFlags[interaction.flag]);
+
+}
+
+function getNextLongnanTownInteraction() {
+
+    return longnanTownMemoryOrder
+        .map(id => longnanTownInteractionPoints.find(item => item.id === id))
+        .find(item => item && !isLongnanMemoryDiscovered(item)) || null;
+
+}
+
+function canUseLongnanTownInteraction(item) {
+
+    if (!item) return false;
+    const nextInteraction = getNextLongnanTownInteraction();
+    if (nextInteraction) return item.id === nextInteraction.id;
+    return item.repeatable || !item.completed;
 
 }
 
@@ -1955,9 +2002,9 @@ const birds = [
 
 let windTime = 0;
 let interactionPromptAlpha = 0;
-const INTERACTION_INDICATOR_RADIUS = 160;
+const INTERACTION_INDICATOR_RADIUS = 240;
 const INTERACTION_INDICATOR_RADIUS_SQ = INTERACTION_INDICATOR_RADIUS * INTERACTION_INDICATOR_RADIUS;
-const MAX_INTERACTION_INDICATORS = 8;
+const MAX_INTERACTION_INDICATORS = 10;
 const INDICATOR_CYCLE_SECONDS = 1.2;
 const interactionIndicatorTargets = [];
 const indicatorPriority = { mainStory: 0, memory: 1, story: 2 };
@@ -2424,11 +2471,13 @@ function closeMeetingDialogue() {
     if (dialoguePurpose === "cats") {
 
         hiddenCatEvent.discovered = true;
+        storyFlags.tokyoHiddenCatsDiscovered = true;
         cats.forEach(cat => cat.following = true);
         characterAlbum.tuotuo.unlocked = true;
         characterAlbum.dazhi.unlocked = true;
         achievements.walkingTogether.unlocked = true;
         window.AudioManager?.playSFX?.("memoryUnlock");
+        saveTokyoProgress();
 
     }
 
@@ -2491,6 +2540,7 @@ function closeMeetingDialogue() {
 
     if (dialoguePurpose === "longnanHometown") {
 
+        longnanLookoutRailing.completed = true;
         storyCGOverlay.phase = "endingHold";
         storyCGOverlay.revealDelay = 0.9;
         gameplayPauseRemaining = 0.55;
@@ -2864,7 +2914,7 @@ function placePartyInLongnanTown() {
 
     currentChapter = "longnanTown";
     setGameState(GameState.LONGNAN_TOWN);
-    chapterLocation.textContent = "陇南 · 童年小镇";
+    chapterLocation.textContent = "陇南 康县";
     le.x = 712;
     le.y = 694;
     player.x = 752;
@@ -3191,9 +3241,20 @@ function tokyoStoryComplete() {
 
     return meetingState.triggered
         && le.companion
-        && interactables.find(item => item.id === "shrine")?.completed
+        && storyFlags.tokyoSakuraAvenueDialogueCompleted
+        && storyFlags.tokyoShrineMemoryCompleted
+        && storyFlags.tokyoIttenchoMemoryCompleted
         && hiddenCatEvent.discovered
         && partyHasAllCompanions();
+
+}
+
+function canUseTokyoInteractable(item) {
+
+    if (!item) return false;
+    if (item.id === "shrine") return hiddenCatEvent.discovered && !storyFlags.tokyoShrineMemoryCompleted;
+    if (item.id === "ittencho") return storyFlags.tokyoShrineMemoryCompleted;
+    return true;
 
 }
 
@@ -3448,7 +3509,13 @@ function updateNearbyInteractable() {
 
     }
 
-    nearbyInteractable = findNearestInteraction(interactables, player.x, player.y, 100, item => item.repeatable || !item.completed);
+    nearbyInteractable = findNearestInteraction(
+        interactables,
+        player.x,
+        player.y,
+        100,
+        item => canUseTokyoInteractable(item) && (item.repeatable || !item.completed)
+    );
 
     if (
         nearbyInteractable?.autoOnce
@@ -3529,11 +3596,26 @@ function updateSakuraAvenueMoment() {
 
     }
 
+    if (
+        insideAvenue
+        && !storyFlags.tokyoSakuraAvenueDialogueCompleted
+        && !meetingState.dialogueOpen
+        && !chapterTransition.active
+        && !storyCGOverlay.active
+    ) {
+
+        storyFlags.tokyoSakuraAvenueDialogueCompleted = true;
+        sakuraAvenueMoment.dialogueCompleted = true;
+        saveTokyoProgress();
+        openPiaoziDialogue(sakuraAvenueDialoguePages, "tokyoSakuraAvenue");
+
+    }
+
 }
 
 function updateNearbyCatEvent() {
 
-    if (hiddenCatEvent.discovered || meetingState.dialogueOpen || !le.companion) {
+    if (hiddenCatEvent.discovered || meetingState.dialogueOpen || !le.companion || !storyFlags.tokyoSakuraAvenueDialogueCompleted) {
 
         nearbyCatEvent = false;
         return;
@@ -3646,13 +3728,13 @@ function updateNearbyLongnan() {
 
     if (gameState === GameState.LONGNAN_LOOKOUT) {
 
-        nearbyLongnanExit = centerY < 420 && Math.abs(centerX - 812) < 105;
+        nearbyLongnanExit = longnanLookoutRailing.completed && centerY > 805 && Math.abs(centerX - 812) < 120;
         if (!longnanLookoutRailing.completed && Math.hypot(centerX - longnanLookoutRailing.x, centerY - longnanLookoutRailing.y) < 110) nearbyLongnanInteraction = longnanLookoutRailing;
 
     } else if (gameState === GameState.LONGNAN_TOWN) {
 
-        nearbyLongnanInteraction = findNearestInteraction(longnanTownInteractionPoints, centerX, centerY, 115, item => item.repeatable || !item.completed);
-        nearbyLongnanMemoryAlbum = Math.hypot(
+        nearbyLongnanInteraction = findNearestInteraction(longnanTownInteractionPoints, centerX, centerY, 115, canUseLongnanTownInteraction);
+        nearbyLongnanMemoryAlbum = storyFlags.longnanPiaoziMemory && Math.hypot(
             centerX - longnanMemoryAlbumTrigger.x,
             centerY - longnanMemoryAlbumTrigger.y
         ) <= longnanMemoryAlbumTrigger.radius;
@@ -4195,7 +4277,7 @@ function drawInteractionPrompt() {
 
     const mobilePrompt = mobileControls.classList.contains("isTouchMode");
     const promptText = nearbyLongnanExit
-        ? (mobilePrompt ? "点击 A 前往童年小镇" : "按 E 前往童年小镇")
+        ? (mobilePrompt ? "点击 A 前往康县" : "按 E 前往康县")
         : nearbyWeddingInteraction?.id === "weddingFloralGateway"
         ? `${nearbyWeddingInteraction.label}\n${mobilePrompt ? "点击 A" : "按 E"}`
         : nearbyWeddingInteraction
@@ -6064,22 +6146,12 @@ function collectInteractionIndicatorTargets() {
         }
         if (le.companion) {
 
-            interactables.forEach(item => {
-
-                const count = beforeAdd();
-                addInteractionIndicatorTarget(item, {
-                    type: item.id === "emaBoard" ? "memory" : "story",
-                    replayable: Boolean(item.repeatable)
-                });
-                afterAdd(count);
-
-            });
-            if (!sakuraAvenueMoment.discovered) {
+            if (!storyFlags.tokyoSakuraAvenueDialogueCompleted) {
 
                 const count = beforeAdd();
                 addInteractionIndicatorTarget(sakuraAvenueMoment, {
                     id: "tokyoSakuraAvenue",
-                    type: "memory",
+                    type: "mainStory",
                     point: {
                         x: sakuraAvenueMoment.x + sakuraAvenueMoment.width / 2,
                         y: sakuraAvenueMoment.y + sakuraAvenueMoment.height / 2
@@ -6089,8 +6161,7 @@ function collectInteractionIndicatorTargets() {
                 });
                 afterAdd(count);
 
-            }
-            if (!hiddenCatEvent.discovered) {
+            } else if (!hiddenCatEvent.discovered) {
 
                 const count = beforeAdd();
                 addInteractionIndicatorTarget(hiddenCatEvent, {
@@ -6105,8 +6176,28 @@ function collectInteractionIndicatorTargets() {
                 });
                 afterAdd(count);
 
-            }
-            if (tokyoStoryComplete() && !chapterTransition.completed) {
+            } else if (!storyFlags.tokyoShrineMemoryCompleted) {
+
+                const shrine = interactables.find(item => item.id === "shrine");
+                const count = beforeAdd();
+                addInteractionIndicatorTarget(shrine, {
+                    type: "mainStory",
+                    hideAfterComplete: true
+                });
+                afterAdd(count);
+
+            } else if (!storyFlags.tokyoIttenchoMemoryCompleted) {
+
+                const ittencho = interactables.find(item => item.id === "ittencho");
+                const count = beforeAdd();
+                addInteractionIndicatorTarget(ittencho, {
+                    type: "mainStory",
+                    replayable: false,
+                    hideAfterComplete: true
+                });
+                afterAdd(count);
+
+            } else if (tokyoStoryComplete() && !chapterTransition.completed) {
 
                 const count = beforeAdd();
                 addInteractionIndicatorTarget(stationDepartureZone, {
@@ -6191,24 +6282,42 @@ function collectInteractionIndicatorTargets() {
         addInteractionIndicatorTarget(longnanLookoutRailing, {
             type: "memory",
             discovered: longnanLookoutRailing.completed,
-            replayable: true
+            replayable: false,
+            hideAfterComplete: true
         });
         afterAdd(count);
+        if (longnanLookoutRailing.completed) {
+
+            const exitCount = beforeAdd();
+            addInteractionIndicatorTarget({ id: "longnanLookoutExit", x: 812, y: 838 }, {
+                type: "mainStory",
+                point: { x: 812, y: 838 },
+                discovered: false,
+                hideAfterComplete: true
+            });
+            afterAdd(exitCount);
+
+        }
 
     } else if (currentChapter === "longnanTown") {
 
-        longnanTownInteractionPoints.forEach(item => {
+        const nextLongnanInteraction = getNextLongnanTownInteraction();
+        const visibleLongnanItems = nextLongnanInteraction
+            ? [nextLongnanInteraction]
+            : longnanTownInteractionPoints.filter(item => isLongnanMemoryDiscovered(item));
+
+        visibleLongnanItems.forEach(item => {
 
             const count = beforeAdd();
             addInteractionIndicatorTarget(item, {
                 type: "memory",
                 discovered: isLongnanMemoryDiscovered(item),
-                replayable: true
+                replayable: !nextLongnanInteraction
             });
             afterAdd(count);
 
         });
-        if (storyFlags.longnanAllMemoriesCompleted && !storyFlags.chapter3Completed) {
+        if (storyFlags.longnanPiaoziMemory && !storyFlags.chapter3Completed) {
 
             const count = beforeAdd();
             addInteractionIndicatorTarget(longnanMemoryAlbumTrigger, {
@@ -6268,12 +6377,15 @@ function drawPixelSparkle(x, y, type, discovered) {
 
     if (discovered) {
 
-        gameCtx.globalAlpha = 0.72;
-        gameCtx.fillStyle = "#24324a";
-        gameCtx.fillRect(roundedX - 3, roundedY - 3, 6, 6);
-        gameCtx.fillStyle = type === "memory" ? "#b9d8ff" : "#d8aa54";
-        gameCtx.fillRect(roundedX - 1, roundedY - 3, 2, 6);
-        gameCtx.fillRect(roundedX - 3, roundedY - 1, 6, 2);
+        gameCtx.globalAlpha = 0.86;
+        gameCtx.fillStyle = "rgba(5, 17, 33, .82)";
+        gameCtx.fillRect(roundedX - 5, roundedY - 5, 10, 10);
+        gameCtx.strokeStyle = "rgba(216, 170, 84, .7)";
+        gameCtx.lineWidth = 1;
+        gameCtx.strokeRect(roundedX - 5, roundedY - 5, 10, 10);
+        gameCtx.fillStyle = type === "memory" ? "#d7edff" : "#f4cf7a";
+        gameCtx.fillRect(roundedX - 1, roundedY - 4, 2, 8);
+        gameCtx.fillRect(roundedX - 4, roundedY - 1, 8, 2);
         gameCtx.globalAlpha = 1;
         return;
 
@@ -6281,44 +6393,56 @@ function drawPixelSparkle(x, y, type, discovered) {
 
     const phase = (windTime % INDICATOR_CYCLE_SECONDS) / INDICATOR_CYCLE_SECONDS * Math.PI * 2;
     const floatY = Math.sin(phase) * 2;
-    const alpha = 0.55 + (Math.sin(phase) + 1) * 0.225;
+    const alpha = 0.72 + (Math.sin(phase) + 1) * 0.14;
     const py = Math.round(roundedY + floatY);
     const primary = type === "memory" ? "#b9d8ff" : type === "mainStory" ? "#fff0b6" : "#f4cf7a";
     const secondary = type === "memory" ? "#eef7ff" : type === "mainStory" ? "#ffffff" : "#fff0b6";
+    const coreSize = type === "mainStory" ? 7 : 5;
+    const armSize = type === "mainStory" ? 18 : 14;
+    const glowSize = type === "mainStory" ? 28 : 22;
+
+    gameCtx.globalAlpha = type === "mainStory" ? 0.32 : 0.22;
+    gameCtx.fillStyle = type === "memory" ? "rgba(185, 216, 255, .36)" : "rgba(244, 207, 122, .42)";
+    gameCtx.fillRect(roundedX - Math.floor(glowSize / 2), py - Math.floor(glowSize / 2), glowSize, glowSize);
+    gameCtx.globalAlpha = type === "mainStory" ? 0.42 : 0.30;
+    gameCtx.fillStyle = "rgba(255, 240, 182, .32)";
+    gameCtx.fillRect(roundedX - Math.floor(glowSize / 3), py - Math.floor(glowSize / 3), Math.ceil(glowSize * 2 / 3), Math.ceil(glowSize * 2 / 3));
 
     gameCtx.globalAlpha = alpha;
     gameCtx.fillStyle = "#1a2434";
 
     if (type === "memory") {
 
-        gameCtx.fillRect(roundedX - 1, py - 5, 2, 10);
-        gameCtx.fillRect(roundedX - 5, py - 1, 10, 2);
+        gameCtx.fillRect(roundedX - 2, py - armSize / 2, 4, armSize);
+        gameCtx.fillRect(roundedX - armSize / 2, py - 2, armSize, 4);
         gameCtx.fillStyle = primary;
-        gameCtx.fillRect(roundedX - 1, py - 4, 2, 8);
-        gameCtx.fillRect(roundedX - 4, py - 1, 8, 2);
+        gameCtx.fillRect(roundedX - 1, py - armSize / 2 + 2, 2, armSize - 4);
+        gameCtx.fillRect(roundedX - armSize / 2 + 2, py - 1, armSize - 4, 2);
 
     } else if (type === "mainStory") {
 
-        gameCtx.fillRect(roundedX - 1, py - 6, 2, 12);
-        gameCtx.fillRect(roundedX - 6, py - 1, 12, 2);
-        gameCtx.fillRect(roundedX - 3, py - 3, 6, 6);
+        gameCtx.fillRect(roundedX - 2, py - armSize / 2, 4, armSize);
+        gameCtx.fillRect(roundedX - armSize / 2, py - 2, armSize, 4);
+        gameCtx.fillRect(roundedX - 4, py - 4, 8, 8);
         gameCtx.fillStyle = primary;
-        gameCtx.fillRect(roundedX - 1, py - 5, 2, 10);
-        gameCtx.fillRect(roundedX - 5, py - 1, 10, 2);
-        gameCtx.fillRect(roundedX - 2, py - 2, 4, 4);
+        gameCtx.fillRect(roundedX - 1, py - armSize / 2 + 2, 2, armSize - 4);
+        gameCtx.fillRect(roundedX - armSize / 2 + 2, py - 1, armSize - 4, 2);
+        gameCtx.fillRect(roundedX - 3, py - 3, 6, 6);
 
     } else {
 
-        gameCtx.fillRect(roundedX - 1, py - 5, 2, 10);
-        gameCtx.fillRect(roundedX - 5, py - 1, 10, 2);
+        gameCtx.fillRect(roundedX - 2, py - armSize / 2, 4, armSize);
+        gameCtx.fillRect(roundedX - armSize / 2, py - 2, armSize, 4);
         gameCtx.fillStyle = primary;
-        gameCtx.fillRect(roundedX - 1, py - 4, 2, 8);
-        gameCtx.fillRect(roundedX - 4, py - 1, 8, 2);
+        gameCtx.fillRect(roundedX - 1, py - armSize / 2 + 2, 2, armSize - 4);
+        gameCtx.fillRect(roundedX - armSize / 2 + 2, py - 1, armSize - 4, 2);
 
     }
 
     gameCtx.globalAlpha = Math.min(1, alpha + 0.18);
     gameCtx.fillStyle = secondary;
+    gameCtx.fillRect(roundedX - Math.floor(coreSize / 2), py - Math.floor(coreSize / 2), coreSize, coreSize);
+    gameCtx.fillStyle = "#ffffff";
     gameCtx.fillRect(roundedX - 1, py - 1, 2, 2);
     gameCtx.globalAlpha = 1;
 
