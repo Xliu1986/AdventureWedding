@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.9.7.6 — Tokyo Story Flow Revision
+   Version 0.9.7.7 — Tokyo Story Controller Rewrite
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -356,7 +356,7 @@ const PARTICLE_BUDGETS = {
 };
 const ACCELERATION = 3000;
 const DECELERATION = 3600;
-const MAX_FOLLOW_HISTORY = 180;
+const MAX_FOLLOW_HISTORY = 160;
 const CULL_MARGIN = 96;
 
 function getParticleBudget(name) {
@@ -671,6 +671,7 @@ function beginTokyoGameplay() {
     setGameState(GameState.TOKYO, { forceAudio: true });
     storyFlags.tokyoChapterStarted = true;
     spawnPlayer();
+    TokyoStoryController.enter();
     startCameraIntro();
 
 }
@@ -860,6 +861,12 @@ const meetingState = {
 };
 let tokyoIntroFreeExploreTimer = 0;
 
+const TokyoStoryState = window.TokyoStoryState;
+const TokyoStoryController = window.TokyoStoryController;
+let tokyoStoryState = TokyoStoryState.NOT_STARTED;
+const tokyoCompanionIds = [];
+let lastMoriHistoryPoint = null;
+
 const meetingDialoguePages = [
     {
         speaker: "乐乐",
@@ -905,13 +912,6 @@ const interactables = [
 ];
 
 let nearbyInteractable = null;
-const tokyoCatJoinSequence = {
-    active: false,
-    index: 0,
-    pause: 0,
-    postDialogueOpened: false
-};
-
 const sakuraAvenueMoment = {
     x: 1510,
     y: 1160,
@@ -920,6 +920,14 @@ const sakuraAvenueMoment = {
     active: false,
     discovered: false,
     dialogueCompleted: false
+};
+const sakuraAvenueSecondMoment = {
+    x: 1510,
+    y: 1840,
+    width: 380,
+    height: 280,
+    active: false,
+    discovered: false
 };
 
 const sakuraAvenueDialoguePages = [
@@ -951,18 +959,18 @@ const tokyoPostCatJoinDialoguePages = [
     { speaker: "森", text: "我们可以去那边的店铺看看，\n搞不好会有一些宝藏小店。" },
     { speaker: "乐乐", text: "好呀～" },
     { speaker: "坨坨", text: "喵～" },
-    { speaker: "大痣", text: "喵呜～" }
+    { speaker: "大痣", text: "喵呜" }
 ];
 
 const cats = [
     {
-        id: "tuotuo", name: "坨坨", x: 1305, y: 902, width: 22, height: 18,
+        id: "tuotuo", name: "坨坨", x: 1788, y: 1096, width: 22, height: 18,
         collar: "#d9524f", marking: "#d9d7ce", direction: "down",
         following: false, moving: false, animationTime: 0, behaviour: "idle", behaviourTime: 0,
         idleTimer: 3 + Math.random() * 5, idleOffsetX: -2, idleOffsetY: 1, idleOffsetTimer: 0
     },
     {
-        id: "dazhi", name: "大痣", x: 1337, y: 909, width: 22, height: 18,
+        id: "dazhi", name: "大痣", x: 1838, y: 1100, width: 22, height: 18,
         collar: "#8855a6", marking: "#77757a", direction: "down",
         following: false, moving: false, animationTime: 0, behaviour: "idle", behaviourTime: 0,
         idleTimer: 3 + Math.random() * 5, idleOffsetX: 2, idleOffsetY: -1, idleOffsetTimer: 0
@@ -995,6 +1003,10 @@ const WEDDING_SAVE_KEY = "AdventureWedding.wedding.progress.v0.9.10";
 const storyFlags = {
     prologueViewed: false,
     tokyoChapterStarted: false,
+    tokyoStoryState: TokyoStoryState.NOT_STARTED,
+    tokyoCompanionsJoined: false,
+    tokyoMemoryUnlocked: false,
+    chapter1Completed: false,
     tokyoIntroductionCompleted: false,
     tokyoOpeningCameraCompleted: false,
     tokyoIntroFreeExploreCompleted: false,
@@ -1045,6 +1057,10 @@ const storyFlags = {
 let activeColesInspectable = null;
 
 const tokyoPersistedFlags = [
+    "tokyoStoryState",
+    "tokyoCompanionsJoined",
+    "tokyoMemoryUnlocked",
+    "chapter1Completed",
     "tokyoIntroductionCompleted",
     "tokyoOpeningCameraCompleted",
     "tokyoIntroFreeExploreCompleted",
@@ -1058,6 +1074,71 @@ const tokyoPersistedFlags = [
     "tokyoMemoryAlbumViewed",
     "tokyoChapterComplete"
 ];
+
+function addTokyoCompanionOnce(id) {
+
+    if (!tokyoCompanionIds.includes(id)) tokyoCompanionIds.push(id);
+
+}
+
+function tokyoCompanionsJoined() {
+
+    return tokyoCompanionIds.includes("tuotuo") && tokyoCompanionIds.includes("dazhi");
+
+}
+
+function removeTokyoCompanionDuplicates() {
+
+    const unique = [];
+    let removed = false;
+    tokyoCompanionIds.forEach(id => {
+        if (unique.includes(id)) {
+            removed = true;
+            return;
+        }
+        unique.push(id);
+    });
+    tokyoCompanionIds.length = 0;
+    tokyoCompanionIds.push(...unique);
+    return removed;
+
+}
+
+function tokyoStateAtLeast(targetState) {
+
+    return TokyoStoryController.hasReached(targetState);
+
+}
+
+function syncTokyoFlagsFromState() {
+
+    storyFlags.tokyoStoryState = tokyoStoryState;
+    storyFlags.tokyoSakuraAvenueDialogueCompleted = tokyoStateAtLeast(TokyoStoryState.SECOND_AVENUE_PENDING);
+    storyFlags.tokyoSakuraAvenueSecondDialogueCompleted = tokyoStateAtLeast(TokyoStoryState.SHRINE_COMPANION_PENDING);
+    storyFlags.tokyoHiddenCatsDiscovered = tokyoStateAtLeast(TokyoStoryState.PARTY_JOIN_RUNNING);
+    storyFlags.tokyoCompanionsJoined = tokyoStateAtLeast(TokyoStoryState.ONE_DIAN_ZHANG_PENDING);
+    storyFlags.tokyoCatJoinShopDialogueCompleted = tokyoStateAtLeast(TokyoStoryState.ONE_DIAN_ZHANG_PENDING);
+    storyFlags.tokyoIttenchoMemoryCompleted = tokyoStateAtLeast(TokyoStoryState.SHRINE_WISH_PENDING);
+    storyFlags.tokyoShrineMemoryCompleted = tokyoStateAtLeast(TokyoStoryState.TOKYO_STATION_PENDING);
+    storyFlags.tokyoMemoryUnlocked = Boolean(storyFlags.tokyoMemoryAlbumViewed || tokyoStateAtLeast(TokyoStoryState.CHAPTER_COMPLETE_RUNNING));
+    storyFlags.tokyoChapterComplete = tokyoStateAtLeast(TokyoStoryState.COMPLETE);
+    storyFlags.chapter1Completed = storyFlags.tokyoChapterComplete;
+    if (tokyoStateAtLeast(TokyoStoryState.SECOND_AVENUE_PENDING)) {
+
+        meetingState.triggered = true;
+        le.companion = true;
+
+    }
+    if (storyFlags.tokyoCompanionsJoined) {
+
+        hiddenCatEvent.discovered = true;
+        cats.forEach(cat => cat.following = true);
+        addTokyoCompanionOnce("tuotuo");
+        addTokyoCompanionOnce("dazhi");
+
+    }
+
+}
 
 const sydneyPersistedFlags = [
     "sydneyChapterStarted",
@@ -1090,50 +1171,13 @@ function loadTokyoProgress() {
 
         const saved = JSON.parse(localStorage.getItem(TOKYO_SAVE_KEY) || "{}");
         tokyoPersistedFlags.forEach(flag => {
-            if (typeof saved[flag] === "boolean") storyFlags[flag] = saved[flag];
+            if (flag === "tokyoStoryState") {
+
+                if (typeof saved[flag] === "string" || Number.isInteger(saved[flag])) storyFlags[flag] = saved[flag];
+
+            } else if (typeof saved[flag] === "boolean") storyFlags[flag] = saved[flag];
         });
-        if (storyFlags.tokyoHiddenCatsDiscovered) {
-
-            storyFlags.tokyoSakuraAvenueDialogueCompleted = true;
-            storyFlags.tokyoSakuraAvenueSecondDialogueCompleted = true;
-
-        }
-        if (storyFlags.tokyoIttenchoMemoryCompleted) {
-
-            storyFlags.tokyoHiddenCatsDiscovered = true;
-            storyFlags.tokyoCatJoinShopDialogueCompleted = true;
-
-        }
-        if (storyFlags.tokyoShrineMemoryCompleted) {
-
-            storyFlags.tokyoSakuraAvenueDialogueCompleted = true;
-            storyFlags.tokyoSakuraAvenueSecondDialogueCompleted = true;
-            storyFlags.tokyoHiddenCatsDiscovered = true;
-            storyFlags.tokyoCatJoinShopDialogueCompleted = true;
-            storyFlags.tokyoIttenchoMemoryCompleted = true;
-
-        }
-        if (storyFlags.tokyoChapterComplete) {
-
-            storyFlags.tokyoIntroductionCompleted = true;
-            storyFlags.tokyoOpeningCameraCompleted = true;
-            storyFlags.tokyoIntroFreeExploreCompleted = true;
-            storyFlags.tokyoShrineMemoryCompleted = true;
-            storyFlags.tokyoFirstMemoryUnlocked = true;
-            storyFlags.tokyoSakuraAvenueDialogueCompleted = true;
-            storyFlags.tokyoSakuraAvenueSecondDialogueCompleted = true;
-            storyFlags.tokyoHiddenCatsDiscovered = true;
-            storyFlags.tokyoCatJoinShopDialogueCompleted = true;
-            storyFlags.tokyoIttenchoMemoryCompleted = true;
-            storyFlags.tokyoMemoryAlbumViewed = true;
-
-        }
-        if (storyFlags.tokyoHiddenCatsDiscovered) {
-
-            hiddenCatEvent.discovered = true;
-            cats.forEach(cat => cat.following = true);
-
-        }
+        TokyoStoryController.load(saved);
 
     } catch {
         // Local save is optional; corrupted progress should never block play.
@@ -1141,12 +1185,16 @@ function loadTokyoProgress() {
 
 }
 
-function saveTokyoProgress() {
+function saveTokyoProgress(stateForSave = TokyoStoryController.normalizeStateForSave(tokyoStoryState)) {
 
     try {
 
         const payload = {};
-        tokyoPersistedFlags.forEach(flag => payload[flag] = Boolean(storyFlags[flag]));
+        tokyoPersistedFlags.forEach(flag => {
+            payload[flag] = flag === "tokyoStoryState"
+                ? stateForSave
+                : Boolean(storyFlags[flag]);
+        });
         localStorage.setItem(TOKYO_SAVE_KEY, JSON.stringify(payload));
 
     } catch {
@@ -1154,6 +1202,276 @@ function saveTokyoProgress() {
     }
 
 }
+
+function getPlayerInteractionAnchor() {
+
+    return {
+        x: player.x + player.width / 2,
+        y: player.y + player.height
+    };
+
+}
+
+function distanceToBounds(point, bounds) {
+
+    if (!point || !bounds) return null;
+    const closestX = Math.max(bounds.x, Math.min(point.x, bounds.x + bounds.width));
+    const closestY = Math.max(bounds.y, Math.min(point.y, bounds.y + bounds.height));
+    return Math.hypot(point.x - closestX, point.y - closestY);
+
+}
+
+function lockTokyoStoryControls() {
+
+    pressedKeys.clear();
+    clearMobileControls();
+    player.moving = false;
+    le.moving = false;
+    cats.forEach(cat => cat.moving = false);
+
+}
+
+function restoreTokyoStoryControls() {
+
+    pressedKeys.clear();
+    clearMobileControls();
+    player.moving = false;
+    le.moving = false;
+    cats.forEach(cat => cat.moving = false);
+
+}
+
+function resetTokyoFollowHistory(sampleCount = 12) {
+
+    moriPositionHistory.length = 0;
+    lastMoriHistoryPoint = null;
+    for (let index = 0; index < sampleCount; index++) {
+
+        moriPositionHistory.push({
+            x: player.x,
+            y: player.y + index * 4
+        });
+
+    }
+    lastMoriHistoryPoint = { x: player.x, y: player.y };
+
+}
+
+function placeTokyoCatsAtShrine() {
+
+    if (tokyoStateAtLeast(TokyoStoryState.ONE_DIAN_ZHANG_PENDING)) return;
+    cats[0].x = hiddenCatEvent.x + 28;
+    cats[0].y = hiddenCatEvent.y + 56;
+    cats[1].x = hiddenCatEvent.x + 78;
+    cats[1].y = hiddenCatEvent.y + 60;
+    cats.forEach(cat => {
+        cat.following = false;
+        cat.moving = false;
+        cat.direction = "down";
+        cat.behaviour = "idle";
+    });
+
+}
+
+function applyTokyoStateToScene() {
+
+    if (tokyoStateAtLeast(TokyoStoryState.SECOND_AVENUE_PENDING)) {
+
+        meetingState.triggered = true;
+        le.companion = true;
+
+    }
+
+    if (tokyoStateAtLeast(TokyoStoryState.PARTY_JOIN_RUNNING)) {
+
+        hiddenCatEvent.discovered = true;
+
+        if (tokyoStateAtLeast(TokyoStoryState.ONE_DIAN_ZHANG_PENDING)) {
+
+            cats.forEach(cat => {
+                cat.following = true;
+                cat.moving = false;
+            });
+            addTokyoCompanionOnce("tuotuo");
+            addTokyoCompanionOnce("dazhi");
+
+        }
+
+    } else {
+
+        hiddenCatEvent.discovered = false;
+        tokyoCompanionIds.length = 0;
+        placeTokyoCatsAtShrine();
+
+    }
+
+}
+
+function startTokyoControllerDialogue(dialogueId) {
+
+    lockTokyoStoryControls();
+
+    if (dialogueId === "tokyo-first-avenue") {
+
+        openMeetingDialogue();
+        return;
+
+    }
+
+    if (dialogueId === "tokyo-second-avenue") {
+
+        openPiaoziDialogue(sakuraAvenueSecondDialoguePages, "tokyoSakuraAvenueSecond");
+        return;
+
+    }
+
+    if (dialogueId === "tokyo-shrine-companion-intro") {
+
+        openCatDialogue();
+        return;
+
+    }
+
+    if (dialogueId === "tokyo-post-join") {
+
+        openPiaoziDialogue(tokyoPostCatJoinDialoguePages, "tokyoPostCatJoin");
+        return;
+
+    }
+
+    if (dialogueId === "tokyo-one-dian-zhang-event") {
+
+        const ittencho = interactables.find(item => item.id === "ittencho");
+        if (ittencho) openInteractionDialogue(ittencho);
+        return;
+
+    }
+
+    if (dialogueId === "tokyo-shrine-wish") {
+
+        const shrine = interactables.find(item => item.id === "shrine");
+        if (shrine) openInteractionDialogue(shrine);
+        return;
+
+    }
+
+    if (dialogueId === "tokyo-station-departure") {
+
+        openTokyoStationDialogue();
+
+    }
+
+}
+
+function saveTokyoControllerState(nextState) {
+
+    storyFlags.tokyoStoryState = nextState;
+    saveTokyoProgress(nextState);
+
+}
+
+TokyoStoryController.init({
+    devMode: () => true,
+    isTokyoScene: () => currentChapter === "tokyo",
+    getPlayer: () => player,
+    getCats: () => cats,
+    getPlayerAnchor: getPlayerInteractionAnchor,
+    getCompanionIds: () => [...tokyoCompanionIds],
+    getFollowHistoryLength: () => moriPositionHistory.length,
+    getIndicatorsVisible: () => interactionIndicatorStatus.visibleCount,
+    distanceToBounds,
+    faceToward,
+    faceMovementDirection,
+    canActorMove: canActorMoveOnOfficialMap,
+    getDialogueStatus: () => ({
+        open: meetingState.dialogueOpen,
+        activeId: dialoguePurpose
+    }),
+    getCutsceneStatus: () => ({
+        running: chapterTransition.active || storyCGOverlay.active || chapterCardState.active,
+        activeId: chapterTransition.active ? "tokyo-ending-cg" : storyCGOverlay.id || null
+    }),
+    controlsLocked: () => meetingState.dialogueOpen || chapterTransition.active || storyCGOverlay.active || chapterCardState.active,
+    isStoryBusy: () => meetingState.dialogueOpen || chapterTransition.active || storyCGOverlay.active || chapterCardState.active || cameraIntro.active || gameplayPauseRemaining > 0,
+    restoreControl: restoreTokyoStoryControls,
+    lockControl: lockTokyoStoryControls,
+    registerTokyoCompanion: id => {
+        addTokyoCompanionOnce(id);
+        const cat = cats.find(item => item.id === id);
+        if (cat) {
+            cat.following = true;
+            cat.moving = false;
+            faceToward(cat, player);
+        }
+    },
+    resetFollowHistory: resetTokyoFollowHistory,
+    startTokyoDialogue: startTokyoControllerDialogue,
+    startTokyoEnding: startSydneyTransition,
+    showTokyoMemory: () => showTokyoMemoryAlbum(0, () => TokyoStoryController.onCutsceneComplete("tokyo-memory")),
+    showTokyoChapterComplete: () => showChapterEnding("tokyo", () => TokyoStoryController.onCutsceneComplete("tokyo-chapter-complete")),
+    startSydney: () => showChapterIntro("sydney", () => {
+        spawnSydneyParty();
+        startSydneyDialogue();
+    }),
+    saveTokyoState: saveTokyoControllerState,
+    onStateChange: nextState => {
+        tokyoStoryState = nextState;
+        storyFlags.tokyoStoryState = nextState;
+        syncTokyoFlagsFromState();
+    },
+    onEnterState: nextState => {
+        if (nextState === TokyoStoryState.PARTY_JOIN_RUNNING) {
+            placeTokyoCatsAtShrine();
+        }
+        applyTokyoStateToScene();
+    },
+    onExitState: () => {},
+    getTriggers: () => ({
+        firstAvenue: {
+            id: "tokyo-first-avenue-dialogue",
+            requiredState: TokyoStoryState.FIRST_AVENUE_PENDING,
+            mode: "auto",
+            bounds: { x: 1600, y: 1510, width: 220, height: 220 }
+        },
+        secondAvenue: {
+            id: "tokyo-second-avenue-dialogue",
+            requiredState: TokyoStoryState.SECOND_AVENUE_PENDING,
+            mode: "auto",
+            bounds: { x: 1510, y: 1840, width: 380, height: 280 }
+        },
+        shrineCompanions: {
+            id: "tokyo-shrine-companion-event",
+            requiredState: TokyoStoryState.SHRINE_COMPANION_PENDING,
+            mode: "interact",
+            bounds: { x: hiddenCatEvent.x, y: hiddenCatEvent.y, width: hiddenCatEvent.width, height: hiddenCatEvent.height }
+        },
+        oneDianZhang: {
+            id: "tokyo-one-dian-zhang-event",
+            requiredState: TokyoStoryState.ONE_DIAN_ZHANG_PENDING,
+            mode: "interact",
+            bounds: { x: 580, y: 1740, width: 150, height: 82 }
+        },
+        shrineWish: {
+            id: "tokyo-shrine-wish",
+            requiredState: TokyoStoryState.SHRINE_WISH_PENDING,
+            mode: "interact",
+            bounds: { x: 1760, y: 1040, width: 170, height: 120 }
+        },
+        tokyoStation: {
+            id: "tokyo-station-departure",
+            requiredState: TokyoStoryState.TOKYO_STATION_PENDING,
+            mode: "interact",
+            bounds: { x: 800, y: 490, width: 460, height: 250 }
+        }
+    }),
+    closeOrphanedTokyoOverlays: () => {
+        if (!meetingState.dialogueOpen) gameDialogue.classList.add("hidden");
+        if (!storyCGOverlay.active) return;
+        hideStoryCG();
+    },
+    dedupeTokyoCompanions: removeTokyoCompanionDuplicates,
+    placeCatsForTokyoState: applyTokyoStateToScene
+});
 
 loadTokyoProgress();
 
@@ -2098,6 +2416,20 @@ window.getPerformanceStatus = () => ({
     loopStarted: gameLoopStarted
 });
 
+window.getTokyoFlowStatus = () => ({
+    state: tokyoStoryState,
+    activeTrigger: getActiveTokyoTrigger()?.id ?? null,
+    companionsJoined: tokyoCompanionsJoined(),
+    activeCompanions: [...tokyoCompanionIds],
+    followHistoryLength: moriPositionHistory.length,
+    dialogueOpen: meetingState.dialogueOpen,
+    cutsceneRunning: chapterTransition.active || tokyoStoryState === TokyoStoryState.PARTY_JOIN_RUNNING || storyCGOverlay.active,
+    indicatorsVisible: interactionIndicatorStatus.visibleCount
+});
+
+window.getTokyoStoryStatus = () => TokyoStoryController.getStatus();
+window.repairTokyoStory = () => TokyoStoryController.repairTokyoStory();
+
 const characterDrawQueue = [
     { y: 0, type: "player", actor: player },
     { y: 0, type: "le", actor: le },
@@ -2368,6 +2700,7 @@ function faceMovementDirection(actor, horizontal, vertical) {
 
 function openMeetingDialogue() {
 
+    if (tokyoStoryState !== TokyoStoryState.FIRST_AVENUE_RUNNING) return;
     meetingState.triggered = true;
     meetingState.pending = false;
     meetingState.pendingTimer = 0;
@@ -2491,7 +2824,12 @@ function closeMeetingDialogue() {
     gameDialogue.classList.add("hidden");
     gameDialogueContinue.classList.add("hidden");
 
-    if (dialoguePurpose === "meeting") le.companion = true;
+    if (dialoguePurpose === "meeting") {
+
+        le.companion = true;
+        TokyoStoryController.onDialogueComplete("tokyo-first-avenue");
+
+    }
 
     if (dialoguePurpose === "interaction" && activeInteraction) {
 
@@ -2501,6 +2839,16 @@ function closeMeetingDialogue() {
 
             storyFlags[activeInteraction.flag] = true;
             if (activeInteraction.flag.startsWith("tokyo")) saveTokyoProgress();
+
+        }
+        if (activeInteraction.id === "ittencho") {
+
+            TokyoStoryController.onDialogueComplete("tokyo-one-dian-zhang-event");
+
+        }
+        if (activeInteraction.id === "shrine") {
+
+            TokyoStoryController.onDialogueComplete("tokyo-shrine-wish");
 
         }
 
@@ -2520,7 +2868,7 @@ function closeMeetingDialogue() {
         characterAlbum.dazhi.unlocked = true;
         achievements.walkingTogether.unlocked = true;
         window.AudioManager?.playSFX?.("memoryUnlock");
-        startTokyoCatJoinSequence();
+        TokyoStoryController.onDialogueComplete("tokyo-shrine-companion-intro");
         saveTokyoProgress();
 
     }
@@ -2529,14 +2877,27 @@ function closeMeetingDialogue() {
 
         storyFlags.tokyoCatJoinShopDialogueCompleted = true;
         gameplayPauseRemaining = 0.35;
-        saveTokyoProgress();
+        TokyoStoryController.onDialogueComplete("tokyo-post-join");
 
     }
 
     if (dialoguePurpose === "station") {
 
-        // The cutscene walks the party from their current positions into the station.
-        startSydneyTransition();
+        TokyoStoryController.onDialogueComplete("tokyo-station-departure");
+
+    }
+
+    if (dialoguePurpose === "tokyoSakuraAvenue") {
+
+        storyFlags.tokyoSakuraAvenueDialogueCompleted = true;
+        TokyoStoryController.onDialogueComplete("tokyo-first-avenue");
+
+    }
+
+    if (dialoguePurpose === "tokyoSakuraAvenueSecond") {
+
+        storyFlags.tokyoSakuraAvenueSecondDialogueCompleted = true;
+        TokyoStoryController.onDialogueComplete("tokyo-second-avenue");
 
     }
 
@@ -2816,7 +3177,6 @@ function openCatDialogue() {
 
     if (!hiddenCatEvent.discovered) {
 
-        hiddenCatEvent.discovered = true;
         cats[0].x = hiddenCatEvent.x + 28;
         cats[0].y = hiddenCatEvent.y + 56;
         cats[1].x = hiddenCatEvent.x + 78;
@@ -2837,105 +3197,6 @@ function openCatDialogue() {
     le.moving = false;
     setDialoguePage(0);
     gameDialogue.classList.remove("hidden");
-
-}
-
-function startTokyoCatJoinSequence() {
-
-    tokyoCatJoinSequence.active = true;
-    tokyoCatJoinSequence.index = 0;
-    tokyoCatJoinSequence.pause = 0;
-    tokyoCatJoinSequence.postDialogueOpened = false;
-    pressedKeys.clear();
-    clearMobileControls();
-    player.moving = false;
-    le.moving = false;
-    faceToward(player, cats[0]);
-    faceToward(le, cats[0]);
-    cats.forEach(cat => {
-        cat.following = false;
-        cat.moving = false;
-        cat.behaviour = "walk";
-        cat.behaviourTime = 0;
-    });
-
-}
-
-function updateTokyoCatJoinSequence(deltaTime) {
-
-    if (!tokyoCatJoinSequence.active) return;
-
-    if (tokyoCatJoinSequence.pause > 0) {
-
-        tokyoCatJoinSequence.pause = Math.max(0, tokyoCatJoinSequence.pause - deltaTime);
-        return;
-
-    }
-
-    const cat = cats[tokyoCatJoinSequence.index];
-    if (!cat) {
-
-        cats.forEach(joinedCat => {
-            joinedCat.following = true;
-            joinedCat.moving = false;
-            faceToward(joinedCat, player);
-        });
-        tokyoCatJoinSequence.active = false;
-        if (!storyFlags.tokyoCatJoinShopDialogueCompleted && !meetingState.dialogueOpen) {
-
-            tokyoCatJoinSequence.postDialogueOpened = true;
-            openPiaoziDialogue(tokyoPostCatJoinDialoguePages, "tokyoPostCatJoin");
-
-        }
-        return;
-
-    }
-
-    const targetX = player.x + (tokyoCatJoinSequence.index === 0 ? -34 : 34);
-    const targetY = player.y + player.height + 10;
-    const dx = targetX - cat.x;
-    const dy = targetY - cat.y;
-    const distance = Math.hypot(dx, dy);
-
-    if (distance <= 6) {
-
-        cat.x = targetX;
-        cat.y = targetY;
-        cat.moving = false;
-        faceToward(cat, player);
-        tokyoCatJoinSequence.index += 1;
-        tokyoCatJoinSequence.pause = 0.3;
-        return;
-
-    }
-
-    const speed = 135;
-    const step = Math.min(distance, speed * deltaTime);
-    const horizontal = dx / distance;
-    const vertical = dy / distance;
-    cat.x += horizontal * step;
-    cat.y += vertical * step;
-    cat.moving = true;
-    cat.animationTime += deltaTime;
-    faceMovementDirection(cat, horizontal, vertical);
-
-}
-
-function updateTokyoPostCatJoinDialogue() {
-
-    if (
-        currentChapter !== "tokyo"
-        || tokyoCatJoinSequence.active
-        || !hiddenCatEvent.discovered
-        || !partyHasAllCompanions()
-        || storyFlags.tokyoCatJoinShopDialogueCompleted
-        || meetingState.dialogueOpen
-        || cameraIntro.active
-        || chapterTransition.active
-        || storyCGOverlay.active
-    ) return;
-
-    openPiaoziDialogue(tokyoPostCatJoinDialoguePages, "tokyoPostCatJoin");
 
 }
 
@@ -3206,7 +3467,7 @@ const tokyoMemoryAlbumPages = [
     "tokyoMemoryAlbum"
 ];
 
-function showTokyoMemoryAlbum(pageIndex = 0) {
+function showTokyoMemoryAlbum(pageIndex = 0, onComplete = null) {
 
     const id = tokyoMemoryAlbumPages[pageIndex];
     if (!id) {
@@ -3214,6 +3475,7 @@ function showTokyoMemoryAlbum(pageIndex = 0) {
         window.AudioManager?.playSFX?.("albumClose");
         storyFlags.tokyoMemoryAlbumViewed = true;
         saveTokyoProgress();
+        if (onComplete) onComplete();
         return;
 
     }
@@ -3222,7 +3484,7 @@ function showTokyoMemoryAlbum(pageIndex = 0) {
         id,
         dialoguePurpose: "tokyoMemoryAlbum",
         revealDelay: 0.3,
-        onComplete: () => showTokyoMemoryAlbum(pageIndex + 1)
+        onComplete: () => showTokyoMemoryAlbum(pageIndex + 1, onComplete)
     });
     if (opened) {
 
@@ -3362,57 +3624,21 @@ function checkFirstMeeting(deltaTime) {
 
     }
 
-    if (chapterCardState.active || meetingState.triggered || cameraIntro.active) return;
-
-    if (meetingState.pending) {
-
-        meetingState.pendingTimer = Math.max(0, meetingState.pendingTimer - deltaTime);
-        pressedKeys.clear();
-        clearMobileControls();
-        player.moving = false;
-        le.moving = false;
-        faceToward(player, le);
-        faceToward(le, player);
-
-        if (meetingState.pendingTimer === 0) openMeetingDialogue();
-        return;
-
-    }
-
-    const distance = Math.hypot(player.x - le.x, player.y - le.y);
-
-    if (distance <= 100) {
-
-        meetingState.pending = true;
-        meetingState.pendingTimer = 0.3;
-        pressedKeys.clear();
-        clearMobileControls();
-        player.moving = false;
-        le.moving = false;
-        faceToward(player, le);
-        faceToward(le, player);
-
-    }
+    TokyoStoryController.update(deltaTime);
 
 }
 
 function partyHasAllCompanions() {
 
-    return le.companion && cats.every(cat => cat.following);
+    return le.companion && tokyoCompanionsJoined() && cats.every(cat => cat.following);
 
 }
 
 function tokyoStoryComplete() {
 
-    return meetingState.triggered
+    return tokyoStoryState === TokyoStoryState.TOKYO_STATION_PENDING
+        && meetingState.triggered
         && le.companion
-        && storyFlags.tokyoSakuraAvenueDialogueCompleted
-        && storyFlags.tokyoSakuraAvenueSecondDialogueCompleted
-        && storyFlags.tokyoHiddenCatsDiscovered
-        && storyFlags.tokyoCatJoinShopDialogueCompleted
-        && storyFlags.tokyoShrineMemoryCompleted
-        && storyFlags.tokyoIttenchoMemoryCompleted
-        && hiddenCatEvent.discovered
         && partyHasAllCompanions();
 
 }
@@ -3420,24 +3646,29 @@ function tokyoStoryComplete() {
 function canUseTokyoInteractable(item) {
 
     if (!item) return false;
-    if (item.id === "shrine") return storyFlags.tokyoIttenchoMemoryCompleted && !storyFlags.tokyoShrineMemoryCompleted;
-    if (item.id === "ittencho") return storyFlags.tokyoCatJoinShopDialogueCompleted;
+    if (item.id === "shrine") return tokyoStoryState === TokyoStoryState.SHRINE_WISH_PENDING;
+    if (item.id === "ittencho") return tokyoStoryState === TokyoStoryState.ONE_DIAN_ZHANG_PENDING;
     return true;
+
+}
+
+function getActiveTokyoTrigger() {
+
+    return TokyoStoryController.getActiveTrigger();
 
 }
 
 function updateNearbyStation() {
 
-    if (!tokyoStoryComplete() || meetingState.dialogueOpen || chapterTransition.completed) {
+    const trigger = TokyoStoryController.getActiveTrigger();
+    if (trigger?.id !== "tokyo-station-departure" || meetingState.dialogueOpen || chapterTransition.completed) {
 
         nearbyStation = false;
         return;
 
     }
 
-    const closestX = Math.max(stationDepartureZone.x, Math.min(player.x, stationDepartureZone.x + stationDepartureZone.width));
-    const closestY = Math.max(stationDepartureZone.y, Math.min(player.y, stationDepartureZone.y + stationDepartureZone.height));
-    nearbyStation = Math.hypot(player.x - closestX, player.y - closestY) <= 110;
+    nearbyStation = distanceToBounds(getPlayerInteractionAnchor(), trigger.bounds) <= 110;
 
 }
 
@@ -3468,20 +3699,11 @@ function startSydneyTransition() {
 
 function openTokyoStationDialogue() {
 
-    if (!nearbyStation || gameState !== GameState.TOKYO) return;
+    if (gameState !== GameState.TOKYO) return;
 
     activeDialoguePages = [
-        { speaker: "乐乐", text: "今天。\n真的很开心。" },
-        { speaker: "森", text: "我也是。\n谢谢你陪我一起走过东京。" },
-        { speaker: "乐乐", text: "东京。\n有很多属于我的回忆。" },
-        { speaker: "森", text: "那接下来，\n让我带你去看看我的城市。" },
-        { speaker: "乐乐", text: "你的城市？" },
-        { speaker: "森", text: "嗯。\n我已经在悉尼生活了十六年。\n那里，也是我的家。" },
-        { speaker: "乐乐", text: "好呀。\n那以后，\n就请你带着我一起探索悉尼吧。" },
-        { speaker: "坨坨", text: "喵～" },
-        { speaker: "大痣", text: "喵呜～" },
-        { speaker: "森", text: "当然。\n还有你们两个。" },
-        { speaker: "乐乐", text: "一家人，\n一起出发。" }
+        { speaker: "乐乐", text: "准备好了吗？" },
+        { speaker: "森", text: "嗯，\n下一站。" }
     ];
     dialoguePurpose = "station";
     setGameState(GameState.TOKYO_STATION_CUTSCENE);
@@ -3590,6 +3812,7 @@ function spawnSydneyParty() {
     le.direction = "up";
     cats.forEach(cat => cat.direction = "up");
     moriPositionHistory.length = 0;
+    lastMoriHistoryPoint = { x: player.x, y: player.y };
     for (let index = 0; index < 80; index++) moriPositionHistory.push({ x: player.x, y: player.y + index * 2 });
     centerCameraOnPlayer();
 
@@ -3624,18 +3847,7 @@ function updateChapterTransition(deltaTime) {
         chapterTransition.active = false;
         chapterTransition.completed = true;
         storyFlags.tokyoFirstMemoryUnlocked = true;
-        storyFlags.tokyoChapterComplete = true;
-        saveTokyoProgress();
-        showChapterEnding("tokyo", () => {
-
-            showChapterIntro("sydney", () => {
-
-                spawnSydneyParty();
-                startSydneyDialogue();
-
-            });
-
-        });
+        TokyoStoryController.onCutsceneComplete("tokyo-ending-cg");
         return;
 
     }
@@ -3673,6 +3885,24 @@ function updateNearbyInteractable() {
     if (meetingState.dialogueOpen || !le.companion) {
 
         nearbyInteractable = null;
+        return;
+
+    }
+
+    if (currentChapter === "tokyo") {
+
+        const trigger = TokyoStoryController.getActiveTrigger();
+        const anchor = getPlayerInteractionAnchor();
+        nearbyInteractable = null;
+        if (trigger?.id === "tokyo-one-dian-zhang-event" && distanceToBounds(anchor, trigger.bounds) <= 100) {
+
+            nearbyInteractable = interactables.find(item => item.id === "ittencho") || null;
+
+        } else if (trigger?.id === "tokyo-shrine-wish" && distanceToBounds(anchor, trigger.bounds) <= 118) {
+
+            nearbyInteractable = interactables.find(item => item.id === "shrine") || null;
+
+        }
         return;
 
     }
@@ -3738,6 +3968,7 @@ function playerIsInsideZone(zone) {
 function updateSakuraAvenueMoment() {
 
     if (!le.companion || cameraIntro.active) return;
+    if (tokyoStoryState !== TokyoStoryState.SECOND_AVENUE_PENDING) return;
 
     const insideAvenue = playerIsInsideZone(sakuraAvenueMoment);
 
@@ -3764,52 +3995,25 @@ function updateSakuraAvenueMoment() {
 
     }
 
-    if (
-        insideAvenue
-        && !storyFlags.tokyoSakuraAvenueDialogueCompleted
-        && !meetingState.dialogueOpen
-        && !chapterTransition.active
-        && !storyCGOverlay.active
-    ) {
-
-        storyFlags.tokyoSakuraAvenueDialogueCompleted = true;
-        sakuraAvenueMoment.dialogueCompleted = true;
-        saveTokyoProgress();
-        openPiaoziDialogue(sakuraAvenueDialoguePages, "tokyoSakuraAvenue");
-
-    }
-
-    if (
-        insideAvenue
-        && storyFlags.tokyoSakuraAvenueDialogueCompleted
-        && !storyFlags.tokyoSakuraAvenueSecondDialogueCompleted
-        && !meetingState.dialogueOpen
-        && !chapterTransition.active
-        && !storyCGOverlay.active
-    ) {
-
-        storyFlags.tokyoSakuraAvenueSecondDialogueCompleted = true;
-        saveTokyoProgress();
-        openPiaoziDialogue(sakuraAvenueSecondDialoguePages, "tokyoSakuraAvenueSecond");
-
-    }
+    sakuraAvenueSecondMoment.active = playerIsInsideZone(sakuraAvenueSecondMoment);
 
 }
 
 function updateNearbyCatEvent() {
 
-    if (hiddenCatEvent.discovered || meetingState.dialogueOpen || !le.companion || !storyFlags.tokyoSakuraAvenueSecondDialogueCompleted) {
+    const trigger = TokyoStoryController.getActiveTrigger();
+    if (
+        trigger?.id !== "tokyo-shrine-companion-event"
+        || meetingState.dialogueOpen
+        || !le.companion
+    ) {
 
         nearbyCatEvent = false;
         return;
 
     }
 
-    const playerCenterX = player.x + player.width / 2;
-    const playerCenterY = player.y + player.height / 2;
-    const closestX = Math.max(hiddenCatEvent.x, Math.min(playerCenterX, hiddenCatEvent.x + hiddenCatEvent.width));
-    const closestY = Math.max(hiddenCatEvent.y, Math.min(playerCenterY, hiddenCatEvent.y + hiddenCatEvent.height));
-    nearbyCatEvent = Math.hypot(playerCenterX - closestX, playerCenterY - closestY) <= 118;
+    nearbyCatEvent = distanceToBounds(getPlayerInteractionAnchor(), trigger.bounds) <= 118;
 
 }
 
@@ -4182,6 +4386,7 @@ function drawWeddingGatewayOverlays() {
 function seedPartyHistory() {
 
     moriPositionHistory.length = 0;
+    lastMoriHistoryPoint = { x: player.x, y: player.y };
     for (let index = 0; index < 90; index++) {
 
         moriPositionHistory.push({ x: player.x, y: player.y + index * 1.5 });
@@ -4273,6 +4478,13 @@ function updateSceneTransition(deltaTime) {
 }
 
 function tryInteraction() {
+
+    if (currentChapter === "tokyo") {
+
+        TokyoStoryController.interact();
+        return;
+
+    }
 
     if (nearbyWeddingInteraction && !meetingState.dialogueOpen) {
 
@@ -4530,7 +4742,7 @@ function updateInteractionPromptFade(deltaTime) {
 
 function updateCatCompanion(cat, index, deltaTime) {
 
-    if (!cat.following || tokyoCatJoinSequence.active || chapterCardState.active || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active || gameplayPauseRemaining > 0 || chapterTransition.active || sceneTransition.active || storyCGOverlay.active) {
+    if (!cat.following || tokyoStoryState === TokyoStoryState.PARTY_JOIN_RUNNING || chapterCardState.active || meetingState.dialogueOpen || characterPanelOpen || cameraIntro.active || gameplayPauseRemaining > 0 || chapterTransition.active || sceneTransition.active || storyCGOverlay.active) {
 
         cat.moving = false;
         cat.animationTime += deltaTime;
@@ -4636,6 +4848,7 @@ function updateCatCompanion(cat, index, deltaTime) {
 
 function updateCatCompanions(deltaTime) {
 
+    if (currentChapter === "tokyo" && !tokyoCompanionsJoined()) return;
     cats.forEach((cat, index) => updateCatCompanion(cat, index, deltaTime));
 
 }
@@ -4649,6 +4862,55 @@ function drawCollisionDebug() {
 
     gameCtx.fillStyle = "rgba(91, 196, 117, 0.2)";
     walkableZones.forEach(zone => gameCtx.fillRect(zone.x, zone.y, zone.width, zone.height));
+
+}
+
+function drawTokyoStoryDebugWorld() {
+
+    if (!TokyoStoryController.isDebugOverlayEnabled() || currentChapter !== "tokyo") return;
+
+    const status = TokyoStoryController.getStatus();
+    const bounds = status.triggerBounds;
+    if (bounds) {
+
+        gameCtx.strokeStyle = "rgba(244, 207, 122, 0.95)";
+        gameCtx.lineWidth = 3 / camera.zoom;
+        gameCtx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
+        gameCtx.fillStyle = "rgba(244, 207, 122, 0.12)";
+        gameCtx.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
+
+    }
+
+    if (status.playerAnchor) {
+
+        gameCtx.fillStyle = "#ff5f78";
+        gameCtx.fillRect(status.playerAnchor.x - 3, status.playerAnchor.y - 3, 6, 6);
+
+    }
+
+}
+
+function drawTokyoStoryDebugOverlay() {
+
+    if (!TokyoStoryController.isDebugOverlayEnabled() || currentChapter !== "tokyo") return;
+
+    const status = TokyoStoryController.getStatus();
+    const lines = [
+        `[TokyoStory] ${status.state}`,
+        `Trigger: ${status.activeTriggerId || "none"} (${status.triggerMode || "-"})`,
+        `Pass: ${status.triggerConditionsPass}  Distance: ${status.distanceToTrigger === null ? "-" : Math.round(status.distanceToTrigger)}`,
+        `Dialogue: ${status.dialogue.open ? "open" : "closed"} ${status.dialogue.activeId || ""}`,
+        `Cutscene: ${status.cutscene.running ? "running" : "idle"} ${status.cutscene.activeId || ""}`,
+        `Locked: ${status.controlsLocked}  Companions: ${status.companions.join(",") || "-"}  History: ${status.followHistoryLength}`
+    ];
+
+    gameCtx.save();
+    gameCtx.fillStyle = "rgba(4, 12, 26, 0.82)";
+    gameCtx.fillRect(16, 92, 420, 128);
+    gameCtx.fillStyle = "#f4cf7a";
+    gameCtx.font = "14px Fusion Pixel 12px Monospaced JP";
+    lines.forEach((line, index) => gameCtx.fillText(line, 28, 116 + index * 18));
+    gameCtx.restore();
 
 }
 
@@ -6315,7 +6577,8 @@ function collectInteractionIndicatorTargets() {
 
     if (currentChapter === "tokyo") {
 
-        if (!meetingState.triggered) {
+        const activeTokyoTrigger = TokyoStoryController.getActiveTrigger();
+        if (activeTokyoTrigger?.id === "tokyo-first-avenue-dialogue") {
 
             const count = beforeAdd();
             addInteractionIndicatorTarget(le, {
@@ -6326,103 +6589,71 @@ function collectInteractionIndicatorTargets() {
             });
             afterAdd(count);
 
-        }
-        if (le.companion) {
+        } else if (activeTokyoTrigger?.id === "tokyo-second-avenue-dialogue") {
 
-            if (!storyFlags.tokyoSakuraAvenueDialogueCompleted) {
+            const count = beforeAdd();
+            addInteractionIndicatorTarget(activeTokyoTrigger.bounds, {
+                id: "tokyoSakuraAvenueSecond",
+                type: "mainStory",
+                point: {
+                    x: activeTokyoTrigger.bounds.x + activeTokyoTrigger.bounds.width / 2,
+                    y: activeTokyoTrigger.bounds.y + activeTokyoTrigger.bounds.height / 2
+                },
+                discovered: false,
+                hideAfterComplete: true
+            });
+            afterAdd(count);
 
-                const count = beforeAdd();
-                addInteractionIndicatorTarget(sakuraAvenueMoment, {
-                    id: "tokyoSakuraAvenue",
-                    type: "mainStory",
-                    point: {
-                        x: sakuraAvenueMoment.x + sakuraAvenueMoment.width / 2,
-                        y: sakuraAvenueMoment.y + sakuraAvenueMoment.height / 2
-                    },
-                    discovered: false,
-                    hideAfterComplete: true
-                });
-                afterAdd(count);
+        } else if (activeTokyoTrigger?.id === "tokyo-shrine-companion-event") {
 
-            } else if (!storyFlags.tokyoSakuraAvenueSecondDialogueCompleted) {
+            const count = beforeAdd();
+            addInteractionIndicatorTarget(activeTokyoTrigger.bounds, {
+                id: "tokyoShrineCatEncounter",
+                type: "mainStory",
+                point: {
+                    x: activeTokyoTrigger.bounds.x + activeTokyoTrigger.bounds.width / 2,
+                    y: activeTokyoTrigger.bounds.y - 18
+                },
+                discovered: false,
+                hideAfterComplete: true
+            });
+            afterAdd(count);
 
-                const count = beforeAdd();
-                addInteractionIndicatorTarget(sakuraAvenueMoment, {
-                    id: "tokyoSakuraAvenueSecond",
-                    type: "mainStory",
-                    point: {
-                        x: sakuraAvenueMoment.x + sakuraAvenueMoment.width / 2,
-                        y: sakuraAvenueMoment.y + sakuraAvenueMoment.height / 2
-                    },
-                    discovered: false,
-                    hideAfterComplete: true
-                });
-                afterAdd(count);
+        } else if (activeTokyoTrigger?.id === "tokyo-one-dian-zhang-event") {
 
-            } else if (!hiddenCatEvent.discovered) {
+            const ittencho = interactables.find(item => item.id === "ittencho");
+            const count = beforeAdd();
+            addInteractionIndicatorTarget(ittencho, {
+                type: "mainStory",
+                replayable: false,
+                hideAfterComplete: true
+            });
+            afterAdd(count);
 
-                const count = beforeAdd();
-                addInteractionIndicatorTarget(hiddenCatEvent, {
-                    id: "tokyoShrineCatEncounter",
-                    type: "mainStory",
-                    point: {
-                        x: hiddenCatEvent.x + hiddenCatEvent.width / 2,
-                        y: hiddenCatEvent.y - 18
-                    },
-                    discovered: false,
-                    hideAfterComplete: true
-                });
-                afterAdd(count);
+        } else if (activeTokyoTrigger?.id === "tokyo-shrine-wish") {
 
-            } else if (!storyFlags.tokyoCatJoinShopDialogueCompleted) {
+            const shrine = interactables.find(item => item.id === "shrine");
+            const count = beforeAdd();
+            addInteractionIndicatorTarget(shrine, {
+                type: "mainStory",
+                hideAfterComplete: true
+            });
+            afterAdd(count);
 
-                const count = beforeAdd();
-                addInteractionIndicatorTarget(player, {
-                    id: "tokyoPostCatJoinDialogue",
-                    type: "mainStory",
-                    point: { x: player.x + player.width / 2, y: player.y - 28 },
-                    discovered: false,
-                    hideAfterComplete: true
-                });
-                afterAdd(count);
+        } else if (activeTokyoTrigger?.id === "tokyo-station-departure" && !chapterTransition.completed) {
 
-            } else if (!storyFlags.tokyoIttenchoMemoryCompleted) {
-
-                const ittencho = interactables.find(item => item.id === "ittencho");
-                const count = beforeAdd();
-                addInteractionIndicatorTarget(ittencho, {
-                    type: "mainStory",
-                    replayable: false,
-                    hideAfterComplete: true
-                });
-                afterAdd(count);
-
-            } else if (!storyFlags.tokyoShrineMemoryCompleted) {
-
-                const shrine = interactables.find(item => item.id === "shrine");
-                const count = beforeAdd();
-                addInteractionIndicatorTarget(shrine, {
-                    type: "mainStory",
-                    hideAfterComplete: true
-                });
-                afterAdd(count);
-
-            } else if (tokyoStoryComplete() && !chapterTransition.completed) {
-
-                const count = beforeAdd();
-                addInteractionIndicatorTarget(stationDepartureZone, {
-                    id: "tokyoStationExit",
-                    type: "mainStory",
-                    point: {
-                        x: stationDepartureZone.x + stationDepartureZone.width / 2,
-                        y: stationDepartureZone.y + 26
-                    },
-                    discovered: false,
-                    hideAfterComplete: true
-                });
-                afterAdd(count);
-
-            }
+            const count = beforeAdd();
+            addInteractionIndicatorTarget(activeTokyoTrigger.bounds, {
+                id: "tokyoStationExit",
+                type: "mainStory",
+                point: {
+                    x: activeTokyoTrigger.bounds.x + activeTokyoTrigger.bounds.width / 2,
+                    y: activeTokyoTrigger.bounds.y + 26
+                },
+                discovered: false,
+                hideAfterComplete: true
+            });
+            afterAdd(count);
 
         }
 
@@ -6921,6 +7152,7 @@ function drawGame() {
     }
 
     if (currentChapter === "tokyo") drawCollisionDebug();
+    drawTokyoStoryDebugWorld();
     if (currentChapter === "longnanTown") drawLongnanBridgePiaozi();
     drawWorldAtmosphere();
     if (currentChapter === "coles") drawColesAmbientShoppers();
@@ -6981,6 +7213,7 @@ function drawGame() {
 
     gameCtx.restore();
 
+    drawTokyoStoryDebugOverlay();
     drawChapterTransitionOverlay();
     drawSceneTransitionOverlay();
     drawWeddingGatewayOverlays();
@@ -6989,7 +7222,7 @@ function drawGame() {
 
 function updatePlayer(deltaTime) {
 
-    if (chapterCardState.active || cameraIntro.active || meetingState.pending || meetingState.dialogueOpen || characterPanelOpen || gameplayPauseRemaining || tokyoCatJoinSequence.active || chapterTransition.active || sceneTransition.active || storyCGOverlay.active || ![GameState.TOKYO, GameState.SYDNEY, GameState.COLES, GameState.LONGNAN_LOOKOUT, GameState.LONGNAN_TOWN, GameState.WEDDING_XIAOYUAN].includes(gameState)) {
+    if (chapterCardState.active || cameraIntro.active || meetingState.pending || meetingState.dialogueOpen || characterPanelOpen || gameplayPauseRemaining || tokyoStoryState === TokyoStoryState.PARTY_JOIN_RUNNING || chapterTransition.active || sceneTransition.active || storyCGOverlay.active || ![GameState.TOKYO, GameState.SYDNEY, GameState.COLES, GameState.LONGNAN_LOOKOUT, GameState.LONGNAN_TOWN, GameState.WEDDING_XIAOYUAN].includes(gameState)) {
 
         player.moving = false;
         player.velocityX = 0;
@@ -7105,7 +7338,15 @@ function gameLoop(timestamp) {
     }
     updatePlayer(deltaTime);
     if (currentChapter === "tokyo") checkFirstMeeting(deltaTime);
-    moriPositionHistory.push({ x: player.x, y: player.y });
+    const shouldRecordMoriHistory = !lastMoriHistoryPoint
+        || Math.hypot(player.x - lastMoriHistoryPoint.x, player.y - lastMoriHistoryPoint.y) >= 4;
+    if (shouldRecordMoriHistory) {
+
+        const sample = { x: player.x, y: player.y };
+        moriPositionHistory.push(sample);
+        lastMoriHistoryPoint = sample;
+
+    }
 
     if (moriPositionHistory.length > MAX_FOLLOW_HISTORY) {
 
@@ -7114,8 +7355,6 @@ function gameLoop(timestamp) {
     }
 
     updateLeCompanion(deltaTime);
-    updateTokyoCatJoinSequence(deltaTime);
-    updateTokyoPostCatJoinDialogue();
     if (currentChapter === "tokyo") {
 
         updateNearbyInteractable();
@@ -7291,6 +7530,14 @@ mobileControls.querySelectorAll("button[data-control]").forEach(button => {
 });
 
 window.addEventListener("keydown", event => {
+
+    if (event.shiftKey && event.code === "KeyT") {
+
+        event.preventDefault();
+        TokyoStoryController.setDebugOverlay(!TokyoStoryController.isDebugOverlayEnabled());
+        return;
+
+    }
 
     if (chapterCardState.active) {
 
