@@ -535,7 +535,7 @@
             playerAnchor: anchor,
             triggerBounds: trigger?.bounds ?? null,
             triggerMode: trigger?.mode ?? null,
-            triggerConditionsPass: trigger ? anchorInsideTrigger(trigger) : false,
+            triggerConditionsPass: trigger ? anchorNearTrigger(trigger) : false,
             distanceToTrigger: trigger ? context?.distanceToBounds?.(anchor, trigger.bounds) ?? null : null,
             dialogue,
             cutscene,

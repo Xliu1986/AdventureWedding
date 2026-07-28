@@ -1203,6 +1203,69 @@ function saveTokyoProgress(stateForSave = TokyoStoryController.normalizeStateFor
 
 }
 
+function resetTokyoChapterForNewGame() {
+
+    try {
+
+        localStorage.removeItem(TOKYO_SAVE_KEY);
+
+    } catch {
+        // Local save is optional; storage errors must never block a fresh run.
+    }
+
+    tokyoPersistedFlags.forEach(flag => {
+
+        storyFlags[flag] = flag === "tokyoStoryState"
+            ? TokyoStoryState.FIRST_AVENUE_PENDING
+            : false;
+
+    });
+    storyFlags.prologueViewed = false;
+    storyFlags.tokyoChapterStarted = false;
+    storyFlags.tokyoStoryState = TokyoStoryState.FIRST_AVENUE_PENDING;
+
+    tokyoStoryState = TokyoStoryState.FIRST_AVENUE_PENDING;
+    tokyoCompanionIds.length = 0;
+
+    meetingState.triggered = false;
+    meetingState.pending = false;
+    meetingState.pendingTimer = 0;
+    meetingState.dialogueOpen = false;
+    meetingState.pageIndex = 0;
+    meetingState.characterIndex = 0;
+    meetingState.typeTimer = 0;
+    meetingState.pageComplete = false;
+    meetingState.lastVoiceCueKey = "";
+    gameDialogue.classList.add("hidden");
+    gameDialogueContinue.classList.add("hidden");
+
+    hiddenCatEvent.discovered = false;
+    le.companion = false;
+    le.moving = false;
+    le.visible = true;
+    cats.forEach(cat => {
+        cat.following = false;
+        cat.moving = false;
+        cat.direction = "down";
+        cat.behaviour = "idle";
+    });
+    placeTokyoCatsAtShrine();
+
+    chapterTransition.active = false;
+    chapterTransition.completed = false;
+    chapterTransition.phase = "idle";
+    chapterTransition.elapsed = 0;
+    chapterTransition.petalPhase = 0;
+
+    nearbyCatEvent = false;
+    nearbyStation = false;
+    activeInteraction = null;
+    gameplayPauseRemaining = 0;
+
+    TokyoStoryController.load({ tokyoStoryState: TokyoStoryState.FIRST_AVENUE_PENDING });
+
+}
+
 function getPlayerInteractionAnchor() {
 
     return {
@@ -7415,6 +7478,7 @@ startButton.addEventListener("click", async () => {
     const audioUnlocked = await window.AudioManager?.unlock?.();
     if (audioUnlocked) window.AudioManager?.playSFX?.("pressStart");
     gameStarted = true;
+    resetTokyoChapterForNewGame();
     titleAnimationRunning = false;
     titleScreen.classList.add("hidden");
     dialog.classList.add("hidden");
