@@ -242,16 +242,23 @@
 
     }
 
-    function anchorInsideTrigger(trigger) {
+    function anchorNearTrigger(trigger) {
 
         const anchor = context?.getPlayerAnchor?.();
         const bounds = trigger?.bounds;
         if (!anchor || !bounds) return false;
 
-        return anchor.x >= bounds.x
-            && anchor.x <= bounds.x + bounds.width
-            && anchor.y >= bounds.y
-            && anchor.y <= bounds.y + bounds.height;
+        const distance = context?.distanceToBounds?.(anchor, bounds);
+        if (typeof distance !== "number") {
+
+            return anchor.x >= bounds.x
+                && anchor.x <= bounds.x + bounds.width
+                && anchor.y >= bounds.y
+                && anchor.y <= bounds.y + bounds.height;
+
+        }
+
+        return distance <= (trigger.interactionDistance ?? 96);
 
     }
 
@@ -309,7 +316,7 @@
 
         const trigger = getActiveTrigger();
         if (!trigger || trigger.mode !== "interact") return false;
-        if (!anchorInsideTrigger(trigger)) return false;
+        if (!anchorNearTrigger(trigger)) return false;
         return startTrigger(trigger);
 
     }
@@ -395,7 +402,7 @@
         const trigger = getActiveTrigger();
         if (!trigger || trigger.mode !== "auto") return;
         if (context?.isStoryBusy?.()) return;
-        if (anchorInsideTrigger(trigger)) startTrigger(trigger);
+        if (anchorNearTrigger(trigger)) startTrigger(trigger);
 
     }
 

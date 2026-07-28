@@ -1431,37 +1431,43 @@ TokyoStoryController.init({
             id: "tokyo-first-avenue-dialogue",
             requiredState: TokyoStoryState.FIRST_AVENUE_PENDING,
             mode: "auto",
-            bounds: { x: 1600, y: 1510, width: 220, height: 220 }
+            bounds: { x: sakuraAvenueMoment.x, y: sakuraAvenueMoment.y, width: sakuraAvenueMoment.width, height: sakuraAvenueMoment.height },
+            interactionDistance: 0
         },
         secondAvenue: {
             id: "tokyo-second-avenue-dialogue",
             requiredState: TokyoStoryState.SECOND_AVENUE_PENDING,
             mode: "auto",
-            bounds: { x: 1510, y: 1840, width: 380, height: 280 }
+            bounds: { x: sakuraAvenueSecondMoment.x, y: sakuraAvenueSecondMoment.y, width: sakuraAvenueSecondMoment.width, height: sakuraAvenueSecondMoment.height },
+            interactionDistance: 0
         },
         shrineCompanions: {
             id: "tokyo-shrine-companion-event",
             requiredState: TokyoStoryState.SHRINE_COMPANION_PENDING,
             mode: "interact",
-            bounds: { x: hiddenCatEvent.x, y: hiddenCatEvent.y, width: hiddenCatEvent.width, height: hiddenCatEvent.height }
+            bounds: { x: hiddenCatEvent.x, y: hiddenCatEvent.y, width: hiddenCatEvent.width, height: hiddenCatEvent.height },
+            interactionDistance: 118
         },
         oneDianZhang: {
             id: "tokyo-one-dian-zhang-event",
             requiredState: TokyoStoryState.ONE_DIAN_ZHANG_PENDING,
             mode: "interact",
-            bounds: { x: 580, y: 1740, width: 150, height: 82 }
+            bounds: { x: 580, y: 1740, width: 150, height: 82 },
+            interactionDistance: 100
         },
         shrineWish: {
             id: "tokyo-shrine-wish",
             requiredState: TokyoStoryState.SHRINE_WISH_PENDING,
             mode: "interact",
-            bounds: { x: 1760, y: 1040, width: 170, height: 120 }
+            bounds: { x: 1760, y: 1040, width: 170, height: 120 },
+            interactionDistance: 118
         },
         tokyoStation: {
             id: "tokyo-station-departure",
             requiredState: TokyoStoryState.TOKYO_STATION_PENDING,
             mode: "interact",
-            bounds: { x: 800, y: 490, width: 460, height: 250 }
+            bounds: { x: 800, y: 490, width: 460, height: 250 },
+            interactionDistance: 110
         }
     }),
     closeOrphanedTokyoOverlays: () => {
