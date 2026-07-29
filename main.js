@@ -2004,6 +2004,38 @@ const storyCGs = {
         memoryAlbum: true,
         fullScreenMemoryAlbum: true
     },
+    tokyoStreetNightMemory: {
+        src: "assets/cg/memory-album/tokyo-street-night.png?v=0.9.7.5-single",
+        focalX: 0.5,
+        focalY: 0.5,
+        mobileDisplay: "contain",
+        autoCloseAfter: 2.5,
+        memoryAlbum: true
+    },
+    tokyoFirstSelfieMemory: {
+        src: "assets/cg/memory-album/tokyo-first-selfie.png?v=0.9.7.5-single",
+        focalX: 0.5,
+        focalY: 0.5,
+        mobileDisplay: "contain",
+        autoCloseAfter: 2.5,
+        memoryAlbum: true
+    },
+    tokyoOneDianZhangMemory: {
+        src: "assets/cg/memory-album/tokyo-one-dian-zhang.png?v=0.9.7.5-single",
+        focalX: 0.5,
+        focalY: 0.5,
+        mobileDisplay: "contain",
+        autoCloseAfter: 2.5,
+        memoryAlbum: true
+    },
+    kyotoShavedIceMemory: {
+        src: "assets/cg/memory-album/kyoto-shaved-ice.png?v=0.9.7.5-single",
+        focalX: 0.5,
+        focalY: 0.5,
+        mobileDisplay: "contain",
+        autoCloseAfter: 2.5,
+        memoryAlbum: true
+    },
     longnanHometownView: {
         src: "assets/cg/longnan/cg-kangxian-hometown.png?v=0.8.6",
         locationTitle: "陇南 康县",
@@ -2041,7 +2073,7 @@ const storyCGs = {
         memoryAlbum: true
     },
     longnanAlbumPiaozi: {
-        src: "assets/cg/memory-album/longnan-piaozi.png?v=0.9.9",
+        src: "assets/cg/memory-album/longnan-piaozi.png?v=0.9.9-piaozi-text",
         locationTitle: "瓢子",
         focalX: 0.5,
         focalY: 0.5,
@@ -3533,7 +3565,10 @@ const longnanMemoryAlbumPages = [
 ];
 
 const tokyoMemoryAlbumPages = [
-    "tokyoMemoryAlbum"
+    "tokyoStreetNightMemory",
+    "tokyoFirstSelfieMemory",
+    "tokyoOneDianZhangMemory",
+    "kyotoShavedIceMemory"
 ];
 
 function showTokyoMemoryAlbum(pageIndex = 0, onComplete = null) {
