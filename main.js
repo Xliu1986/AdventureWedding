@@ -3149,8 +3149,7 @@ function unlockWeddingFloralGateway() {
 
 function weddingGatewayCompleted() {
 
-    return storyFlags.weddingInvitationViewed
-        || storyFlags.weddingChapterComplete
+    return storyFlags.weddingChapterComplete
         || storyFlags.weddingEndingViewed
         || storyFlags.gameComplete;
 
