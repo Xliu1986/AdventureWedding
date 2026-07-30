@@ -1,5 +1,5 @@
 /* AdventureWedding — Audio asset registry
-   Build v0.9.10 Music Foundation
+   RC2 Original Soundtrack
 
    Chapter BGM assets are original handmade JRPG-style loops. SFX remain
    registered for future use, but playback is currently disabled by AudioManager.
@@ -19,13 +19,15 @@ const numberedVoiceSFX = (prefix, count) => Array.from(
 
 const AUDIO_ASSETS = {
     bgm: {
-        titleTheme: `${BGM_BASE}title-theme.wav`,
-        tokyoTheme: `${BGM_BASE}tokyo-theme.wav`,
-        sydneyTheme: `${BGM_BASE}sydney-theme.wav`,
-        blueWorksTheme: `${BGM_BASE}blueworks-theme.wav`,
-        longnanTheme: `${BGM_BASE}longnan-theme.wav`,
-        weddingTheme: `${BGM_BASE}wedding-theme.wav`,
-        creditsTheme: `${BGM_BASE}credits-theme.wav`
+        titleTheme: `${BGM_BASE}adventurewedding-main.ogg`,
+        mainTheme: `${BGM_BASE}adventurewedding-main.ogg`,
+        tokyoTheme: `${BGM_BASE}tokyo-spring.ogg`,
+        sydneyTheme: `${BGM_BASE}sydney-together.ogg`,
+        blueWorksTheme: `${BGM_BASE}sydney-together.ogg`,
+        longnanTheme: `${BGM_BASE}longnan-homecoming.ogg`,
+        weddingTheme: `${BGM_BASE}xiaoyuan-wedding.ogg`,
+        xiaoyuanTheme: `${BGM_BASE}xiaoyuan-wedding.ogg`,
+        creditsTheme: `${BGM_BASE}tokyo-to-forever.ogg`
     },
 
     ambient: {
@@ -70,6 +72,61 @@ const AUDIO_ASSETS = {
     }
 };
 
+const BGM_ASSETS = {
+    mainTheme: {
+        src: `${BGM_BASE}adventurewedding-main.ogg`,
+        loop: true,
+        loopStartSeconds: 0,
+        loopEndSeconds: 146.666667
+    },
+    titleTheme: {
+        src: `${BGM_BASE}adventurewedding-main.ogg`,
+        loop: true,
+        loopStartSeconds: 0,
+        loopEndSeconds: 146.666667
+    },
+    tokyoTheme: {
+        src: `${BGM_BASE}tokyo-spring.ogg`,
+        loop: true,
+        loopStartSeconds: 0,
+        loopEndSeconds: 174.545437
+    },
+    sydneyTheme: {
+        src: `${BGM_BASE}sydney-together.ogg`,
+        loop: true,
+        loopStartSeconds: 0,
+        loopEndSeconds: 204
+    },
+    blueWorksTheme: {
+        src: `${BGM_BASE}sydney-together.ogg`,
+        loop: true,
+        loopStartSeconds: 0,
+        loopEndSeconds: 204
+    },
+    longnanTheme: {
+        src: `${BGM_BASE}longnan-homecoming.ogg`,
+        loop: true,
+        loopStartSeconds: 0,
+        loopEndSeconds: 197.647042
+    },
+    weddingTheme: {
+        src: `${BGM_BASE}xiaoyuan-wedding.ogg`,
+        loop: true,
+        loopStartSeconds: 0,
+        loopEndSeconds: 180
+    },
+    xiaoyuanTheme: {
+        src: `${BGM_BASE}xiaoyuan-wedding.ogg`,
+        loop: true,
+        loopStartSeconds: 0,
+        loopEndSeconds: 180
+    },
+    creditsTheme: {
+        src: `${BGM_BASE}tokyo-to-forever.ogg`,
+        loop: false
+    }
+};
+
 const AUDIO_PRELOAD_GROUPS = {
     "core-ui": [
         ["sfx", "pressStart"],
@@ -111,4 +168,5 @@ const AUDIO_PRELOAD_GROUPS = {
 };
 
 window.AUDIO_ASSETS = AUDIO_ASSETS;
+window.BGM_ASSETS = BGM_ASSETS;
 window.AUDIO_PRELOAD_GROUPS = AUDIO_PRELOAD_GROUPS;
