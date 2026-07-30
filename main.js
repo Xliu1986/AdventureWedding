@@ -2118,7 +2118,8 @@ const storyCGs = {
         requiresContinue: true,
         mobileContinueText: "Tap to Continue",
         desktopContinueText: "Click to Continue",
-        fadeFromWhite: true
+        fadeFromWhite: true,
+        fullScreenInvitation: true
     }
 };
 
@@ -6314,14 +6315,16 @@ function drawStoryCG() {
         // Every Story CG uses the same iPhone portrait cinema layout: contain
         // the complete approved artwork in the upper visual panel, leave a
         // navy gap for the live dialogue below, and never cover-crop a memory.
-        const controlReserve = config.fullScreenMemoryAlbum ? 300 : 330;
-        const dialogueReserve = config.fullScreenMemoryAlbum ? 0 : 210;
-        const panelTop = config.fullScreenMemoryAlbum ? 32 : 66;
+        // Wedding invitations are vertical artwork, so they use a taller safe
+        // panel and only reserve space for the continue prompt / mobile buttons.
+        const controlReserve = config.fullScreenInvitation ? 238 : (config.fullScreenMemoryAlbum ? 300 : 330);
+        const dialogueReserve = config.fullScreenInvitation || config.fullScreenMemoryAlbum ? 0 : 210;
+        const panelTop = config.fullScreenInvitation ? 18 : (config.fullScreenMemoryAlbum ? 32 : 66);
         const panelBottom = Math.max(360, Math.min(
-            Math.round(gameViewportState.height * (config.fullScreenMemoryAlbum ? 0.72 : 0.52)),
+            Math.round(gameViewportState.height * (config.fullScreenInvitation ? 0.78 : (config.fullScreenMemoryAlbum ? 0.72 : 0.52))),
             gameViewportState.height - controlReserve - dialogueReserve
         ));
-        const panelWidth = gameViewportState.width - 24;
+        const panelWidth = gameViewportState.width - (config.fullScreenInvitation ? 12 : 24);
         const panelHeight = panelBottom - panelTop;
         const scale = Math.min(panelWidth / sourceWidth, panelHeight / sourceHeight);
         const drawWidth = Math.round(sourceWidth * scale);
@@ -6372,14 +6375,17 @@ function drawStoryCG() {
         const promptText = getStoryCGContinueText(config);
         gameCtx.font = "14px Fusion Pixel, monospace";
         const promptWidth = Math.max(164, Math.ceil(gameCtx.measureText(promptText).width) + 36);
+        const promptY = gameViewportState.isMobile && gameViewportState.portrait && config.fullScreenInvitation
+            ? Math.max((storyFrame?.y || 0) + (storyFrame?.height || 0) + 16, gameViewportState.height - 238)
+            : gameViewportState.height - 58;
         gameCtx.fillStyle = "rgba(5, 17, 33, .76)";
-        gameCtx.fillRect(gameViewportState.width / 2 - promptWidth / 2, gameViewportState.height - 58, promptWidth, 30);
+        gameCtx.fillRect(gameViewportState.width / 2 - promptWidth / 2, promptY, promptWidth, 30);
         gameCtx.strokeStyle = "#d8aa54";
         gameCtx.lineWidth = 2;
-        gameCtx.strokeRect(gameViewportState.width / 2 - promptWidth / 2, gameViewportState.height - 58, promptWidth, 30);
+        gameCtx.strokeRect(gameViewportState.width / 2 - promptWidth / 2, promptY, promptWidth, 30);
         gameCtx.fillStyle = "#fff2cc";
         gameCtx.textAlign = "center";
-        gameCtx.fillText(promptText, gameViewportState.width / 2, gameViewportState.height - 37);
+        gameCtx.fillText(promptText, gameViewportState.width / 2, promptY + 21);
         gameCtx.textAlign = "left";
 
     }
