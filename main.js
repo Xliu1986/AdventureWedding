@@ -3177,10 +3177,10 @@ function canStartWeddingGateway() {
 
 function isInsideWeddingGatewayEntry(centerX, centerY) {
 
-    return centerX >= weddingFloralGateway.x - 116
-        && centerX <= weddingFloralGateway.x + 116
-        && centerY >= weddingFloralGateway.y - 12
-        && centerY <= weddingFloralGateway.y + 156;
+    return centerX >= weddingFloralGateway.x - 210
+        && centerX <= weddingFloralGateway.x + 210
+        && centerY >= weddingFloralGateway.y - 88
+        && centerY <= weddingFloralGateway.y + 286;
 
 }
 
@@ -3231,6 +3231,27 @@ function beginWeddingGatewayCutscene() {
     weddingGatewaySequence.phase = "formation";
     weddingGatewaySequence.elapsed = 0;
     mobileControls.classList.add("hidden");
+
+}
+
+function recoverWeddingGatewaySequence() {
+
+    if (!weddingGatewaySequence.active) return;
+
+    if (weddingGatewaySequence.phase === "dialogue" && !meetingState.dialogueOpen) {
+
+        beginWeddingGatewayCutscene();
+        return;
+
+    }
+
+    if (weddingGatewaySequence.phase === "invitation"
+        && gameState !== GameState.WEDDING_INVITATION
+        && !storyCGOverlay.active) {
+
+        showWeddingInvitation();
+
+    }
 
 }
 
@@ -7465,6 +7486,7 @@ function gameLoop(timestamp) {
     updateChapterCard(deltaTime);
     updateChapterTransition(deltaTime);
     updateSceneTransition(deltaTime);
+    recoverWeddingGatewaySequence();
     updateWeddingGatewaySequence(deltaTime);
     updateStoryCG(deltaTime);
     if (weddingGatewayNoticeRemaining > 0) weddingGatewayNoticeRemaining = Math.max(0, weddingGatewayNoticeRemaining - deltaTime);
