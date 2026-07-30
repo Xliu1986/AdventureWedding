@@ -393,7 +393,7 @@
     async function loadBuffer(category, id, explicitAsset = null) {
         const asset = explicitAsset || getAsset(category, id);
         if (!asset || !state.context) return null;
-        const cacheKey = `${category}:${id}:${asset}`;
+        const cacheKey = `${category}:${asset}`;
         if (state.decodedBuffers.has(cacheKey)) return state.decodedBuffers.get(cacheKey);
         if (state.pendingLoads.has(cacheKey)) return state.pendingLoads.get(cacheKey);
 
