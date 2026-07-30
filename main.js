@@ -1594,6 +1594,14 @@ function loadWeddingProgress() {
         weddingPersistedFlags.forEach(flag => {
             if (typeof saved[flag] === "boolean") storyFlags[flag] = saved[flag];
         });
+        if (!storyFlags.weddingArchUnlocked
+            && storyFlags.weddingSignInViewed
+            && storyFlags.weddingPhotoAreaViewed
+            && storyFlags.weddingCeremonyAreaViewed) {
+
+            storyFlags.weddingArchUnlocked = true;
+
+        }
         if (storyFlags.weddingChapterComplete) {
 
             storyFlags.weddingChapterStarted = true;
@@ -2244,7 +2252,13 @@ function getNextWeddingInteraction() {
 
 }
 
-const weddingFloralGateway = { id: "weddingFloralGateway", label: "进入花拱门", x: 725, y: 274, range: 116 };
+function weddingRequiredInteractionsCompleted() {
+
+    return weddingInteractionOrder.every(id => isWeddingInteractionViewed(id));
+
+}
+
+const weddingFloralGateway = { id: "weddingFloralGateway", label: "进入花拱门", x: 725, y: 274, range: 174 };
 const weddingGatewaySequence = {
     active: false,
     phase: "idle",
@@ -3138,7 +3152,7 @@ function closeMeetingDialogue() {
 function unlockWeddingFloralGateway() {
 
     if (storyFlags.weddingArchUnlocked) return;
-    if (!storyFlags.weddingSignInViewed || !storyFlags.weddingPhotoAreaViewed || !storyFlags.weddingCeremonyAreaViewed) return;
+    if (!weddingRequiredInteractionsCompleted()) return;
 
     storyFlags.weddingArchUnlocked = true;
     window.AudioManager?.playSFX?.("memoryUnlock");
@@ -3158,6 +3172,15 @@ function weddingGatewayCompleted() {
 function canStartWeddingGateway() {
 
     return storyFlags.weddingArchUnlocked && !weddingGatewayCompleted();
+
+}
+
+function isInsideWeddingGatewayEntry(centerX, centerY) {
+
+    return centerX >= weddingFloralGateway.x - 116
+        && centerX <= weddingFloralGateway.x + 116
+        && centerY >= weddingFloralGateway.y - 12
+        && centerY <= weddingFloralGateway.y + 156;
 
 }
 
@@ -4269,10 +4292,17 @@ function updateNearbyWedding() {
     const centerX = player.x + player.width / 2;
     const centerY = player.y + player.height / 2;
     const nextWeddingInteraction = getNextWeddingInteraction();
+    if (!storyFlags.weddingArchUnlocked && weddingRequiredInteractionsCompleted()) {
+
+        storyFlags.weddingArchUnlocked = true;
+        saveWeddingProgress();
+
+    }
     if (canStartWeddingGateway()
         && Math.hypot(centerX - weddingFloralGateway.x, centerY - weddingFloralGateway.y) <= weddingFloralGateway.range) {
 
         nearbyWeddingInteraction = weddingFloralGateway;
+        if (isInsideWeddingGatewayEntry(centerX, centerY)) startWeddingGatewayDialogue();
         return;
 
     }
