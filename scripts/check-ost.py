@@ -45,7 +45,19 @@ def midi_has_notes(path: Path) -> bool:
     return any((byte & 0xF0) == 0x90 for byte in data)
 
 
-def afinfo_ok(path: Path) -> bool:
+def ogg_decode_ok(path: Path) -> bool:
+    ffmpeg = ROOT / "node_modules" / ".pnpm" / "ffmpeg-static@5.3.0" / "node_modules" / "ffmpeg-static" / "ffmpeg"
+    if ffmpeg.exists():
+        try:
+            subprocess.run(
+                [str(ffmpeg), "-v", "error", "-i", str(path), "-f", "null", "-"],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            return True
+        except Exception:
+            return False
     try:
         subprocess.run(["afinfo", str(path)], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         return True
@@ -83,8 +95,8 @@ def main() -> None:
                 errors.append(f"{file_id}.wav appears silent")
         if mid.exists() and not midi_has_notes(mid):
             errors.append(f"{file_id}.mid has no note events")
-        if ogg.exists() and not afinfo_ok(ogg):
-            errors.append(f"{file_id}.ogg failed afinfo decode check")
+        if ogg.exists() and not ogg_decode_ok(ogg):
+            errors.append(f"{file_id}.ogg failed decode check")
 
         meta = loop_meta.get(file_id)
         if not meta:

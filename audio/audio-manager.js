@@ -1,8 +1,8 @@
 /* AdventureWedding — AudioManager
-   Build v0.9.6.4 Memory Album Standardization
+   RC2 Original Soundtrack
 
-   This file intentionally contains no approved music. It provides the shared
-   architecture so future chapters can add assets without scene-local audio.
+   SFX playback remains disabled. BGM playback supports original OST routing,
+   single-track crossfades, non-looping credits, and light Memory Album ducking.
 */
 
 (function () {
@@ -22,6 +22,7 @@
 
     const DEFAULT_BGM_FADE_MS = 600;
     const DEFAULT_AMBIENT_FADE_MS = 400;
+    const MEMORY_DUCK_VOLUME = 0.42;
     const BUFFER_CACHE_LIMIT = 32;
     const MAX_ACTIVE_SFX = 8;
     const SFX_ENABLED = false;
@@ -118,6 +119,7 @@
         lastScene: null,
         pausedByVisibility: false,
         memoryStack: [],
+        memoryDuckDepth: 0,
         unlockListenersAttached: false,
         lastPlayedSFX: null
     };
@@ -180,8 +182,26 @@
         }
     }
 
+    function getBGMConfig(id) {
+        if (!id) return null;
+        const config = window.BGM_ASSETS?.[id] || null;
+        if (config?.src) return config;
+        const src = window.AUDIO_ASSETS?.bgm?.[id] || null;
+        if (!src) return null;
+        return {
+            src,
+            loop: id !== "creditsTheme"
+        };
+    }
+
     function getAsset(category, id) {
         if (!id) return null;
+        if (category === "bgm") {
+            const bgmConfig = getBGMConfig(id);
+            if (bgmConfig?.src) return bgmConfig.src;
+            warnMissing(category, id);
+            return null;
+        }
         const asset = window.AUDIO_ASSETS?.[category]?.[id] || null;
         if (!asset) warnMissing(category, id);
         return asset;
@@ -377,7 +397,9 @@
         if (!state.context || !state.bgmSource) return state.bgmOffset || 0;
         const bufferDuration = state.bgmSource.buffer?.duration || 0;
         if (!bufferDuration) return 0;
-        return (state.context.currentTime - state.bgmStartedAt) % bufferDuration;
+        const elapsed = state.context.currentTime - state.bgmStartedAt;
+        if (!state.bgmSource.loop) return Math.min(elapsed, bufferDuration);
+        return elapsed % bufferDuration;
     }
 
     async function playBGM(id, options = {}) {
@@ -394,12 +416,18 @@
         if (previous) releaseSource(previous, options.fadeOutMs ?? DEFAULT_BGM_FADE_MS);
 
         state.currentBGM = id;
-        const buffer = await loadBuffer("bgm", id);
+        const bgmConfig = getBGMConfig(id);
+        const buffer = await loadBuffer("bgm", id, bgmConfig?.src);
         if (!buffer || state.currentBGM !== id || !state.unlocked) return;
 
         const offset = options.resumePosition ? Math.min(options.resumePosition, buffer.duration - 0.01) : 0;
-        const source = createLoopSource(buffer, "bgm", 0, offset, options.loop !== false);
+        const shouldLoop = options.loop ?? bgmConfig?.loop ?? true;
+        const source = createLoopSource(buffer, "bgm", 0, offset, shouldLoop);
         if (!source) return;
+        if (shouldLoop && Number.isFinite(bgmConfig?.loopStartSeconds) && Number.isFinite(bgmConfig?.loopEndSeconds)) {
+            source.loopStart = Math.max(0, bgmConfig.loopStartSeconds);
+            source.loopEnd = Math.min(buffer.duration, bgmConfig.loopEndSeconds);
+        }
         state.bgmSource = source;
         state.bgmStartedAt = state.context.currentTime - offset;
         state.bgmOffset = offset;
@@ -530,7 +558,17 @@
         else stopAmbient();
     }
 
-    function beginMemory(id, explicitOverride = null) {
+    function duckBGM(active, fadeMs = 450) {
+        const target = active ? MEMORY_DUCK_VOLUME : categoryOutputVolume("bgm");
+        gainSet(state.categoryGains.bgm, target, fadeMs);
+    }
+
+    function beginMemory(id, explicitOverride = null, options = {}) {
+        if (options.duck) {
+            state.memoryDuckDepth += 1;
+            duckBGM(true);
+            return;
+        }
         const override = explicitOverride || window.MEMORY_AUDIO_OVERRIDES?.[id];
         if (!override) return;
         state.memoryStack.push({
@@ -540,7 +578,12 @@
         playBGM(override, { restart: false });
     }
 
-    function endMemory(id, explicitOverride = null) {
+    function endMemory(id, explicitOverride = null, options = {}) {
+        if (options.duck) {
+            state.memoryDuckDepth = Math.max(0, state.memoryDuckDepth - 1);
+            if (state.memoryDuckDepth === 0) duckBGM(false);
+            return;
+        }
         const override = explicitOverride || window.MEMORY_AUDIO_OVERRIDES?.[id];
         if (!override) return;
         const previous = state.memoryStack.pop();

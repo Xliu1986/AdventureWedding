@@ -1,5 +1,5 @@
 /* AdventureWedding — central scene audio routing
-   Build v0.9.5
+   RC2 Original Soundtrack
 */
 
 const SCENE_AUDIO = {
@@ -172,9 +172,7 @@ const SCENE_AUDIO = {
     }
 };
 
-const MEMORY_AUDIO_OVERRIDES = {
-    blueWorksMemory: "blueWorksTheme"
-};
+const MEMORY_AUDIO_OVERRIDES = {};
 
 window.SCENE_AUDIO = SCENE_AUDIO;
 window.MEMORY_AUDIO_OVERRIDES = MEMORY_AUDIO_OVERRIDES;

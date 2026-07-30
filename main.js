@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   Version 0.9.7.7 — Tokyo Story Controller Rewrite
+   RC2 — Original Soundtrack
 ====================================== */
 
 const canvas = document.getElementById("background");
@@ -1983,7 +1983,6 @@ const storyCGs = {
         locationTitle: "Blue Works Vintage Store",
         focalX: 0.5,
         focalY: 0.48,
-        bgmOverride: "blueWorksTheme",
         mobileDisplay: "contain"
     },
     sydneyAirport: {
@@ -3148,6 +3147,21 @@ function unlockWeddingFloralGateway() {
 
 }
 
+function weddingGatewayCompleted() {
+
+    return storyFlags.weddingInvitationViewed
+        || storyFlags.weddingChapterComplete
+        || storyFlags.weddingEndingViewed
+        || storyFlags.gameComplete;
+
+}
+
+function canStartWeddingGateway() {
+
+    return storyFlags.weddingArchUnlocked && !weddingGatewayCompleted();
+
+}
+
 const weddingGatewayDialoguePages = [
     { speaker: "坨坨", text: "森～\n\n准备好了喵？" },
     { speaker: "大痣", text: "大家都在等你们喵呜～" },
@@ -3157,7 +3171,7 @@ const weddingGatewayDialoguePages = [
 
 function startWeddingGatewayDialogue() {
 
-    if (!storyFlags.weddingArchUnlocked || storyFlags.weddingArchSequenceStarted || gameState !== GameState.WEDDING_XIAOYUAN) return;
+    if (!canStartWeddingGateway() || gameState !== GameState.WEDDING_XIAOYUAN) return;
 
     storyFlags.weddingArchSequenceStarted = true;
     weddingGatewaySequence.active = true;
@@ -3204,12 +3218,21 @@ function showWeddingInvitation() {
     weddingGatewaySequence.active = false;
     weddingGatewaySequence.phase = "invitation";
     weddingGatewaySequence.invitationReady = false;
-    storyFlags.weddingInvitationViewed = true;
-    saveWeddingProgress();
     transitionInputLockUntil = performance.now() + 350;
     mobileControls.classList.remove("hidden");
     mobileControls.classList.add("invitationMode");
-    showStoryCG({ id: "weddingInvitation", revealDelay: 5 });
+    const opened = showStoryCG({ id: "weddingInvitation", revealDelay: 5 });
+    if (!opened) {
+
+        storyFlags.weddingArchSequenceStarted = false;
+        mobileControls.classList.remove("invitationMode");
+        setGameState(GameState.WEDDING_XIAOYUAN);
+        return;
+
+    }
+
+    storyFlags.weddingInvitationViewed = true;
+    saveWeddingProgress();
 
 }
 
@@ -3538,7 +3561,8 @@ function showStoryCG({ id, image, dialogue = null, dialoguePurpose = "storyCG", 
     storyCGOverlay.config = config;
     storyCGOverlay.phase = "fadeIn";
     storyCGOverlay.opacity = 0;
-    storyCGOverlay.revealDelay = Math.max(0, Math.min(revealDelay, 0.5));
+    const maxRevealDelay = config.requiresContinue ? 10 : 0.5;
+    storyCGOverlay.revealDelay = Math.max(0, Math.min(revealDelay, maxRevealDelay));
     storyCGOverlay.dialogue = dialogue;
     storyCGOverlay.dialoguePurpose = dialoguePurpose;
     storyCGOverlay.dialogueStarted = false;
@@ -3547,7 +3571,9 @@ function showStoryCG({ id, image, dialogue = null, dialoguePurpose = "storyCG", 
     storyCGOverlay.albumMode = "";
     storyCGOverlay.albumPageIndex = 0;
     window.AudioManager?.playSFX?.(id === "blueWorksMemory" ? "blueWorksVinyl" : "cgFadeIn");
-    window.AudioManager?.beginMemory?.(storyCGOverlay.id, config.bgmOverride);
+    window.AudioManager?.beginMemory?.(storyCGOverlay.id, config.bgmOverride, {
+        duck: Boolean(config.memoryAlbum)
+    });
     pressedKeys.clear();
     clearMobileControls();
     player.moving = false;
@@ -3699,7 +3725,9 @@ function updateStoryCG(deltaTime) {
         const onComplete = storyCGOverlay.onComplete;
         const completedStoryId = storyCGOverlay.id;
         const completedBGMOverride = storyCGOverlay.config?.bgmOverride;
-        window.AudioManager?.endMemory?.(completedStoryId, completedBGMOverride);
+        window.AudioManager?.endMemory?.(completedStoryId, completedBGMOverride, {
+            duck: Boolean(storyCGOverlay.config?.memoryAlbum)
+        });
         storyCGOverlay.active = false;
         storyCGOverlay.id = null;
         storyCGOverlay.config = null;
@@ -4242,7 +4270,7 @@ function updateNearbyWedding() {
     const centerX = player.x + player.width / 2;
     const centerY = player.y + player.height / 2;
     const nextWeddingInteraction = getNextWeddingInteraction();
-    if (storyFlags.weddingArchUnlocked && !storyFlags.weddingArchSequenceStarted
+    if (canStartWeddingGateway()
         && Math.hypot(centerX - weddingFloralGateway.x, centerY - weddingFloralGateway.y) <= weddingFloralGateway.range) {
 
         nearbyWeddingInteraction = weddingFloralGateway;
@@ -6892,7 +6920,7 @@ function collectInteractionIndicatorTargets() {
             afterAdd(count);
 
         });
-        if (storyFlags.weddingArchUnlocked && !storyFlags.weddingArchSequenceStarted) {
+        if (canStartWeddingGateway()) {
 
             const count = beforeAdd();
             addInteractionIndicatorTarget(weddingFloralGateway, {
