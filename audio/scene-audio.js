@@ -1,5 +1,5 @@
 /* AdventureWedding — central scene audio routing
-   RC2 Original Soundtrack
+   RC2.1 Original Soundtrack — Mobile Integration
 */
 
 const SCENE_AUDIO = {
@@ -28,8 +28,7 @@ const SCENE_AUDIO = {
     },
 
     chapterTransition: {
-        bgm: null,
-        ambient: null
+        preserve: true
     },
 
     sydneyLookout: {

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Validate AdventureWedding RC2 OST outputs."""
+"""Validate AdventureWedding RC2.1 OST outputs."""
 
 from __future__ import annotations
 
 import json
 import subprocess
 import wave
+from array import array
 from pathlib import Path
 
 
@@ -21,6 +22,10 @@ EXPECTED = {
     "tokyo-to-forever": {"min": 220, "loop": False},
 }
 
+MAX_OGG_TOTAL_BYTES = 24 * 1024 * 1024
+MAX_PEAK_RATIO = 0.999
+MIN_PEAK_RATIO = 0.02
+
 
 def read_wav(path: Path) -> dict:
     with wave.open(str(path), "rb") as wav:
@@ -28,8 +33,24 @@ def read_wav(path: Path) -> dict:
         rate = wav.getframerate()
         channels = wav.getnchannels()
         width = wav.getsampwidth()
-        raw = wav.readframes(min(frames, rate * 20))
-    silent = not raw or all(byte == 0 for byte in raw)
+        peak = 0
+        silent = True
+        while True:
+            raw = wav.readframes(rate)
+            if not raw:
+                break
+            if any(byte != 0 for byte in raw):
+                silent = False
+            if width == 2:
+                samples = array("h")
+                samples.frombytes(raw)
+                if samples:
+                    peak = max(peak, max(abs(sample) for sample in samples))
+            elif width == 3:
+                for index in range(0, len(raw) - 2, 3):
+                    sample = int.from_bytes(raw[index:index + 3], "little", signed=True)
+                    peak = max(peak, abs(sample))
+    full_scale = float((1 << (width * 8 - 1)) - 1) if width in (2, 3) else 1.0
     return {
         "frames": frames,
         "rate": rate,
@@ -37,6 +58,7 @@ def read_wav(path: Path) -> dict:
         "width": width,
         "duration": frames / rate,
         "silent": silent,
+        "peak": peak / full_scale,
     }
 
 
@@ -67,6 +89,11 @@ def ogg_decode_ok(path: Path) -> bool:
 
 def main() -> None:
     errors: list[str] = []
+    registry_path = ROOT / "audio" / "audio-registry.js"
+    registry_text = registry_path.read_text(encoding="utf-8") if registry_path.exists() else ""
+    if not registry_text:
+        errors.append("missing audio/audio-registry.js")
+
     loop_path = OUT / "loop-metadata.json"
     if not loop_path.exists():
         errors.append("missing loop-metadata.json")
@@ -93,10 +120,16 @@ def main() -> None:
                 errors.append(f"{file_id}.wav too short: {info['duration']:.3f}s")
             if info["silent"]:
                 errors.append(f"{file_id}.wav appears silent")
+            if info["peak"] >= MAX_PEAK_RATIO:
+                errors.append(f"{file_id}.wav may be clipping: peak {info['peak']:.4f}")
+            if info["peak"] <= MIN_PEAK_RATIO:
+                errors.append(f"{file_id}.wav peak too low: {info['peak']:.4f}")
         if mid.exists() and not midi_has_notes(mid):
             errors.append(f"{file_id}.mid has no note events")
         if ogg.exists() and not ogg_decode_ok(ogg):
             errors.append(f"{file_id}.ogg failed decode check")
+        if registry_text and f"{file_id}.ogg" not in registry_text:
+            errors.append(f"{file_id}.ogg is not referenced by audio/audio-registry.js")
 
         meta = loop_meta.get(file_id)
         if not meta:
@@ -115,6 +148,10 @@ def main() -> None:
     for extra in [OUT / "OST_NOTES.md", ROOT / "assets" / "audio" / "OST_LICENSES.md"]:
         if not extra.exists():
             errors.append(f"missing {extra.relative_to(ROOT)}")
+
+    total_ogg_bytes = sum((OUT / f"{file_id}.ogg").stat().st_size for file_id in EXPECTED if (OUT / f"{file_id}.ogg").exists())
+    if total_ogg_bytes > MAX_OGG_TOTAL_BYTES:
+        errors.append(f"OGG total size too large: {total_ogg_bytes / (1024 * 1024):.2f} MB")
 
     if errors:
         print("OST check failed:")

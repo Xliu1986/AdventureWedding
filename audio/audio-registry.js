@@ -1,5 +1,5 @@
 /* AdventureWedding — Audio asset registry
-   RC2 Original Soundtrack
+   RC2.1 Original Soundtrack — Mobile Integration
 
    Chapter BGM assets are original handmade JRPG-style loops. SFX remain
    registered for future use, but playback is currently disabled by AudioManager.
@@ -72,59 +72,78 @@ const AUDIO_ASSETS = {
     }
 };
 
-const BGM_ASSETS = {
+const BGM_TRACKS = {
     mainTheme: {
+        id: "mainTheme",
+        title: "AdventureWedding Main Theme",
         src: `${BGM_BASE}adventurewedding-main.ogg`,
         loop: true,
         loopStartSeconds: 0,
-        loopEndSeconds: 146.666667
-    },
-    titleTheme: {
-        src: `${BGM_BASE}adventurewedding-main.ogg`,
-        loop: true,
-        loopStartSeconds: 0,
-        loopEndSeconds: 146.666667
+        loopEndSeconds: 146.666667,
+        defaultVolume: 0.60,
+        tempo: 72,
+        key: "G major"
     },
     tokyoTheme: {
+        id: "tokyoTheme",
+        title: "Tokyo Spring",
         src: `${BGM_BASE}tokyo-spring.ogg`,
         loop: true,
         loopStartSeconds: 0,
-        loopEndSeconds: 174.545437
+        loopEndSeconds: 174.545437,
+        defaultVolume: 0.58,
+        tempo: 88,
+        key: "D major"
     },
     sydneyTheme: {
+        id: "sydneyTheme",
+        title: "Sydney Together",
         src: `${BGM_BASE}sydney-together.ogg`,
         loop: true,
         loopStartSeconds: 0,
-        loopEndSeconds: 204
-    },
-    blueWorksTheme: {
-        src: `${BGM_BASE}sydney-together.ogg`,
-        loop: true,
-        loopStartSeconds: 0,
-        loopEndSeconds: 204
+        loopEndSeconds: 204,
+        defaultVolume: 0.56,
+        tempo: 84,
+        key: "A major"
     },
     longnanTheme: {
+        id: "longnanTheme",
+        title: "Longnan Homecoming",
         src: `${BGM_BASE}longnan-homecoming.ogg`,
         loop: true,
         loopStartSeconds: 0,
-        loopEndSeconds: 197.647042
-    },
-    weddingTheme: {
-        src: `${BGM_BASE}xiaoyuan-wedding.ogg`,
-        loop: true,
-        loopStartSeconds: 0,
-        loopEndSeconds: 180
+        loopEndSeconds: 197.647042,
+        defaultVolume: 0.57,
+        tempo: 68,
+        key: "C major"
     },
     xiaoyuanTheme: {
+        id: "xiaoyuanTheme",
+        title: "Xiaoyuan Wedding",
         src: `${BGM_BASE}xiaoyuan-wedding.ogg`,
         loop: true,
         loopStartSeconds: 0,
-        loopEndSeconds: 180
+        loopEndSeconds: 180,
+        defaultVolume: 0.55,
+        tempo: 76,
+        key: "F major"
     },
     creditsTheme: {
+        id: "creditsTheme",
+        title: "Tokyo to Forever",
         src: `${BGM_BASE}tokyo-to-forever.ogg`,
-        loop: false
+        loop: false,
+        defaultVolume: 0.58,
+        tempo: 70,
+        key: "G major"
     }
+};
+
+const BGM_ASSETS = {
+    ...BGM_TRACKS,
+    titleTheme: BGM_TRACKS.mainTheme,
+    blueWorksTheme: BGM_TRACKS.sydneyTheme,
+    weddingTheme: BGM_TRACKS.xiaoyuanTheme
 };
 
 const AUDIO_PRELOAD_GROUPS = {
@@ -168,5 +187,6 @@ const AUDIO_PRELOAD_GROUPS = {
 };
 
 window.AUDIO_ASSETS = AUDIO_ASSETS;
+window.BGM_TRACKS = BGM_TRACKS;
 window.BGM_ASSETS = BGM_ASSETS;
 window.AUDIO_PRELOAD_GROUPS = AUDIO_PRELOAD_GROUPS;

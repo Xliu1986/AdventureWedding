@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AdventureWedding Audio QA · RC2.1</title>
+<style>
+html,
+body {
+    margin: 0;
+    min-height: 100%;
+    background: #020815;
+    color: #fff7d8;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+body {
+    padding: max(16px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom));
+    box-sizing: border-box;
+}
+
+.shell {
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+h1 {
+    margin: 0 0 4px;
+    color: #ffd36b;
+    font-size: clamp(24px, 7vw, 36px);
+}
+
+p {
+    margin: 0 0 14px;
+    line-height: 1.55;
+}
+
+.card {
+    margin: 14px 0;
+    padding: 14px;
+    background: rgba(6, 18, 38, 0.94);
+    border: 3px solid #d9a84a;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, .35);
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+button {
+    min-height: 48px;
+    padding: 10px;
+    border: 2px solid #d9a84a;
+    background: #10223b;
+    color: #fff7d8;
+    font: inherit;
+    font-size: 15px;
+    touch-action: manipulation;
+}
+
+button.primary {
+    grid-column: 1 / -1;
+    background: #213b5f;
+    color: #fff0b9;
+}
+
+label {
+    display: block;
+    margin-top: 12px;
+}
+
+input[type="range"] {
+    width: 100%;
+}
+
+pre {
+    margin: 0;
+    padding: 10px;
+    overflow: auto;
+    white-space: pre-wrap;
+    background: rgba(0, 0, 0, .28);
+    border: 1px solid rgba(217, 168, 74, .45);
+    line-height: 1.45;
+}
+
+.note {
+    color: #d9c89a;
+    font-size: 13px;
+}
+</style>
+</head>
+<body>
+<main class="shell">
+<h1>Audio QA · RC2.1</h1>
+<p>用于 iPhone Safari / 桌面浏览器验证 BGM 解锁、循环、切曲、静音、鸭音和状态。此页面不播放任何 SFX。</p>
+
+<section class="card">
+<p id="currentTrack">Current: -</p>
+<div class="grid">
+<button class="primary" id="unlock">Unlock / Start Audio</button>
+<button data-track="titleTheme">Main Theme</button>
+<button data-track="tokyoTheme">Tokyo</button>
+<button data-track="sydneyTheme">Sydney</button>
+<button data-track="longnanTheme">Longnan</button>
+<button data-track="weddingTheme">Xiaoyuan</button>
+<button data-track="creditsTheme">Credits</button>
+<button id="previous">Previous</button>
+<button id="next">Next</button>
+<button id="stop">Stop</button>
+<button id="toggleMusic">Music On / Off</button>
+<button id="duck">Duck</button>
+<button id="unduck">Unduck</button>
+</div>
+<label>
+BGM Volume
+<input id="volume" type="range" min="0" max="1" step="0.01" value="0.6">
+</label>
+</section>
+
+<section class="card">
+<pre id="status">Loading…</pre>
+</section>
+
+<p class="note">手机验收建议：打开页面后先点 Unlock，再逐首试听。锁屏/切后台后返回，音乐应能安全恢复，不应出现控制台错误。</p>
+</main>
+
+<script src="audio/audio-registry.js?v=rc2.1-qa"></script>
+<script src="audio/scene-audio.js?v=rc2.1-qa"></script>
+<script src="audio/audio-manager.js?v=rc2.1-qa"></script>
+<script>
+(function () {
+    "use strict";
+
+    const statusNode = document.getElementById("status");
+    const volume = document.getElementById("volume");
+    const currentTrack = document.getElementById("currentTrack");
+    const tracks = ["titleTheme", "tokyoTheme", "sydneyTheme", "longnanTheme", "weddingTheme", "creditsTheme"];
+
+    window.AudioManager?.init?.();
+
+    async function refresh() {
+        const status = window.AudioManager?.getStatus?.() || {};
+        statusNode.textContent = JSON.stringify(status, null, 2);
+        currentTrack.textContent = `Current: ${status.currentTrackId || "-"}`;
+        if (Number.isFinite(status.bgmVolume)) volume.value = String(status.bgmVolume);
+    }
+
+    document.getElementById("unlock").addEventListener("click", async () => {
+        await window.AudioManager?.unlock?.();
+        await window.AudioManager?.play?.("titleTheme");
+        refresh();
+    });
+
+    document.querySelectorAll("[data-track]").forEach(button => {
+        button.addEventListener("click", async () => {
+            await window.AudioManager?.unlock?.();
+            await window.AudioManager?.play?.(button.dataset.track, { restart: true });
+            refresh();
+        });
+    });
+
+    document.getElementById("stop").addEventListener("click", () => {
+        window.AudioManager?.stop?.({ fadeOutMs: 250 });
+        refresh();
+    });
+
+    async function playRelative(step) {
+        const current = window.AudioManager?.getCurrentTrackId?.();
+        const currentIndex = Math.max(0, tracks.indexOf(current));
+        const nextIndex = (currentIndex + step + tracks.length) % tracks.length;
+        await window.AudioManager?.unlock?.();
+        await window.AudioManager?.play?.(tracks[nextIndex]);
+        refresh();
+    }
+
+    document.getElementById("previous").addEventListener("click", () => playRelative(-1));
+    document.getElementById("next").addEventListener("click", () => playRelative(1));
+
+    document.getElementById("toggleMusic").addEventListener("click", () => {
+        const enabled = !window.AudioManager?.isMusicEnabled?.();
+        window.AudioManager?.setMusicEnabled?.(enabled);
+        refresh();
+    });
+
+    document.getElementById("duck").addEventListener("click", () => {
+        window.AudioManager?.duck?.("qa", 0.45, 220);
+        refresh();
+    });
+
+    document.getElementById("unduck").addEventListener("click", () => {
+        window.AudioManager?.unduck?.("qa", 220);
+        refresh();
+    });
+
+    volume.addEventListener("input", () => {
+        window.AudioManager?.setCategoryVolume?.("bgm", Number(volume.value));
+        refresh();
+    });
+
+    window.setInterval(refresh, 500);
+    refresh();
+})();
+</script>
+</body>
+</html>

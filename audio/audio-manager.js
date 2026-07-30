@@ -1,5 +1,5 @@
 /* AdventureWedding — AudioManager
-   RC2 Original Soundtrack
+   RC2.1 Original Soundtrack — Mobile Integration
 
    SFX playback remains disabled. BGM playback supports original OST routing,
    single-track crossfades, non-looping credits, and light Memory Album ducking.
@@ -20,9 +20,10 @@
         }
     };
 
-    const DEFAULT_BGM_FADE_MS = 600;
+    const DEFAULT_BGM_FADE_MS = 750;
     const DEFAULT_AMBIENT_FADE_MS = 400;
-    const MEMORY_DUCK_VOLUME = 0.42;
+    const MUSIC_ENABLED_STORAGE_KEY = "adventureWedding.musicEnabled";
+    const MEMORY_DUCK_FACTOR = 0.707;
     const BUFFER_CACHE_LIMIT = 32;
     const MAX_ACTIVE_SFX = 8;
     const SFX_ENABLED = false;
@@ -107,8 +108,12 @@
         pendingLoads: new Map(),
         missingWarnings: new Set(),
         failedAssets: new Map(),
+        loadingState: "idle",
+        lastAudioError: "",
+        musicEnabled: true,
         currentBGM: null,
         bgmSource: null,
+        activeBGMSources: new Set(),
         bgmStartedAt: 0,
         bgmOffset: 0,
         currentAmbient: null,
@@ -120,9 +125,28 @@
         pausedByVisibility: false,
         memoryStack: [],
         memoryDuckDepth: 0,
+        duckReasons: new Map(),
         unlockListenersAttached: false,
         lastPlayedSFX: null
     };
+
+    function loadMusicPreference() {
+        try {
+            const stored = localStorage.getItem(MUSIC_ENABLED_STORAGE_KEY);
+            if (stored === "false") state.musicEnabled = false;
+            if (stored === "true") state.musicEnabled = true;
+        } catch {
+            state.musicEnabled = true;
+        }
+    }
+
+    function saveMusicPreference() {
+        try {
+            localStorage.setItem(MUSIC_ENABLED_STORAGE_KEY, state.musicEnabled ? "true" : "false");
+        } catch {
+            // Private browsing or storage restrictions should not break audio.
+        }
+    }
 
     function createContext() {
         if (state.context) return state.context;
@@ -160,6 +184,7 @@
 
     function recordFailedAsset(category, id, url, error, meta = {}) {
         const key = `${category}:${id}:${url}`;
+        state.lastAudioError = error?.message || String(error || "unknown");
         if (state.failedAssets.has(key)) return;
         state.failedAssets.set(key, {
             category,
@@ -285,13 +310,23 @@
     }
 
     function categoryOutputVolume(category) {
+        if (category === "bgm" && !state.musicEnabled) return 0;
         return state.settings.muted[category] ? 0 : state.settings[category];
+    }
+
+    function bgmDuckFactor() {
+        if (!state.duckReasons.size) return 1;
+        return Math.min(...Array.from(state.duckReasons.values()).map(value => clamp01(value)));
+    }
+
+    function bgmOutputVolume() {
+        return categoryOutputVolume("bgm") * bgmDuckFactor();
     }
 
     function updateAllGainValues() {
         if (!state.masterGain) return;
         gainSet(state.masterGain, state.settings.master);
-        gainSet(state.categoryGains.bgm, categoryOutputVolume("bgm"));
+        gainSet(state.categoryGains.bgm, bgmOutputVolume());
         gainSet(state.categoryGains.ambient, categoryOutputVolume("ambient"));
         gainSet(state.categoryGains.sfx, categoryOutputVolume("sfx"));
     }
@@ -351,6 +386,7 @@
         source.__gainNode = gain;
         source.__offset = offset;
         source.__startedAt = state.context.currentTime - offset;
+        source.__category = category;
         return source;
     }
 
@@ -361,6 +397,7 @@
         if (state.decodedBuffers.has(cacheKey)) return state.decodedBuffers.get(cacheKey);
         if (state.pendingLoads.has(cacheKey)) return state.pendingLoads.get(cacheKey);
 
+        state.loadingState = `loading:${category}:${id}`;
         const loadPromise = fetchAudioArrayBuffer(asset)
             .then(payload => state.context.decodeAudioData(payload.arrayBuffer).catch(error => {
                 error.__audioMeta = {
@@ -373,11 +410,13 @@
             .then(buffer => {
                 state.decodedBuffers.set(cacheKey, buffer);
                 state.pendingLoads.delete(cacheKey);
+                state.loadingState = state.pendingLoads.size ? "loading" : "idle";
                 trimBufferCache();
                 return buffer;
             })
             .catch(error => {
                 state.pendingLoads.delete(cacheKey);
+                state.loadingState = state.pendingLoads.size ? "loading" : "idle";
                 recordFailedAsset(category, id, asset, error, error?.__audioMeta || {});
                 return null;
             });
@@ -399,7 +438,11 @@
         if (!bufferDuration) return 0;
         const elapsed = state.context.currentTime - state.bgmStartedAt;
         if (!state.bgmSource.loop) return Math.min(elapsed, bufferDuration);
-        return elapsed % bufferDuration;
+        const loopStart = state.bgmSource.loopStart || 0;
+        const loopEnd = state.bgmSource.loopEnd || bufferDuration;
+        const loopLength = Math.max(0.01, loopEnd - loopStart);
+        if (elapsed < loopEnd) return elapsed;
+        return loopStart + ((elapsed - loopStart) % loopLength);
     }
 
     async function playBGM(id, options = {}) {
@@ -407,11 +450,17 @@
             AudioManager.stopBGM(options);
             return;
         }
-        if (!state.unlocked) {
-            state.currentBGM = id;
+        const previousId = state.currentBGM;
+        state.currentBGM = id;
+        if (!state.musicEnabled || state.settings.muted.bgm) {
+            if (state.bgmSource) releaseSource(state.bgmSource, options.fadeOutMs ?? DEFAULT_BGM_FADE_MS);
+            state.bgmSource = null;
             return;
         }
-        if (state.currentBGM === id && state.bgmSource && !options.restart) return;
+        if (!state.unlocked) {
+            return;
+        }
+        if (previousId === id && state.bgmSource && !options.restart) return;
         const previous = state.bgmSource;
         if (previous) releaseSource(previous, options.fadeOutMs ?? DEFAULT_BGM_FADE_MS);
 
@@ -429,9 +478,11 @@
             source.loopEnd = Math.min(buffer.duration, bgmConfig.loopEndSeconds);
         }
         state.bgmSource = source;
+        state.activeBGMSources.add(source);
         state.bgmStartedAt = state.context.currentTime - offset;
         state.bgmOffset = offset;
         source.onended = () => {
+            state.activeBGMSources.delete(source);
             if (state.bgmSource === source) state.bgmSource = null;
         };
         try {
@@ -544,6 +595,9 @@
     function resumeAll() {
         if (!state.context || !state.unlocked || state.context.state === "closed") return;
         state.context.resume?.();
+        if (state.currentBGM && !state.bgmSource && state.musicEnabled && !state.settings.muted.bgm) {
+            playBGM(state.currentBGM, { resumePosition: state.bgmOffset || 0, fadeInMs: 180 });
+        }
     }
 
     function applySceneAudio(sceneId) {
@@ -558,15 +612,24 @@
         else stopAmbient();
     }
 
-    function duckBGM(active, fadeMs = 450) {
-        const target = active ? MEMORY_DUCK_VOLUME : categoryOutputVolume("bgm");
-        gainSet(state.categoryGains.bgm, target, fadeMs);
+    function applyBGMDuck(fadeMs = 450) {
+        gainSet(state.categoryGains.bgm, bgmOutputVolume(), fadeMs);
+    }
+
+    function duck(reason = "default", amount = MEMORY_DUCK_FACTOR, fadeMs = 450) {
+        state.duckReasons.set(String(reason), clamp01(amount));
+        applyBGMDuck(fadeMs);
+    }
+
+    function unduck(reason = "default", fadeMs = 450) {
+        state.duckReasons.delete(String(reason));
+        applyBGMDuck(fadeMs);
     }
 
     function beginMemory(id, explicitOverride = null, options = {}) {
         if (options.duck) {
             state.memoryDuckDepth += 1;
-            duckBGM(true);
+            duck(`memory:${id || "album"}`, options.duckAmount ?? MEMORY_DUCK_FACTOR);
             return;
         }
         const override = explicitOverride || window.MEMORY_AUDIO_OVERRIDES?.[id];
@@ -581,7 +644,7 @@
     function endMemory(id, explicitOverride = null, options = {}) {
         if (options.duck) {
             state.memoryDuckDepth = Math.max(0, state.memoryDuckDepth - 1);
-            if (state.memoryDuckDepth === 0) duckBGM(false);
+            unduck(`memory:${id || "album"}`);
             return;
         }
         const override = explicitOverride || window.MEMORY_AUDIO_OVERRIDES?.[id];
@@ -632,6 +695,7 @@
         init() {
             if (state.initialized) return;
             state.initialized = true;
+            loadMusicPreference();
             attachUnlockListeners();
             document.addEventListener("visibilitychange", () => {
                 if (document.visibilityState === "hidden") handleVisibilityHidden();
@@ -676,15 +740,21 @@
         },
 
         playBGM,
+        play: playBGM,
         stopBGM,
+        stop: stopBGM,
         playAmbient,
         stopAmbient,
         playSFX,
         pauseAll,
+        pause: pauseAll,
         resumeAll,
+        resume: resumeAll,
         applySceneAudio,
         beginMemory,
         endMemory,
+        duck,
+        unduck,
         preloadGroup,
 
         async testAsset(id) {
@@ -734,17 +804,78 @@
             gainSet(state.masterGain, state.settings.master);
         },
 
+        setVolume(value) {
+            AudioManager.setMasterVolume(value);
+        },
+
+        fadeTo(categoryOrValue, valueOrFadeMs = DEFAULT_BGM_FADE_MS, fadeMs = DEFAULT_BGM_FADE_MS) {
+            if (typeof categoryOrValue !== "string") {
+                state.settings.master = clamp01(categoryOrValue);
+                gainSet(state.masterGain, state.settings.master, valueOrFadeMs);
+                return;
+            }
+            const category = categoryOrValue;
+            const value = valueOrFadeMs;
+            if (category === "master") {
+                state.settings.master = clamp01(value);
+                gainSet(state.masterGain, state.settings.master, fadeMs);
+                return;
+            }
+            if (!["bgm", "ambient", "sfx"].includes(category)) return;
+            state.settings[category] = clamp01(value);
+            gainSet(
+                state.categoryGains[category],
+                category === "bgm" ? bgmOutputVolume() : categoryOutputVolume(category),
+                fadeMs
+            );
+        },
+
         setCategoryVolume(category, value) {
             if (!["bgm", "ambient", "sfx"].includes(category)) return;
             state.settings[category] = clamp01(value);
-            gainSet(state.categoryGains[category], categoryOutputVolume(category));
+            gainSet(
+                state.categoryGains[category],
+                category === "bgm" ? bgmOutputVolume() : categoryOutputVolume(category)
+            );
         },
 
         muteCategory(category, muted) {
             if (!["bgm", "ambient", "sfx"].includes(category)) return;
             state.settings.muted[category] = Boolean(muted);
-            gainSet(state.categoryGains[category], categoryOutputVolume(category));
+            gainSet(
+                state.categoryGains[category],
+                category === "bgm" ? bgmOutputVolume() : categoryOutputVolume(category)
+            );
+            if (category === "bgm" && !muted && state.currentBGM && state.unlocked && !state.bgmSource) {
+                playBGM(state.currentBGM, { resumePosition: state.bgmOffset || 0, fadeInMs: 220 });
+            }
         },
+
+        setMusicEnabled(enabled) {
+            state.musicEnabled = Boolean(enabled);
+            saveMusicPreference();
+            applyBGMDuck(220);
+            if (!state.musicEnabled) {
+                if (state.bgmSource) releaseSource(state.bgmSource, DEFAULT_BGM_FADE_MS);
+                state.bgmSource = null;
+            } else if (state.currentBGM && state.unlocked && !state.bgmSource) {
+                playBGM(state.currentBGM, { resumePosition: state.bgmOffset || 0, fadeInMs: 260 });
+            }
+        },
+
+        isMusicEnabled() {
+            return state.musicEnabled;
+        },
+
+        isUnlocked() {
+            return state.unlocked;
+        },
+
+        getCurrentTrackId() {
+            return state.currentBGM;
+        },
+
+        getBGMPosition,
 
         destroy() {
             stopBGM({ fadeOutMs: 0 });
@@ -753,6 +884,7 @@
                 try { source.stop(); } catch {}
             }));
             state.activeSFX.clear();
+            state.activeBGMSources.clear();
             detachUnlockListeners();
             if (state.context && state.context.state !== "closed") state.context.close();
             state.context = null;
@@ -765,15 +897,28 @@
                 initialized: state.initialized,
                 unlocked: state.unlocked,
                 contextState: state.context?.state || "missing",
+                musicEnabled: state.musicEnabled,
                 currentBGM: state.currentBGM,
+                currentTrackId: state.currentBGM,
                 currentAmbient: state.currentAmbient,
+                playbackTime: getBGMPosition(),
+                loop: Boolean(state.bgmSource?.loop),
+                loopStart: state.bgmSource?.loopStart || 0,
+                loopEnd: state.bgmSource?.loopEnd || 0,
                 bgmVolume: state.settings.bgm,
+                effectiveBGMVolume: bgmOutputVolume(),
                 ambientVolume: state.settings.ambient,
                 sfxVolume: state.settings.sfx,
                 sfxEnabled: SFX_ENABLED,
                 masterVolume: state.settings.master,
                 masterMuted: false,
+                bgmMuted: state.settings.muted.bgm,
                 sfxMuted: state.settings.muted.sfx,
+                duckingState: Array.from(state.duckReasons.entries()).map(([reason, amount]) => ({ reason, amount })),
+                loadingState: state.loadingState,
+                lastAudioError: state.lastAudioError,
+                activePlaybackInstanceCount: state.activeBGMSources.size + totalActiveSFXCount() + (state.ambientSource ? 1 : 0),
+                activeBGMSourceCount: state.activeBGMSources.size,
                 activeSFXCount: totalActiveSFXCount(),
                 decodedBufferCount: state.decodedBuffers.size,
                 loadedBuffers: state.decodedBuffers.size,
@@ -789,9 +934,13 @@
         unlocked: { get: () => state.unlocked },
         context: { get: () => state.context },
         masterVolume: { get: () => state.settings.master },
+        bgmVolume: { get: () => state.settings.bgm },
         sfxVolume: { get: () => state.settings.sfx },
         masterMuted: { get: () => false },
+        bgmMuted: { get: () => state.settings.muted.bgm },
         sfxMuted: { get: () => state.settings.muted.sfx },
+        currentTrackId: { get: () => state.currentBGM },
+        musicEnabled: { get: () => state.musicEnabled },
         loadedBuffers: { get: () => state.decodedBuffers.size },
         failedAssets: { get: () => Array.from(state.failedAssets.values()) },
         lastPlayedSFX: { get: () => state.lastPlayedSFX }
@@ -802,13 +951,19 @@
         initialized: AudioManager.initialized,
         unlocked: AudioManager.unlocked,
         contextState: AudioManager.context?.state ?? "missing",
+        musicEnabled: AudioManager.musicEnabled,
+        currentTrackId: AudioManager.currentTrackId,
+        playbackTime: AudioManager.getBGMPosition?.() ?? 0,
         masterVolume: AudioManager.masterVolume,
+        bgmVolume: AudioManager.bgmVolume,
         sfxVolume: AudioManager.sfxVolume,
         sfxEnabled: SFX_ENABLED,
         masterMuted: AudioManager.masterMuted,
+        bgmMuted: AudioManager.bgmMuted,
         sfxMuted: AudioManager.sfxMuted,
         loadedBuffers: AudioManager.loadedBuffers,
         failedAssets: AudioManager.failedAssets,
+        fullStatus: AudioManager.getStatus(),
         lastPlayedSFX: AudioManager.lastPlayedSFX
     });
     window.testCoreSFX = () => AudioManager.testCoreSFX();
