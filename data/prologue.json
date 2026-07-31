@@ -1,0 +1,77 @@
+{
+  "id": "tokyo-first-message",
+  "version": "RC2.2.1",
+  "title": "Tokyo First Message",
+  "autoPlay": true,
+  "typingDuration": 900,
+  "messageDelay": 1200,
+  "finishDelay": 2000,
+  "fadeInDuration": 300,
+  "fadeOutDuration": 800,
+  "nextScene": "tokyoChapterCard",
+  "messages": [
+    {
+      "id": 1,
+      "speaker": "乐乐",
+      "side": "left",
+      "typing": true,
+      "text": "最近怎么样？"
+    },
+    {
+      "id": 2,
+      "speaker": "森",
+      "side": "right",
+      "typing": true,
+      "text": "挺好的～\n最近工作有点忙。"
+    },
+    {
+      "id": 3,
+      "speaker": "乐乐",
+      "side": "left",
+      "typing": true,
+      "text": "哈哈哈哈。\n总要出来放松一下呀～"
+    },
+    {
+      "id": 4,
+      "speaker": "森",
+      "side": "right",
+      "typing": true,
+      "text": "那……\n东京？"
+    },
+    {
+      "id": 5,
+      "speaker": "乐乐",
+      "side": "left",
+      "typing": true,
+      "text": "！！！\n真的？"
+    },
+    {
+      "id": 6,
+      "speaker": "森",
+      "side": "right",
+      "typing": true,
+      "text": "当然。\n一直都想去。"
+    },
+    {
+      "id": 7,
+      "speaker": "乐乐",
+      "side": "left",
+      "typing": true,
+      "text": "那我们东京见。"
+    },
+    {
+      "id": 8,
+      "speaker": "森",
+      "side": "right",
+      "typing": true,
+      "text": "好。\n东京见。"
+    },
+    {
+      "id": 9,
+      "speaker": "乐乐",
+      "side": "left",
+      "typing": true,
+      "text": "开始期待了 😊"
+    }
+  ]
+}
