@@ -1,8 +1,8 @@
 /* AdventureWedding — AudioManager
-   RC2.1 Original Soundtrack — Mobile Integration
+   RC2.2 Wedding Music Edition
 
-   SFX playback remains disabled. BGM playback supports original OST routing,
-   single-track crossfades, non-looping credits, and light Memory Album ducking.
+   SFX playback remains disabled. Chapter music uses owner-supplied MP3 files,
+   single-track crossfades, chapter-level routing, and light Memory Album ducking.
 */
 
 (function () {
@@ -209,14 +209,20 @@
 
     function getBGMConfig(id) {
         if (!id) return null;
-        const config = window.BGM_ASSETS?.[id] || null;
+        const config = window.MUSIC?.[id] || null;
         if (config?.src) return config;
-        const src = window.AUDIO_ASSETS?.bgm?.[id] || null;
-        if (!src) return null;
-        return {
-            src,
-            loop: id !== "creditsTheme"
-        };
+        return null;
+    }
+
+    function getCurrentBGMTitle() {
+        const config = getBGMConfig(state.currentBGM);
+        if (!config) return "";
+        return config.artist ? `${config.title} — ${config.artist}` : config.title || config.id || state.currentBGM;
+    }
+
+    function currentBGMLoaded() {
+        const config = getBGMConfig(state.currentBGM);
+        return Boolean(config?.src && state.decodedBuffers.has(`bgm:${config.src}`));
     }
 
     function getAsset(category, id) {
@@ -537,8 +543,7 @@
     }
 
     async function playSFX(id, options = {}) {
-        // Build v0.9.6.4 temporarily mutes every sound effect while keeping
-        // the audio architecture and future BGM support intact.
+        // RC2.2 keeps every sound effect muted while preserving the audio API.
         if (!SFX_ENABLED) return false;
         return playSFXInternal(id, options);
     }
@@ -607,7 +612,7 @@
         if (scene.preserve) return;
         if (scene.preload) AudioManager.preloadGroup(scene.preload);
         if (scene.bgm) playBGM(scene.bgm);
-        else stopBGM();
+        else stopBGM({ fadeOutMs: scene.fadeOutMs ?? DEFAULT_BGM_FADE_MS });
         if (scene.ambient) playAmbient(scene.ambient);
         else stopAmbient();
     }
@@ -663,11 +668,12 @@
         const loads = [];
         group.forEach(([category, id]) => {
             if (category === "sfx" && !SFX_ENABLED) return;
-            const asset = getAsset(category, id);
+            const loadCategory = category === "music" ? "bgm" : category;
+            const asset = getAsset(loadCategory, id);
             if (Array.isArray(asset)) {
-                asset.forEach(path => loads.push(loadBuffer(category, id, path)));
+                asset.forEach(path => loads.push(loadBuffer(loadCategory, id, path)));
             } else {
-                loads.push(loadBuffer(category, id, asset));
+                loads.push(loadBuffer(loadCategory, id, asset));
             }
         });
         return Promise.all(loads);
@@ -900,6 +906,8 @@
                 musicEnabled: state.musicEnabled,
                 currentBGM: state.currentBGM,
                 currentTrackId: state.currentBGM,
+                currentTrackTitle: getCurrentBGMTitle(),
+                currentTrackLoaded: currentBGMLoaded(),
                 currentAmbient: state.currentAmbient,
                 playbackTime: getBGMPosition(),
                 loop: Boolean(state.bgmSource?.loop),
@@ -953,6 +961,8 @@
         contextState: AudioManager.context?.state ?? "missing",
         musicEnabled: AudioManager.musicEnabled,
         currentTrackId: AudioManager.currentTrackId,
+        currentTrackTitle: AudioManager.getStatus().currentTrackTitle,
+        currentTrackLoaded: AudioManager.getStatus().currentTrackLoaded,
         playbackTime: AudioManager.getBGMPosition?.() ?? 0,
         masterVolume: AudioManager.masterVolume,
         bgmVolume: AudioManager.bgmVolume,

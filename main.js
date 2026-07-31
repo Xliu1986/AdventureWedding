@@ -1,6 +1,6 @@
 /* ======================================
    AdventureWedding
-   RC2 — Original Soundtrack
+   RC2.2 — Wedding Music Edition
 ====================================== */
 
 const canvas = document.getElementById("background");

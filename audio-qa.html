@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>AdventureWedding Audio QA · RC2.1</title>
+<title>AdventureWedding Audio QA · RC2.2</title>
 <style>
 html,
 body {
@@ -93,19 +93,17 @@ pre {
 </head>
 <body>
 <main class="shell">
-<h1>Audio QA · RC2.1</h1>
-<p>用于 iPhone Safari / 桌面浏览器验证 BGM 解锁、循环、切曲、静音、鸭音和状态。此页面不播放任何 SFX。</p>
+<h1>Audio QA · RC2.2</h1>
+<p>用于 iPhone Safari / 桌面浏览器验证四首婚礼版章节音乐：解锁、循环、切曲、静音、鸭音和状态。此页面不播放任何 SFX。</p>
 
 <section class="card">
 <p id="currentTrack">Current: -</p>
 <div class="grid">
 <button class="primary" id="unlock">Unlock / Start Audio</button>
-<button data-track="titleTheme">Main Theme</button>
-<button data-track="tokyoTheme">Tokyo</button>
-<button data-track="sydneyTheme">Sydney</button>
-<button data-track="longnanTheme">Longnan</button>
-<button data-track="weddingTheme">Xiaoyuan</button>
-<button data-track="creditsTheme">Credits</button>
+<button data-track="tokyo">Tokyo</button>
+<button data-track="sydney">Sydney</button>
+<button data-track="longnan">Longnan</button>
+<button data-track="wedding">Wedding</button>
 <button id="previous">Previous</button>
 <button id="next">Next</button>
 <button id="stop">Stop</button>
@@ -126,9 +124,9 @@ BGM Volume
 <p class="note">手机验收建议：打开页面后先点 Unlock，再逐首试听。锁屏/切后台后返回，音乐应能安全恢复，不应出现控制台错误。</p>
 </main>
 
-<script src="audio/audio-registry.js?v=rc2.1-qa"></script>
-<script src="audio/scene-audio.js?v=rc2.1-qa"></script>
-<script src="audio/audio-manager.js?v=rc2.1-qa"></script>
+<script src="audio/audio-registry.js?v=rc2.2-qa"></script>
+<script src="audio/scene-audio.js?v=rc2.2-qa"></script>
+<script src="audio/audio-manager.js?v=rc2.2-qa"></script>
 <script>
 (function () {
     "use strict";
@@ -136,20 +134,20 @@ BGM Volume
     const statusNode = document.getElementById("status");
     const volume = document.getElementById("volume");
     const currentTrack = document.getElementById("currentTrack");
-    const tracks = ["titleTheme", "tokyoTheme", "sydneyTheme", "longnanTheme", "weddingTheme", "creditsTheme"];
+    const tracks = ["tokyo", "sydney", "longnan", "wedding"];
 
     window.AudioManager?.init?.();
 
     async function refresh() {
         const status = window.AudioManager?.getStatus?.() || {};
         statusNode.textContent = JSON.stringify(status, null, 2);
-        currentTrack.textContent = `Current: ${status.currentTrackId || "-"}`;
+        currentTrack.textContent = `Current: ${status.currentTrackTitle || status.currentTrackId || "-"}`;
         if (Number.isFinite(status.bgmVolume)) volume.value = String(status.bgmVolume);
     }
 
     document.getElementById("unlock").addEventListener("click", async () => {
         await window.AudioManager?.unlock?.();
-        await window.AudioManager?.play?.("titleTheme");
+        await window.AudioManager?.play?.("tokyo");
         refresh();
     });
 

@@ -1,173 +1,157 @@
-/* AdventureWedding — central scene audio routing
-   RC2.1 Original Soundtrack — Mobile Integration
+/* AdventureWedding — central scene music routing
+   RC2.2 Wedding Music Edition
 */
 
 const SCENE_AUDIO = {
     title: {
-        bgm: "titleTheme",
+        bgm: null,
         ambient: null,
-        preload: "core-ui"
+        fadeOutMs: 0
     },
 
     prologue: {
-        bgm: "titleTheme",
+        bgm: null,
         ambient: null,
-        preload: "core-ui"
+        fadeOutMs: 0
+    },
+
+    chapterTransition: {
+        bgm: null,
+        ambient: null,
+        fadeOutMs: 0
+    },
+
+    chapterIntro: {
+        bgm: null,
+        ambient: null,
+        fadeOutMs: 0
+    },
+
+    chapterEnding: {
+        bgm: null,
+        ambient: null,
+        fadeOutMs: 0
     },
 
     tokyo: {
-        bgm: "tokyoTheme",
-        ambient: "tokyoStation",
+        bgm: "tokyo",
         preload: "tokyo"
     },
 
     tokyoStationCutscene: {
-        bgm: "tokyoTheme",
-        ambient: "tokyoStation",
+        bgm: "tokyo",
         preload: "tokyo"
     },
 
-    chapterTransition: {
-        preserve: true
-    },
-
     sydneyLookout: {
-        bgm: "sydneyTheme",
-        ambient: "sydneyHarbour",
+        bgm: "sydney",
         preload: "sydney"
     },
 
     sydney: {
-        bgm: "sydneyTheme",
-        ambient: "sydneyHarbour",
+        bgm: "sydney",
         preload: "sydney"
     },
 
     transitionToColes: {
-        bgm: "sydneyTheme",
-        ambient: null,
+        bgm: "sydney",
         preload: "sydney"
     },
 
     transitionToSydney: {
-        bgm: "sydneyTheme",
-        ambient: null,
+        bgm: "sydney",
         preload: "sydney"
     },
 
     coles: {
-        bgm: "sydneyTheme",
-        ambient: "colesStore",
+        bgm: "sydney",
         preload: "sydney"
     },
 
     sydneyMemory: {
-        bgm: "sydneyTheme",
-        ambient: null,
+        bgm: "sydney",
         preload: "sydney"
     },
 
     sydneyAirport: {
-        bgm: "sydneyTheme",
-        ambient: null,
+        bgm: "sydney",
         preload: "sydney"
     },
 
     longnanTitle: {
-        bgm: "longnanTheme",
-        ambient: null,
+        bgm: "longnan",
         preload: "longnan"
     },
 
     longnanIntro: {
-        bgm: "longnanTheme",
-        ambient: null,
+        bgm: "longnan",
         preload: "longnan"
     },
 
     longnanLookout: {
-        bgm: "longnanTheme",
-        ambient: "longnanTown",
+        bgm: "longnan",
         preload: "longnan"
     },
 
     longnanTown: {
-        bgm: "longnanTheme",
-        ambient: "longnanTown",
+        bgm: "longnan",
         preload: "longnan"
     },
 
     longnanMemoryAlbum: {
-        bgm: "longnanTheme",
-        ambient: null,
+        bgm: "longnan",
         preload: "longnan"
     },
 
     longnanCG: {
-        bgm: "longnanTheme",
-        ambient: null,
+        bgm: "longnan",
         preload: "longnan"
     },
 
     longnanComplete: {
-        bgm: "longnanTheme",
-        ambient: null,
+        bgm: "longnan",
         preload: "longnan"
     },
 
     weddingIntro: {
-        bgm: "weddingTheme",
-        ambient: null,
+        bgm: "wedding",
         preload: "wedding"
     },
 
     weddingXiaoyuan: {
-        bgm: "weddingTheme",
-        ambient: "xiaoyuanGarden",
+        bgm: "wedding",
         preload: "wedding"
     },
 
     weddingGatewayDialogue: {
-        bgm: "weddingTheme",
-        ambient: "xiaoyuanGarden",
+        bgm: "wedding",
         preload: "wedding"
     },
 
     weddingGatewayCutscene: {
-        bgm: "weddingTheme",
-        ambient: "xiaoyuanGarden",
+        bgm: "wedding",
         preload: "wedding"
     },
 
     weddingWhiteTransition: {
-        bgm: "weddingTheme",
-        ambient: null,
+        bgm: "wedding",
         preload: "wedding"
     },
 
     weddingInvitation: {
-        bgm: "weddingTheme",
-        ambient: null,
+        bgm: "wedding",
         preload: "wedding"
     },
 
     weddingContinuation: {
-        bgm: "weddingTheme",
-        ambient: null,
+        bgm: "wedding",
         preload: "wedding"
     },
 
-    chapterIntro: {
-        preserve: true
-    },
-
-    chapterEnding: {
-        preserve: true
-    },
-
     finalEnding: {
-        bgm: "creditsTheme",
-        ambient: null
+        bgm: null,
+        ambient: null,
+        fadeOutMs: 2000
     }
 };
 

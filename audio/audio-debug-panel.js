@@ -1,5 +1,5 @@
 /* AdventureWedding — Hidden BGM Diagnostics
-   RC2.1 Original Soundtrack — Mobile Integration
+   RC2.2 Wedding Music Edition
 
    Shift + M opens this lightweight panel. It uses the existing AudioManager,
    never creates another AudioContext, and never plays SFX.
@@ -9,12 +9,10 @@
     "use strict";
 
     const BGM_TEST_BUTTONS = [
-        ["titleTheme", "Main"],
-        ["tokyoTheme", "Tokyo"],
-        ["sydneyTheme", "Sydney"],
-        ["longnanTheme", "Longnan"],
-        ["weddingTheme", "Wedding"],
-        ["creditsTheme", "Credits"]
+        ["tokyo", "Tokyo"],
+        ["sydney", "Sydney"],
+        ["longnan", "Longnan"],
+        ["wedding", "Wedding"]
     ];
 
     let panel = null;
@@ -69,7 +67,7 @@
         ].join(";");
 
         const title = document.createElement("div");
-        title.textContent = "BGM Diagnostics · Shift+M";
+        title.textContent = "Music Diagnostics · Shift+M";
         title.style.cssText = "font-size:16px;color:#ffd36b;margin-bottom:8px;";
         panel.appendChild(title);
 
@@ -128,13 +126,14 @@
             `context: ${status.contextState || "missing"}`,
             `unlocked: ${Boolean(status.unlocked)}`,
             `music: ${status.musicEnabled ? "enabled" : "disabled"}`,
-            `track: ${status.currentTrackId || status.currentBGM || "-"}`,
+            `song: ${status.currentTrackTitle || status.currentTrackId || status.currentBGM || "-"}`,
             `time: ${Number(status.playbackTime ?? 0).toFixed(2)}s`,
             `loop: ${Boolean(status.loop)} ${Number(status.loopStart ?? 0).toFixed(2)}-${Number(status.loopEnd ?? 0).toFixed(2)}`,
             `master: ${Number(status.masterVolume ?? 0).toFixed(2)}`,
             `bgm: ${Number(status.bgmVolume ?? 0).toFixed(2)} effective=${Number(status.effectiveBGMVolume ?? 0).toFixed(2)}`,
             `duck: ${(status.duckingState || []).map(item => `${item.reason}:${item.amount}`).join(", ") || "-"}`,
             `loading: ${status.loadingState || "idle"}`,
+            `loaded: ${status.currentTrackLoaded ? "yes" : "no"}`,
             `active: ${status.activePlaybackInstanceCount ?? 0}`,
             `buffers: ${status.loadedBuffers ?? status.decodedBufferCount ?? 0}`,
             `failed: ${status.failedAssets?.length ?? status.failedAssetCount ?? 0}`,
