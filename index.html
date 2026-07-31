@@ -23,6 +23,112 @@
 
 <body>
 
+<section
+    id="chatPrologue"
+    class="chatPrologue"
+    aria-label="森与乐乐的东京见面聊天"
+    aria-live="polite"
+    aria-busy="false"
+    hidden
+>
+    <div class="chatPhone" role="region" aria-label="聊天记录">
+        <header class="chatHeader">
+            <div class="chatHeaderStatus" aria-hidden="true">
+                <span class="chatHeaderTime">09:41</span>
+
+                <span class="chatHeaderIndicators">
+                    <span class="chatSignalIcon"></span>
+                    <span class="chatWifiIcon"></span>
+                    <span class="chatBatteryIcon"></span>
+                </span>
+            </div>
+
+            <div class="chatHeaderBar">
+                <span class="chatBackButton" aria-hidden="true">
+                    <span class="chatBackArrow"></span>
+                </span>
+
+                <div class="chatContact">
+                    <div class="chatContactAvatar" aria-hidden="true">
+                        <span>乐</span>
+                    </div>
+
+                    <div class="chatContactIdentity">
+                        <h1 class="chatContactName">乐乐</h1>
+                        <p class="chatContactStatus">东京见</p>
+                    </div>
+                </div>
+
+                <span class="chatHeaderMenu" aria-hidden="true">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </span>
+            </div>
+        </header>
+
+        <main
+            class="chatConversation"
+            aria-label="聊天消息"
+            tabindex="-1"
+        >
+            <div class="chatDateDivider" aria-hidden="true">
+                <span>6月10日</span>
+            </div>
+
+            <div
+                class="chatMessageList"
+                data-chat-list
+                role="log"
+                aria-live="polite"
+                aria-relevant="additions"
+                aria-atomic="false"
+            ></div>
+
+            <div
+                class="chatTyping"
+                data-chat-typing
+                aria-label="对方正在输入"
+                hidden
+            >
+                <div class="chatTypingAvatar" aria-hidden="true">
+                    <span>乐</span>
+                </div>
+
+                <div class="chatTypingBubble" aria-hidden="true">
+                    <span class="chatTypingDot"></span>
+                    <span class="chatTypingDot"></span>
+                    <span class="chatTypingDot"></span>
+                </div>
+            </div>
+        </main>
+
+        <footer class="chatComposer" aria-hidden="true">
+            <span class="chatVoiceButton"></span>
+
+            <div class="chatInputShell">
+                <span class="chatInputPlaceholder">输入消息</span>
+            </div>
+
+            <span class="chatEmojiButton"></span>
+            <span class="chatAddButton"></span>
+        </footer>
+    </div>
+
+    <button
+        class="chatSkipButton"
+        type="button"
+        data-chat-skip
+        aria-label="跳过聊天序章"
+    >
+        跳过
+    </button>
+
+    <p class="chatPrologueHint" aria-hidden="true">
+        森与乐乐 · 东京见
+    </p>
+</section>
+
 <canvas id="background"></canvas>
 
 <!-- 游戏层（东京章节开始使用） -->
