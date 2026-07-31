@@ -1,7 +1,7 @@
 /* AdventureWedding — AudioManager
    RC2.2 Wedding Music Edition
 
-   SFX playback remains disabled. Chapter music uses owner-supplied MP3 files,
+   SFX playback remains disabled. Chapter music uses owner-supplied music files,
    single-track crossfades, chapter-level routing, and light Memory Album ducking.
 */
 

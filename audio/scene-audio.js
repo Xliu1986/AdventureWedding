@@ -16,9 +16,8 @@ const SCENE_AUDIO = {
     },
 
     chapterTransition: {
-        bgm: null,
-        ambient: null,
-        fadeOutMs: 0
+        bgm: "tokyo",
+        preload: "tokyo"
     },
 
     chapterIntro: {
@@ -30,7 +29,7 @@ const SCENE_AUDIO = {
     chapterEnding: {
         bgm: null,
         ambient: null,
-        fadeOutMs: 0
+        fadeOutMs: 2400
     },
 
     tokyo: {
