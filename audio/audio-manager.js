@@ -605,6 +605,15 @@
         }
     }
 
+    function resumeCurrentBGM(options = {}) {
+        if (!state.currentBGM || state.bgmSource || !state.unlocked || !state.musicEnabled || state.settings.muted.bgm) return false;
+        playBGM(state.currentBGM, {
+            resumePosition: state.bgmOffset || 0,
+            fadeInMs: options.fadeInMs ?? 260
+        });
+        return true;
+    }
+
     function applySceneAudio(sceneId) {
         if (!sceneId || state.lastScene === sceneId) return;
         state.lastScene = sceneId;
@@ -731,6 +740,7 @@
                     state.lastScene = null;
                     applySceneAudio(scene);
                 }
+                resumeCurrentBGM({ fadeInMs: 260 });
                 return true;
             } catch (error) {
                 state.unlocked = false;
@@ -756,6 +766,7 @@
         pause: pauseAll,
         resumeAll,
         resume: resumeAll,
+        resumeCurrentBGM,
         applySceneAudio,
         beginMemory,
         endMemory,
