@@ -2056,7 +2056,7 @@ const storyCGs = {
         memoryAlbum: true
     },
     tokyoFirstSelfieMemory: {
-        src: "assets/cg/memory-album/tokyo-first-selfie.png?v=0.9.7.5-single",
+        src: "assets/cg/memory-album/tokyo-first-selfie.png?v=20260801-memory-album-v2",
         focalX: 0.5,
         focalY: 0.5,
         mobileDisplay: "contain",
