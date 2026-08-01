@@ -422,6 +422,24 @@
 }
 .chatTypingAvatar { width: 40px; height: 40px; margin-right: 10px; }
 
+.chatTyping[data-side="right"] {
+    justify-content: flex-end;
+}
+
+.chatTyping[data-side="right"] .chatTypingAvatar {
+    order: 2;
+    margin-right: 0;
+    margin-left: 10px;
+    background:
+        linear-gradient(145deg, rgba(255,255,255,.18), transparent 50%),
+        linear-gradient(145deg, #587b9a, #2f506b);
+}
+
+.chatTyping[data-side="right"] .chatTypingBubble {
+    order: 1;
+    background: var(--chat-own);
+}
+
 .chatTypingBubble {
     position: relative;
     display: inline-flex;
@@ -447,6 +465,15 @@
     border-bottom: 1px solid rgba(0,0,0,.045);
     background: var(--chat-other);
     transform: rotate(45deg);
+}
+
+.chatTyping[data-side="right"] .chatTypingBubble::before {
+    right: -6px;
+    left: auto;
+    border: 0;
+    border-top: 1px solid rgba(0,0,0,.045);
+    border-right: 1px solid rgba(0,0,0,.045);
+    background: var(--chat-own);
 }
 
 .chatTypingDot {

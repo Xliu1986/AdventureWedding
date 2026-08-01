@@ -281,11 +281,9 @@
                         ? message.delayBefore
                         : data.timing.messageDelay;
 
-                    const typingDuration = reduceMotion
-                        ? 0
-                        : Number.isFinite(message.typingDuration)
-                            ? message.typingDuration
-                            : data.timing.typingDuration;
+                    const typingDuration = Number.isFinite(message.typingDuration)
+                        ? message.typingDuration
+                        : data.timing.typingDuration;
 
                     await wait(delayBefore, this.abortController.signal);
                     if (this.skipRequested) break;
@@ -304,10 +302,7 @@
                     this.renderAllRemaining();
                 }
 
-                await wait(
-                    reduceMotion ? 0 : data.timing.endHold,
-                    this.abortController.signal
-                );
+                await wait(data.timing.endHold, this.abortController.signal);
 
                 await this.finish();
             } catch (error) {
@@ -330,8 +325,22 @@
 
             this.typing.dataset.sender = message.sender;
             this.typing.dataset.side = message.side;
+            this.typing.setAttribute("aria-label", `${message.sender}正在输入`);
+
+            const avatarLabel = this.typing.querySelector(".chatTypingAvatar span");
+            if (avatarLabel) {
+                avatarLabel.textContent = message.sender.slice(0, 1);
+            }
+
             this.typing.hidden = false;
             this.typing.classList.add(this.options.visibleClass);
+
+            this.typing.scrollIntoView({
+                block: "end",
+                behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+                    ? "auto"
+                    : "smooth"
+            });
 
             await wait(duration, this.abortController.signal);
             this.hideTyping();
@@ -342,6 +351,7 @@
 
             this.typing.classList.remove(this.options.visibleClass);
             this.typing.hidden = true;
+            this.typing.setAttribute("aria-label", "对方正在输入");
             delete this.typing.dataset.sender;
             delete this.typing.dataset.side;
         }

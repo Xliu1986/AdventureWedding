@@ -3,7 +3,7 @@
   "version": "RC2.2.1",
   "title": "Tokyo First Message",
   "autoPlay": true,
-  "typingDuration": 900,
+  "typingDuration": 1400,
   "messageDelay": 1200,
   "finishDelay": 2000,
   "fadeInDuration": 300,
@@ -71,7 +71,7 @@
       "speaker": "乐乐",
       "side": "left",
       "typing": true,
-      "text": "开始期待了 😊"
+      "text": "已经开始期待了😊"
     }
   ]
 }
