@@ -2125,7 +2125,7 @@ const storyCGs = {
         memoryAlbum: true
     },
     weddingInvitation: {
-        src: "assets/cg/wedding/wedding-invitation.png?v=0.9.2",
+        src: "assets/cg/wedding/wedding-invitation.png?v=20260801-new-invitation",
         locationTitle: "Wedding Invitation",
         focalX: 0.5,
         focalY: 0.5,
