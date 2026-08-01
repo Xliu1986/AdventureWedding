@@ -4,9 +4,9 @@
 ====================================== */
 
 const ADVENTURE_WEDDING_BUILD = Object.freeze({
-    identifier: "FINAL_TEST_004",
-    version: "final-test-004",
-    label: "FINAL TEST 004"
+    identifier: "FINAL_TEST_005",
+    version: "final-test-005",
+    label: "FINAL TEST 005"
 });
 
 console.info(
@@ -500,20 +500,35 @@ function showChapterCard({ mode, chapter, onComplete = null }) {
 
 }
 
+const CHAPTER_OPENING_TITLES = Object.freeze({
+
+    tokyo: "东京",
+    sydney: "悉尼",
+    longnan: "陇南",
+    wedding: "晓园"
+
+});
+
+const CHAPTER_ENDING_TITLES = Object.freeze({
+
+    tokyo: "东京篇·完结",
+    sydney: "悉尼篇·完结",
+    longnan: "陇南篇·完结"
+
+});
+
 function getChapterCardText(mode, chapter) {
 
     if (mode === "finalEnding") return { title: "The End", subtitle: "" };
     if (mode === "prologue") return { title: "AdventureWedding", subtitle: "一段始于东京的故事" };
 
     const englishTitle = chapter.titleEn || chapter.english || chapter.titleZh || "AdventureWedding";
-    if (mode === "ending" && (chapter.id === "tokyo" || englishTitle === "Tokyo")) {
+    const openingTitle = CHAPTER_OPENING_TITLES[chapter.id] || englishTitle;
+    const endingTitle = CHAPTER_ENDING_TITLES[chapter.id];
 
-        return { title: "CHAPTER 1 COMPLETE", subtitle: "Tokyo" };
-
-    }
-
+    if (mode === "ending" && endingTitle) return { title: endingTitle, subtitle: "" };
     if (mode === "ending") return { title: `${englishTitle} Completed`, subtitle: "" };
-    return { title: englishTitle, subtitle: "" };
+    return { title: openingTitle, subtitle: "" };
 
 }
 
@@ -725,28 +740,6 @@ function startGameLoop() {
     gameLoopStarted = true;
     previousGameTime = performance.now();
     requestAnimationFrame(gameLoop);
-
-}
-
-function playOpeningPrologue() {
-
-    // Compatibility entry point for older callers; Build 0.9.1 uses the
-    // reusable chapter-card system rather than the retired timed prologue.
-    if (storyFlags.tokyoIntroductionCompleted) {
-
-        showChapterIntro("tokyo", beginTokyoGameplay);
-        return;
-
-    }
-
-    showPrologue(() => {
-
-        storyFlags.prologueViewed = true;
-        storyFlags.tokyoIntroductionCompleted = true;
-        saveTokyoProgress();
-        showChapterIntro("tokyo", beginTokyoGameplay);
-
-    });
 
 }
 
@@ -1959,7 +1952,7 @@ const SAKURA_AVENUE_BOUNDS = {
 };
 
 const exteriorMap = new Image();
-exteriorMap.src = "assets/tokyo-story-map.png?v=final-test-004";
+exteriorMap.src = "assets/tokyo-story-map.png?v=final-test-005";
 
 const sydneyMap = new Image();
 sydneyMap.src = "assets/maps/sydney-harbour-lookout.png?v=0.8.0";
@@ -4084,32 +4077,6 @@ function updateChapterTransition(deltaTime) {
 
     }
 
-    if (chapterTransition.phase === "chapterOne" && chapterTransition.elapsed >= 2.1) {
-
-        chapterTransition.phase = "chapterTwo";
-        chapterTransition.elapsed = 0;
-        return;
-
-    }
-
-    if (chapterTransition.phase === "chapterTwo" && chapterTransition.elapsed >= 2.1) {
-
-        spawnSydneyParty();
-        chapterTransition.phase = "arrive";
-        chapterTransition.elapsed = 0;
-        return;
-
-    }
-
-    if (chapterTransition.phase === "arrive" && chapterTransition.elapsed >= 1.25) {
-
-        chapterTransition.phase = "dialogue";
-        chapterTransition.active = false;
-        chapterTransition.completed = true;
-        startSydneyDialogue();
-
-    }
-
 }
 
 function updateNearbyInteractable() {
@@ -6079,18 +6046,6 @@ function drawTransitionPetals() {
 
 }
 
-function drawChapterCard(title) {
-
-    gameCtx.fillStyle = "#02060d";
-    gameCtx.fillRect(0, 0, gameViewportState.width, gameViewportState.height);
-    gameCtx.fillStyle = "#fff2cc";
-    gameCtx.textAlign = "center";
-    gameCtx.font = `${Math.max(34, Math.min(68, Math.round(gameViewportState.width * 0.085)))}px Fusion Pixel, monospace`;
-    gameCtx.fillText(title, gameViewportState.width / 2, gameViewportState.height / 2);
-    gameCtx.textAlign = "left";
-
-}
-
 function drawChapterTransitionOverlay() {
 
     if (!chapterTransition.active) return;
@@ -6103,23 +6058,6 @@ function drawChapterTransitionOverlay() {
         gameCtx.fillRect(0, 0, gameViewportState.width, gameViewportState.height);
         drawTransitionPetals();
         return;
-
-    }
-
-    if (phase === "chapterOne" || phase === "chapterTwo") {
-
-        gameCtx.fillStyle = "#02060d";
-        gameCtx.fillRect(0, 0, gameViewportState.width, gameViewportState.height);
-        const chapter = phase === "chapterOne" ? CHAPTERS.tokyo : CHAPTERS.sydney;
-        drawChapterCard(phase === "chapterOne" ? "Tokyo Completed" : "Sydney");
-        return;
-
-    }
-
-    if (phase === "arrive") {
-
-        gameCtx.fillStyle = `rgba(0, 0, 0, ${Math.max(0, 1 - chapterTransition.elapsed / 1.25)})`;
-        gameCtx.fillRect(0, 0, gameViewportState.width, gameViewportState.height);
 
     }
 

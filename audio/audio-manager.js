@@ -114,6 +114,7 @@
         currentBGM: null,
         bgmSource: null,
         activeBGMSources: new Set(),
+        bgmRequestId: 0,
         bgmStartedAt: 0,
         bgmOffset: 0,
         currentAmbient: null,
@@ -461,6 +462,7 @@
         const previousId = state.currentBGM;
         state.currentBGM = id;
         if (!state.musicEnabled || state.settings.muted.bgm) {
+            state.bgmRequestId += 1;
             if (state.bgmSource) releaseSource(state.bgmSource, options.fadeOutMs ?? DEFAULT_BGM_FADE_MS);
             state.bgmSource = null;
             return;
@@ -469,13 +471,14 @@
             return;
         }
         if (previousId === id && state.bgmSource && !options.restart) return;
+        const requestId = ++state.bgmRequestId;
         const previous = state.bgmSource;
         if (previous) releaseSource(previous, options.fadeOutMs ?? DEFAULT_BGM_FADE_MS);
 
         state.currentBGM = id;
         const bgmConfig = getBGMConfig(id);
         const buffer = await loadBuffer("bgm", id, bgmConfig?.src);
-        if (!buffer || state.currentBGM !== id || !state.unlocked) return;
+        if (!buffer || state.currentBGM !== id || !state.unlocked || requestId !== state.bgmRequestId) return;
 
         const offset = options.resumePosition ? Math.min(options.resumePosition, buffer.duration - 0.01) : 0;
         const shouldLoop = options.loop ?? bgmConfig?.loop ?? true;
@@ -502,6 +505,7 @@
     }
 
     function stopBGM(options = {}) {
+        state.bgmRequestId += 1;
         if (state.bgmSource) releaseSource(state.bgmSource, options.fadeOutMs ?? DEFAULT_BGM_FADE_MS);
         state.bgmSource = null;
         state.currentBGM = null;
@@ -596,6 +600,7 @@
     function pauseAll() {
         if (!state.context || state.context.state === "closed") return;
         state.bgmOffset = getBGMPosition();
+        state.bgmRequestId += 1;
         if (state.bgmSource) {
             const source = state.bgmSource;
             state.bgmSource = null;
@@ -757,7 +762,7 @@
         pauseAll();
     }
 
-    function handleVisibilityVisible() {
+    async function handleVisibilityVisible() {
         if (!state.context) return;
         if (state.context.state === "closed") {
             state.context = null;
@@ -767,8 +772,26 @@
             attachUnlockListeners();
             return;
         }
-        if (!state.pausedByVisibility && state.context.state === "running") return;
-        void resumeAll();
+        const forceBGMRestart = Boolean(
+            state.foregroundGestureRecoveryPending
+            && state.currentBGM
+            && state.musicEnabled
+            && !state.settings.muted.bgm
+        );
+        if (!state.pausedByVisibility && state.context.state === "running" && !forceBGMRestart) return;
+
+        // iOS Safari can keep a stale AudioBufferSourceNode after returning to
+        // the page. Recreate the active BGM source once instead of trusting the
+        // old node, while retaining gesture recovery if autoplay is blocked.
+        if (forceBGMRestart) state.foregroundGestureRecoveryPending = false;
+        const resumed = await resumeAll({ forceBGMRestart });
+        if (resumed) {
+            state.foregroundGestureRecoveryPending = false;
+            detachUnlockListeners();
+        } else if (state.currentBGM && state.musicEnabled) {
+            state.foregroundGestureRecoveryPending = true;
+            attachUnlockListeners();
+        }
     }
 
     function totalActiveSFXCount() {
@@ -801,7 +824,12 @@
                 if (forceBGMRestart) {
                     state.foregroundGestureRecoveryPending = false;
                 }
-                return resumeAll({ forceBGMRestart });
+                const resumed = await resumeAll({ forceBGMRestart });
+                if (!resumed && forceBGMRestart) {
+                    state.foregroundGestureRecoveryPending = true;
+                    attachUnlockListeners();
+                }
+                return resumed;
             }
             const context = createContext();
             if (!context) return false;
@@ -955,6 +983,7 @@
             saveMusicPreference();
             applyBGMDuck(220);
             if (!state.musicEnabled) {
+                state.bgmRequestId += 1;
                 state.bgmOffset = getBGMPosition();
                 if (state.bgmSource) releaseSource(state.bgmSource, DEFAULT_BGM_FADE_MS);
                 state.bgmSource = null;
