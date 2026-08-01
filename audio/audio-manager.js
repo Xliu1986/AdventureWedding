@@ -955,11 +955,23 @@
             saveMusicPreference();
             applyBGMDuck(220);
             if (!state.musicEnabled) {
+                state.bgmOffset = getBGMPosition();
                 if (state.bgmSource) releaseSource(state.bgmSource, DEFAULT_BGM_FADE_MS);
                 state.bgmSource = null;
             } else if (state.currentBGM && state.unlocked && !state.bgmSource) {
                 playBGM(state.currentBGM, { resumePosition: state.bgmOffset || 0, fadeInMs: 260 });
             }
+        },
+
+        async restartMusic() {
+            state.musicEnabled = true;
+            saveMusicPreference();
+            applyBGMDuck(0);
+
+            const unlocked = await AudioManager.unlock({ fromGesture: true });
+            if (!unlocked) return false;
+
+            return resumeAll({ forceBGMRestart: true });
         },
 
         isMusicEnabled() {

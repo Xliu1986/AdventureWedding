@@ -680,9 +680,45 @@ body{
 
 }
 
+#musicToggleButton{
+
+    position:fixed;
+    top:max(14px, env(safe-area-inset-top));
+    right:max(14px, env(safe-area-inset-right));
+    z-index:36;
+    min-width:82px;
+    min-height:48px;
+    padding:8px 10px;
+    color:#fff3d4;
+    background:#09162a;
+    border:3px solid #d8aa54;
+    box-shadow:inset 0 0 0 2px #26385a, 3px 3px 0 rgba(0,0,0,.32);
+    font:15px "Fusion Pixel 12px Monospaced JP", "PingFang SC", monospace;
+    touch-action:manipulation;
+    user-select:none;
+    -webkit-user-select:none;
+    -webkit-touch-callout:none;
+
+}
+
+#musicToggleButton.isOff{
+
+    color:#c9c1ad;
+    border-color:#89734d;
+    background:#172033;
+
+}
+
+#musicToggleButton.hidden{
+
+    display:none;
+
+}
+
 body.touchMode #characterMenuButton:not(.hidden){
 
     display:block;
+    top:max(72px, calc(env(safe-area-inset-top) + 72px));
 
 }
 

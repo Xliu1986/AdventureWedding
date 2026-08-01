@@ -4,9 +4,9 @@
 ====================================== */
 
 const ADVENTURE_WEDDING_BUILD = Object.freeze({
-    identifier: "FINAL_TEST_003",
-    version: "final-test-003",
-    label: "FINAL TEST 003"
+    identifier: "FINAL_TEST_004",
+    version: "final-test-004",
+    label: "FINAL TEST 004"
 });
 
 console.info(
@@ -338,6 +338,7 @@ const chapterLocation = document.getElementById("chapterLocation");
 const mobileControls = document.getElementById("mobileControls");
 const characterPanel = document.getElementById("characterPanel");
 const characterMenuButton = document.getElementById("characterMenuButton");
+const musicToggleButton = document.getElementById("musicToggleButton");
 
 const gameDialogue = document.getElementById("gameDialogue");
 const gameDialogueName = document.querySelector(".gameDialogueName");
@@ -450,6 +451,16 @@ function lockForChapterCard() {
     mobileControls.classList.add("hidden");
     characterMenuButton.classList.add("hidden");
     chapterLocation.classList.add("hidden");
+
+}
+
+function updateMusicToggleButton() {
+
+    const enabled = window.AudioManager?.isMusicEnabled?.() !== false;
+    musicToggleButton.textContent = enabled ? "音乐 开" : "音乐 关";
+    musicToggleButton.setAttribute("aria-pressed", String(enabled));
+    musicToggleButton.setAttribute("aria-label", enabled ? "关闭游戏音乐" : "开启并重启游戏音乐");
+    musicToggleButton.classList.toggle("isOff", !enabled);
 
 }
 
@@ -677,7 +688,9 @@ function restoreGameplayUI() {
     gameViewport.classList.remove("hidden");
     chapterLocation.classList.remove("hidden");
     characterMenuButton.classList.remove("hidden");
+    musicToggleButton.classList.remove("hidden");
     mobileControls.classList.remove("hidden");
+    updateMusicToggleButton();
 }
 
 function beginTokyoGameplay() {
@@ -1946,7 +1959,7 @@ const SAKURA_AVENUE_BOUNDS = {
 };
 
 const exteriorMap = new Image();
-exteriorMap.src = "assets/tokyo-story-map.png?v=final-test-003";
+exteriorMap.src = "assets/tokyo-story-map.png?v=final-test-004";
 
 const sydneyMap = new Image();
 sydneyMap.src = "assets/maps/sydney-harbour-lookout.png?v=0.8.0";
@@ -7677,6 +7690,27 @@ characterMenuButton.addEventListener("pointerdown", event => {
 
     event.preventDefault();
     toggleCharacterPanel();
+
+});
+
+musicToggleButton.addEventListener("click", async event => {
+
+    event.preventDefault();
+    const audioManager = window.AudioManager;
+    if (!audioManager) return;
+
+    musicToggleButton.disabled = true;
+    if (audioManager.isMusicEnabled()) {
+
+        audioManager.setMusicEnabled(false);
+
+    } else {
+
+        await audioManager.restartMusic();
+
+    }
+    musicToggleButton.disabled = false;
+    updateMusicToggleButton();
 
 });
 
