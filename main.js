@@ -1788,7 +1788,6 @@ const longnanLookoutRailing = { id: "railing", x: 740, y: 345, text: "远眺乐�
 const longnanTownMemories = [
     { id: "schoolEntrance", flag: "longnanSchoolGateMemory", label: "学校门口", x: 748, y: 330, repeatable: true, pages: [{ speaker: "乐乐", text: "我可是重点中学的尖子生哦。" }] },
     { id: "bridgeFlood", flag: "longnanBridgeMemory", label: "桥上的回忆", x: 718, y: 570, repeatable: true, pages: [{ speaker: "乐乐", text: "当年大暴雨，\n大到这条路被大水淹没了呢！" }] },
-    { id: "roadMemory", flag: "longnanRoadMemory", label: "路边的回忆", x: 1040, y: 405, repeatable: true, pages: [{ speaker: "乐乐", text: "每天在家就能看到学校。" }] },
     { id: "busStop", flag: "longnanBusStopMemory", label: "公交站", x: 1025, y: 700, repeatable: true, pages: [{ speaker: "乐乐", text: "这里的变化好大啊～" }] }
 ];
 const longnanTownPiaozi = {
@@ -1812,7 +1811,6 @@ const longnanTownInteractionPoints = [...longnanTownMemories, longnanTownPiaozi]
 const longnanTownMemoryOrder = [
     "schoolEntrance",
     "bridgeFlood",
-    "roadMemory",
     "busStop",
     "bridgePiaozi"
 ];
@@ -1895,7 +1893,6 @@ function updateLongnanMemoryCompletion() {
     const completed = [
         storyFlags.longnanSchoolGateMemory,
         storyFlags.longnanBridgeMemory,
-        storyFlags.longnanRoadMemory,
         storyFlags.longnanBusStopMemory,
         storyFlags.longnanPiaoziMemory
     ].every(Boolean);
