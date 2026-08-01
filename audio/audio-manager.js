@@ -123,6 +123,7 @@
         lastPickedAsset: new Map(),
         lastScene: null,
         pausedByVisibility: false,
+        resumePromise: null,
         memoryStack: [],
         memoryDuckDepth: 0,
         duckReasons: new Map(),
@@ -354,7 +355,7 @@
     }
 
     function unlockFromGesture() {
-        AudioManager.unlock();
+        void AudioManager.unlock();
     }
 
     async function playSilentUnlockBuffer() {
@@ -594,15 +595,55 @@
     function pauseAll() {
         if (!state.context || state.context.state === "closed") return;
         state.bgmOffset = getBGMPosition();
-        state.context.suspend?.();
+        if (state.bgmSource) {
+            const source = state.bgmSource;
+            state.bgmSource = null;
+            try { source.stop(0); } catch {}
+        }
+        void state.context.suspend?.();
+    }
+
+    async function resumeAllInternal() {
+        if (!state.context || !state.unlocked || state.context.state === "closed") return false;
+
+        try {
+            if (state.context.state !== "running") {
+                await state.context.resume?.();
+            }
+        } catch (error) {
+            state.pausedByVisibility = true;
+            attachUnlockListeners();
+            if (DEV_WARNINGS && console?.debug) {
+                console.debug("[Audio] Resume deferred until the next user gesture.", error);
+            }
+            return false;
+        }
+
+        if (state.context.state !== "running") {
+            state.pausedByVisibility = true;
+            attachUnlockListeners();
+            return false;
+        }
+
+        state.pausedByVisibility = false;
+        detachUnlockListeners();
+        if (state.currentBGM && !state.bgmSource && state.musicEnabled && !state.settings.muted.bgm) {
+            await playBGM(state.currentBGM, {
+                resumePosition: state.bgmOffset || 0,
+                fadeInMs: 180
+            });
+        }
+        return true;
     }
 
     function resumeAll() {
-        if (!state.context || !state.unlocked || state.context.state === "closed") return;
-        state.context.resume?.();
-        if (state.currentBGM && !state.bgmSource && state.musicEnabled && !state.settings.muted.bgm) {
-            playBGM(state.currentBGM, { resumePosition: state.bgmOffset || 0, fadeInMs: 180 });
-        }
+        if (state.resumePromise) return state.resumePromise;
+
+        state.resumePromise = resumeAllInternal().finally(() => {
+            state.resumePromise = null;
+        });
+
+        return state.resumePromise;
     }
 
     function resumeCurrentBGM(options = {}) {
@@ -689,15 +730,16 @@
     }
 
     function handleVisibilityHidden() {
-        if (!state.context || state.context.state !== "running") return;
-        state.pausedByVisibility = Boolean(state.currentBGM || state.currentAmbient || totalActiveSFXCount());
-        pauseAll();
+        if (!state.context || state.context.state === "closed") return;
+        state.pausedByVisibility = state.pausedByVisibility
+            || Boolean(state.currentBGM || state.currentAmbient || totalActiveSFXCount());
+        if (state.context.state === "running") pauseAll();
     }
 
     function handleVisibilityVisible() {
-        if (!state.pausedByVisibility) return;
-        state.pausedByVisibility = false;
-        resumeAll();
+        if (!state.context || state.context.state === "closed") return;
+        if (!state.pausedByVisibility && state.context.state === "running") return;
+        void resumeAll();
     }
 
     function totalActiveSFXCount() {
@@ -718,10 +760,11 @@
             });
             window.addEventListener("pagehide", handleVisibilityHidden);
             window.addEventListener("pageshow", handleVisibilityVisible);
+            window.addEventListener("focus", handleVisibilityVisible);
         },
 
         async unlock() {
-            if (state.unlocked) return true;
+            if (state.unlocked) return resumeAll();
             const context = createContext();
             if (!context) return false;
             try {
@@ -906,6 +949,7 @@
             if (state.context && state.context.state !== "closed") state.context.close();
             state.context = null;
             state.unlocked = false;
+            state.resumePromise = null;
             state.initialized = false;
         },
 

@@ -4,9 +4,9 @@
 ====================================== */
 
 const ADVENTURE_WEDDING_BUILD = Object.freeze({
-    identifier: "FINAL_TEST_001",
-    version: "final-test-001",
-    label: "FINAL TEST 001"
+    identifier: "FINAL_TEST_002",
+    version: "final-test-002",
+    label: "FINAL TEST 002"
 });
 
 console.info(
@@ -1949,7 +1949,7 @@ const SAKURA_AVENUE_BOUNDS = {
 };
 
 const exteriorMap = new Image();
-exteriorMap.src = "assets/tokyo-story-map.png?v=final-test-001";
+exteriorMap.src = "assets/tokyo-story-map.png?v=final-test-002";
 
 const sydneyMap = new Image();
 sydneyMap.src = "assets/maps/sydney-harbour-lookout.png?v=0.8.0";

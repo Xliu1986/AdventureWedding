@@ -12,7 +12,7 @@ const MUSIC = {
         id: "tokyo",
         title: "Crazy for You",
         artist: "Saito Marina",
-        src: `${MUSIC_BASE}tokyo.m4a?v=final-test-001`,
+        src: `${MUSIC_BASE}tokyo.m4a?v=final-test-002`,
         loop: true
     },
 
@@ -20,7 +20,7 @@ const MUSIC = {
         id: "sydney",
         title: "Just Don't Want to Be Lonely",
         artist: "John Scofield",
-        src: `${MUSIC_BASE}sydney.m4a?v=final-test-001`,
+        src: `${MUSIC_BASE}sydney.m4a?v=final-test-002`,
         loop: true
     },
 
@@ -28,7 +28,7 @@ const MUSIC = {
         id: "longnan",
         title: "初夏雨后",
         artist: "谢明祥",
-        src: `${MUSIC_BASE}longnan.m4a?v=final-test-001`,
+        src: `${MUSIC_BASE}longnan.m4a?v=final-test-002`,
         loop: true
     },
 
@@ -36,7 +36,7 @@ const MUSIC = {
         id: "wedding",
         title: "Ending",
         artist: "梁博",
-        src: `${MUSIC_BASE}wedding.m4a?v=final-test-001`,
+        src: `${MUSIC_BASE}wedding.m4a?v=final-test-002`,
         loop: true
     }
 };
