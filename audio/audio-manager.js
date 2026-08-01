@@ -123,6 +123,7 @@
         lastPickedAsset: new Map(),
         lastScene: null,
         pausedByVisibility: false,
+        foregroundGestureRecoveryPending: false,
         resumePromise: null,
         memoryStack: [],
         memoryDuckDepth: 0,
@@ -355,7 +356,7 @@
     }
 
     function unlockFromGesture() {
-        void AudioManager.unlock();
+        void AudioManager.unlock({ fromGesture: true });
     }
 
     async function playSilentUnlockBuffer() {
@@ -603,7 +604,7 @@
         void state.context.suspend?.();
     }
 
-    async function resumeAllInternal() {
+    async function resumeAllInternal(options = {}) {
         if (!state.context || !state.unlocked || state.context.state === "closed") return false;
 
         try {
@@ -626,20 +627,38 @@
         }
 
         state.pausedByVisibility = false;
-        detachUnlockListeners();
+
+        if (options.forceBGMRestart && state.currentBGM) {
+            state.bgmOffset = getBGMPosition();
+            if (state.bgmSource) {
+                const source = state.bgmSource;
+                state.bgmSource = null;
+                try { source.stop(0); } catch {}
+            }
+        }
+
         if (state.currentBGM && !state.bgmSource && state.musicEnabled && !state.settings.muted.bgm) {
             await playBGM(state.currentBGM, {
                 resumePosition: state.bgmOffset || 0,
                 fadeInMs: 180
             });
         }
+
+        if (!state.foregroundGestureRecoveryPending) {
+            detachUnlockListeners();
+        }
         return true;
     }
 
-    function resumeAll() {
-        if (state.resumePromise) return state.resumePromise;
+    function resumeAll(options = {}) {
+        if (state.resumePromise) {
+            if (options.forceBGMRestart) {
+                return state.resumePromise.then(() => resumeAll(options));
+            }
+            return state.resumePromise;
+        }
 
-        state.resumePromise = resumeAllInternal().finally(() => {
+        state.resumePromise = resumeAllInternal(options).finally(() => {
             state.resumePromise = null;
         });
 
@@ -733,11 +752,21 @@
         if (!state.context || state.context.state === "closed") return;
         state.pausedByVisibility = state.pausedByVisibility
             || Boolean(state.currentBGM || state.currentAmbient || totalActiveSFXCount());
-        if (state.context.state === "running") pauseAll();
+        state.foregroundGestureRecoveryPending = Boolean(state.currentBGM);
+        if (state.foregroundGestureRecoveryPending) attachUnlockListeners();
+        pauseAll();
     }
 
     function handleVisibilityVisible() {
-        if (!state.context || state.context.state === "closed") return;
+        if (!state.context) return;
+        if (state.context.state === "closed") {
+            state.context = null;
+            state.unlocked = false;
+            state.bgmSource = null;
+            state.ambientSource = null;
+            attachUnlockListeners();
+            return;
+        }
         if (!state.pausedByVisibility && state.context.state === "running") return;
         void resumeAll();
     }
@@ -758,13 +787,22 @@
                 if (document.visibilityState === "hidden") handleVisibilityHidden();
                 else handleVisibilityVisible();
             });
+            window.addEventListener("blur", handleVisibilityHidden);
             window.addEventListener("pagehide", handleVisibilityHidden);
             window.addEventListener("pageshow", handleVisibilityVisible);
             window.addEventListener("focus", handleVisibilityVisible);
         },
 
-        async unlock() {
-            if (state.unlocked) return resumeAll();
+        async unlock(options = {}) {
+            if (state.unlocked) {
+                const forceBGMRestart = Boolean(
+                    options.fromGesture && state.foregroundGestureRecoveryPending
+                );
+                if (forceBGMRestart) {
+                    state.foregroundGestureRecoveryPending = false;
+                }
+                return resumeAll({ forceBGMRestart });
+            }
             const context = createContext();
             if (!context) return false;
             try {
@@ -776,6 +814,7 @@
                     return false;
                 }
                 state.unlocked = true;
+                state.foregroundGestureRecoveryPending = false;
                 detachUnlockListeners();
                 AudioManager.preloadGroup("core-ui");
                 if (state.lastScene) {
@@ -949,6 +988,7 @@
             if (state.context && state.context.state !== "closed") state.context.close();
             state.context = null;
             state.unlocked = false;
+            state.foregroundGestureRecoveryPending = false;
             state.resumePromise = null;
             state.initialized = false;
         },

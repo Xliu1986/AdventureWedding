@@ -124,7 +124,7 @@
 
         timeline = new global.ChatTimeline({
             root: prologueRoot,
-            dataUrl: customOptions.dataUrl ?? "data/prologue.json?v=final-test-002",
+            dataUrl: customOptions.dataUrl ?? "data/prologue.json?v=final-test-003",
             onComplete: null
         });
 

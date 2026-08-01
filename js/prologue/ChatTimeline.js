@@ -14,7 +14,7 @@
     "use strict";
 
     const DEFAULTS = Object.freeze({
-        dataUrl: "data/prologue.json?v=final-test-002",
+        dataUrl: "data/prologue.json?v=final-test-003",
         rootSelector: "#chatPrologue",
         listSelector: "[data-chat-list]",
         typingSelector: "[data-chat-typing]",
