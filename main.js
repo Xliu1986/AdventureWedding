@@ -3,6 +3,21 @@
    RC2.2 — Wedding Music Edition
 ====================================== */
 
+const ADVENTURE_WEDDING_BUILD = Object.freeze({
+    identifier: "FINAL_TEST_001",
+    version: "final-test-001",
+    label: "FINAL TEST 001"
+});
+
+console.info(
+    `[AdventureWedding] Build ${ADVENTURE_WEDDING_BUILD.identifier}`
+);
+
+const visibleBuildLabel = document.querySelector("[data-build-label]");
+if (visibleBuildLabel) {
+    visibleBuildLabel.textContent = ADVENTURE_WEDDING_BUILD.label;
+}
+
 const canvas = document.getElementById("background");
 const ctx = canvas.getContext("2d");
 const gameViewport = document.getElementById("gameViewport");
@@ -1934,7 +1949,7 @@ const SAKURA_AVENUE_BOUNDS = {
 };
 
 const exteriorMap = new Image();
-exteriorMap.src = "assets/tokyo-story-map.png?v=0.9.2-portrait";
+exteriorMap.src = "assets/tokyo-story-map.png?v=final-test-001";
 
 const sydneyMap = new Image();
 sydneyMap.src = "assets/maps/sydney-harbour-lookout.png?v=0.8.0";
