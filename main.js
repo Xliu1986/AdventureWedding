@@ -1631,8 +1631,6 @@ function loadWeddingProgress() {
             if (typeof saved[flag] === "boolean") storyFlags[flag] = saved[flag];
         });
         if (!storyFlags.weddingArchUnlocked
-            && storyFlags.weddingSignInViewed
-            && storyFlags.weddingPhotoAreaViewed
             && storyFlags.weddingCeremonyAreaViewed) {
 
             storyFlags.weddingArchUnlocked = true;
@@ -2247,14 +2245,6 @@ const weddingXiaoyuanBlockedRects = [
 ];
 const weddingInteractables = [
     {
-        id: "weddingSignIn", label: "签到区", x: 270, y: 570, repeatable: true,
-        pages: [{ speaker: "坨坨", text: "欢迎各位来宾～\n\n请大家到达后，\n先在这里签到喵！" }]
-    },
-    {
-        id: "weddingPhotoArea", label: "合影区", x: 1160, y: 545, repeatable: true,
-        pages: [{ speaker: "大痣", text: "请大家来这里拍照留念。\n\n希望能和大家，\n留下许多美好的瞬间，喵呜～" }]
-    },
-    {
         id: "weddingCeremonyArea", label: "仪式区", x: 720, y: 285, repeatable: true,
         pages: [
             { speaker: "坨坨", text: "这里就是森和乐乐，\n举行婚礼仪式的地方喵～" },
@@ -2265,11 +2255,9 @@ const weddingInteractables = [
 ];
 let nearbyWeddingInteraction = null;
 const weddingInteractionFlags = {
-    weddingSignIn: "weddingSignInViewed",
-    weddingPhotoArea: "weddingPhotoAreaViewed",
     weddingCeremonyArea: "weddingCeremonyAreaViewed"
 };
-const weddingInteractionOrder = ["weddingSignIn", "weddingPhotoArea", "weddingCeremonyArea"];
+const weddingInteractionOrder = ["weddingCeremonyArea"];
 
 function isWeddingInteractionViewed(interactableOrId) {
 
