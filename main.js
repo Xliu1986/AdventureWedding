@@ -337,6 +337,7 @@ const chapterCardTheme = document.querySelector(".chapterCardTheme");
 const chapterCardMessage = document.querySelector(".chapterCardMessage");
 
 let gameStarted = false;
+let chatPrologueSceneHandled = false;
 let characterPanelOpen = false;
 let gameLoopStarted = false;
 let previousGameTime = 0;
@@ -720,6 +721,23 @@ function playOpeningPrologue() {
     });
 
 }
+
+function handleAdventureWeddingSceneRequest(event) {
+
+    const requestedScene = event.detail?.scene;
+
+    if (requestedScene !== "tokyoChapterCard" || chatPrologueSceneHandled) return;
+
+    chatPrologueSceneHandled = true;
+    beginGameplay();
+    showChapterIntro("tokyo", beginTokyoGameplay);
+
+}
+
+document.addEventListener(
+    "adventure-wedding:scene-request",
+    handleAdventureWeddingSceneRequest
+);
 
 document.querySelectorAll(".characterPortrait img").forEach(image => {
 
@@ -7598,12 +7616,33 @@ startButton.addEventListener("click", async () => {
     const audioUnlocked = await window.AudioManager?.unlock?.();
     if (audioUnlocked) window.AudioManager?.playSFX?.("pressStart");
     gameStarted = true;
+    startButton.disabled = true;
+    chatPrologueSceneHandled = false;
     resetTokyoChapterForNewGame();
+    window.AdventureWeddingChatPrologue?.reset?.();
     titleAnimationRunning = false;
     titleScreen.classList.add("hidden");
     dialog.classList.add("hidden");
-    beginGameplay();
-    playOpeningPrologue();
+    try {
+
+        if (window.AdventureWeddingChatPrologue?.start) {
+
+            await window.AdventureWeddingChatPrologue.start();
+            return;
+
+        }
+
+        console.error("AdventureWedding chat prologue bridge is unavailable.");
+
+    } catch (error) {
+
+        console.error("AdventureWedding chat prologue failed to start.", error);
+
+    }
+
+    handleAdventureWeddingSceneRequest({
+        detail: { scene: "tokyoChapterCard", source: "startFallback" }
+    });
 
 });
 

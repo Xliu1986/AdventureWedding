@@ -29,6 +29,18 @@
         fallbackEndHold: 700
     });
 
+    function isValidTiming(value) {
+        return typeof value === "number" && Number.isFinite(value) && value >= 0;
+    }
+
+    function resolveTiming(...candidates) {
+        return candidates.find(isValidTiming);
+    }
+
+    function normaliseOptionalTiming(value) {
+        return isValidTiming(value) ? value : NaN;
+    }
+
     function wait(ms, signal) {
         const duration = Math.max(0, Number(ms) || 0);
 
@@ -77,9 +89,11 @@
                     : "left",
             avatar: rawMessage?.avatar ? String(rawMessage.avatar) : "",
             timestamp: rawMessage?.timestamp ? String(rawMessage.timestamp) : "",
-            delayBefore: Number(rawMessage?.delayBefore ?? rawMessage?.delay ?? NaN),
-            typingDuration: Number(rawMessage?.typingDuration ?? NaN),
-            holdAfter: Number(rawMessage?.holdAfter ?? NaN)
+            delayBefore: normaliseOptionalTiming(
+                rawMessage?.delayBefore ?? rawMessage?.delay
+            ),
+            typingDuration: normaliseOptionalTiming(rawMessage?.typingDuration),
+            holdAfter: normaliseOptionalTiming(rawMessage?.holdAfter)
         };
     }
 
@@ -166,7 +180,10 @@
                 throw new Error("[ChatTimeline] prologue.json contains no messages.");
             }
 
-            const timing = rawData.timing ?? rawData.settings ?? {};
+            const timingCandidate = rawData.timing ?? rawData.settings;
+            const timing = timingCandidate && typeof timingCandidate === "object"
+                ? timingCandidate
+                : {};
             const transition = rawData.transition ?? rawData.next ?? {};
 
             this.data = {
@@ -174,23 +191,40 @@
                 version: String(rawData.version ?? "RC2.2.1"),
                 messages: rawMessages.map(normaliseMessage),
                 timing: {
-                    messageDelay: Number(
-                        timing.messageDelay ??
-                        timing.defaultMessageDelay ??
+                    messageDelay: resolveTiming(
+                        this.options.messageDelay,
+                        timing.messageDelay,
+                        timing.defaultMessageDelay,
+                        rawData.messageDelay,
+                        rawData.defaultMessageDelay,
                         this.options.fallbackMessageDelay
                     ),
-                    typingDuration: Number(
-                        timing.typingDuration ??
-                        timing.defaultTypingDuration ??
+                    typingDuration: resolveTiming(
+                        this.options.typingDuration,
+                        timing.typingDuration,
+                        timing.defaultTypingDuration,
+                        rawData.typingDuration,
+                        rawData.defaultTypingDuration,
                         this.options.fallbackTypingDuration
                     ),
-                    fadeDuration: Number(
-                        timing.fadeDuration ??
+                    fadeDuration: resolveTiming(
+                        this.options.fadeDuration,
+                        this.options.fadeOutDuration,
+                        timing.fadeDuration,
+                        timing.fadeOutDuration,
+                        rawData.fadeDuration,
+                        rawData.fadeOutDuration,
                         this.options.fallbackFadeDuration
                     ),
-                    endHold: Number(
-                        timing.endHold ??
-                        timing.finalHold ??
+                    endHold: resolveTiming(
+                        this.options.endHold,
+                        this.options.finishDelay,
+                        timing.endHold,
+                        timing.finalHold,
+                        timing.finishDelay,
+                        rawData.endHold,
+                        rawData.finalHold,
+                        rawData.finishDelay,
                         this.options.fallbackEndHold
                     )
                 },
