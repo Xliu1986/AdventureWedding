@@ -1301,10 +1301,7 @@ function resetTokyoChapterForNewGame() {
 
 function getPlayerInteractionAnchor() {
 
-    return {
-        x: player.x + player.width / 2,
-        y: player.y + player.height
-    };
+    return window.AdventureWeddingInteractionGeometry.getPlayerInteractionPoint(player);
 
 }
 
@@ -2369,6 +2366,15 @@ const directionByKey = {
     ArrowRight: "right"
 };
 
+function facePlayerFromInputKey(key) {
+
+    const direction = directionByKey[key];
+    if (!window.AdventureWeddingInteractionGeometry.DIRECTION_VECTORS[direction]) return;
+    player.direction = direction;
+    player.direction8 = direction;
+
+}
+
 const TILE_SIZE = 64;
 
 const Tile = {
@@ -2819,6 +2825,8 @@ function faceToward(actor, target) {
         actor.direction = vertical >= 0 ? "down" : "up";
 
     }
+
+    if ("direction8" in actor) actor.direction8 = actor.direction;
 
 }
 
@@ -3582,6 +3590,7 @@ function enterWeddingXiaoyuan() {
     cats[1].x = 766;
     cats[1].y = 698;
     player.direction = "up";
+    player.direction8 = "up";
     le.direction = "up";
     cats.forEach(cat => {
         cat.direction = "up";
@@ -4018,6 +4027,7 @@ function spawnSydneyParty() {
     cats[1].x = 750;
     cats[1].y = 825;
     player.direction = "up";
+    player.direction8 = "up";
     le.direction = "up";
     cats.forEach(cat => cat.direction = "up");
     moriPositionHistory.length = 0;
@@ -4625,6 +4635,7 @@ function placePartyInColes() {
     cats[1].x = 652;
     cats[1].y = 850;
     player.direction = "up";
+    player.direction8 = "up";
     le.direction = "up";
     cats.forEach(cat => cat.direction = "up");
     seedPartyHistory();
@@ -4646,6 +4657,7 @@ function placePartyInSydney() {
     cats[1].x = 808;
     cats[1].y = 900;
     player.direction = "up";
+    player.direction8 = "up";
     le.direction = "up";
     cats.forEach(cat => cat.direction = "up");
     seedPartyHistory();
@@ -7750,11 +7762,7 @@ mobileControls.querySelectorAll("button[data-control]").forEach(button => {
         pressedKeys.add(mobileControlKeys[control]);
         button.classList.add("isPressed");
 
-        if (directionByKey[mobileControlKeys[control]]) {
-
-            player.direction = directionByKey[mobileControlKeys[control]];
-
-        }
+        facePlayerFromInputKey(mobileControlKeys[control]);
 
     });
 
@@ -7858,11 +7866,7 @@ window.addEventListener("keydown", event => {
         event.preventDefault();
         pressedKeys.add(event.code);
 
-        if (directionByKey[event.code]) {
-
-            player.direction = directionByKey[event.code];
-
-        }
+        facePlayerFromInputKey(event.code);
 
     }
 
