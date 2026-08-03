@@ -330,6 +330,7 @@ animate();
 =========================== */
 
 const startButton = document.getElementById("startButton");
+const winButton = document.getElementById("winButton");
 
 const dialog = document.getElementById("dialog");
 
@@ -7572,6 +7573,12 @@ startButton.addEventListener("pointerdown", () => {
 
 }, { passive: true });
 
+winButton.addEventListener("pointerdown", () => {
+
+    window.AudioManager?.unlock?.();
+
+}, { passive: true });
+
 startButton.addEventListener("click", async () => {
 
     if (gameStarted) return;
@@ -7606,6 +7613,29 @@ startButton.addEventListener("click", async () => {
     handleAdventureWeddingSceneRequest({
         detail: { scene: "tokyoChapterCard", source: "startFallback" }
     });
+
+});
+
+winButton.addEventListener("click", async () => {
+
+    if (gameStarted) return;
+
+    const audioUnlocked = await window.AudioManager?.unlock?.();
+    if (audioUnlocked) window.AudioManager?.playSFX?.("pressStart");
+    gameStarted = true;
+    startButton.disabled = true;
+    winButton.disabled = true;
+    chatPrologueSceneHandled = true;
+    window.AdventureWeddingChatPrologue?.reset?.();
+    titleAnimationRunning = false;
+    titleScreen.classList.add("hidden");
+    dialog.classList.add("hidden");
+    restoreGameplayUI();
+    chapterLocation.classList.add("hidden");
+    currentChapter = "weddingXiaoyuan";
+    storyFlags.weddingChapterStarted = true;
+    beginGameplay();
+    showWeddingInvitation();
 
 });
 
