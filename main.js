@@ -939,7 +939,7 @@ const interactables = [
         x: 580, y: 1740, width: 150, height: 82,
         prompt: "一点张",
         pages: [
-            { speaker: "森", text: "这家拉面店看起来很特别，生意很不错啊！" },
+            { speaker: "森", text: "一点张! 好特别的拉面店！感觉会很好吃！！" },
             { speaker: "乐乐", text: "哈哈哈，我要分享给张欣！" },
             { speaker: "森", text: "（偷笑）向我们的好朋友张欣致敬～～感谢她促成了这段奇妙的旅程～～" },
             { speaker: "坨坨，大痣", text: "谢谢喵～" }
@@ -988,14 +988,14 @@ const hiddenCatEvent = {
         { speaker: "坨坨", text: "喵~" },
         { speaker: "大痣", text: "喵呜……" },
         { speaker: "乐乐", text: "咦？\n坨坨？\n大痣？\n你们怎么会在东京？" },
-        { speaker: "森", text: "它们认识你？" },
-        { speaker: "乐乐", text: "嗯。\n它们一直都是我的家人。" },
-        { speaker: "森", text: "看来。\n今天真的很幸运。" }
+        { speaker: "森", text: "坨坨和大痣？" },
+        { speaker: "乐乐", text: "对呀，我的坨宝和痣宝～" },
+        { speaker: "森", text: "那我们可以一起逛东京 ： ）" }
     ]
 };
 
 const tokyoPostCatJoinDialoguePages = [
-    { speaker: "森", text: "我们可以去那边的店铺看看，\n搞不好会有一些宝藏小店。" },
+    { speaker: "森", text: "那我们可以一起去下面的店铺去逛逛，感觉会有一些好玩的店。" },
     { speaker: "乐乐", text: "好呀～" },
     { speaker: "坨坨", text: "喵～" },
     { speaker: "大痣", text: "喵呜" }
@@ -1738,7 +1738,7 @@ const sydneyLifeSequence = [
         { speaker: "大痣", text: "喵呜～" }
     ] },
     { id: "blueWorksMemory", cg: "blueWorksMemory", flag: "blueWorksMemory", revealDelay: 0.9, hold: 1.25, pages: [
-        { speaker: "森", text: "这是我在悉尼最常去的宝藏小店，\n老朋友杜老板品味没得说！" },
+        { speaker: "森", text: "这是我在悉尼最常去的地方，老朋友杜老板还有朋友们经常在店里闲聊，很舒服的宝藏小店。" },
         { speaker: "乐乐", text: "哇，\n那一定要去逛一逛！" },
         { speaker: "坨坨", text: "我也要去喵～" },
         { speaker: "大痣", text: "一起去喵呜～" }
@@ -1774,11 +1774,11 @@ let nearbyLongnanMemoryAlbum = false;
 const longnanMemorySparkle = { active: false, id: "", timer: 0, x: 0, y: 0 };
 const longnanLookoutPages = [
     { speaker: "乐乐", text: "欢迎来到陇南。\n这里，\n就是我长大的地方。" },
-    { speaker: "森", text: "真漂亮。\n难怪，\n你的作品里，\n总会出现这些山。" }
+    { speaker: "森", text: "空气真的很清爽，整个人都放松了～" }
 ];
 const longnanHometownPages = [
     { speaker: "森", text: "哇，这就是你长大的地方吗？" },
-    { speaker: "乐乐", text: "是的，这就是我的家乡，一个承载我所有童年记忆的地方，有陪着我长大的F4，酸甜的瓢子，还有别的地方吃不到的“三层楼”还有坨坨宝和痣宝～" },
+    { speaker: "乐乐", text: "这就是我从小生活的地方，无数童年的快乐都来自这里。" },
     { speaker: "坨坨", text: "喵～💗" },
     { speaker: "大痣", text: "喵呜～💗" }
 ];
@@ -1797,9 +1797,9 @@ const longnanTownPiaozi = {
     memoryId: "longnanBridgePiaozi",
     repeatable: true,
     pages: [
-        { speaker: "乐乐", text: "看，在我们这里，\n野生的瓢子都会当天被人采摘然后装盒售卖。\n\n放几天瓢子就会烂掉，\n所以这是一种赏味期限十分短暂的美味小浆果。" },
-        { speaker: "森", text: "要不是认识了你，\n我可能都不会有机会吃到这么特别的东西～" },
-        { speaker: "乐乐", text: "相信以后我们还会去更多的地方，\n一起体验不一样的人生💗" },
+        { speaker: "乐乐", text: "这就是我们当地的野生瓢子，一种野生的小浆果，赏味期限很短暂，所以只有在这里才能吃到～" },
+        { speaker: "森", text: "第一次见到这么神奇的小果子～" },
+        { speaker: "乐乐", text: "以后我们还可以发掘更多的新鲜玩意儿。" },
         { speaker: "坨坨", text: "我也要一起！" },
         { speaker: "大痣", text: "当然少不了我！" },
         { speaker: "森 & 乐乐", text: "（笑）" }
