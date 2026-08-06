@@ -4,9 +4,9 @@
 ====================================== */
 
 const ADVENTURE_WEDDING_BUILD = Object.freeze({
-    identifier: "FINAL_TEST_005",
-    version: "final-test-005",
-    label: "FINAL TEST 005"
+    identifier: "FINAL_TEST_006",
+    version: "final-test-006",
+    label: "FINAL TEST 006"
 });
 
 console.info(
@@ -406,7 +406,8 @@ function updatePerformanceProfile(deltaTime) {
 }
 const chapterCardState = {
     active: false, mode: "", chapterId: "", elapsed: 0, phase: "idle",
-    onComplete: null, inputUnlocked: false, finalCard: false, previousGameState: null
+    onComplete: null, inputUnlocked: false, finalCard: false, previousGameState: null,
+    assetsReady: true, assetFailures: 0
 };
 let transitionInputLockUntil = 0;
 
@@ -481,6 +482,8 @@ function showChapterCard({ mode, chapter, onComplete = null }) {
     chapterCardState.inputUnlocked = false;
     chapterCardState.finalCard = isFinal;
     chapterCardState.previousGameState = gameState;
+    chapterCardState.assetsReady = mode !== "intro";
+    chapterCardState.assetFailures = 0;
 
     if (mode === "prologue") setGameState(GameState.PROLOGUE);
     else if (isEnding) setGameState(GameState.CHAPTER_ENDING);
@@ -497,6 +500,19 @@ function showChapterCard({ mode, chapter, onComplete = null }) {
     chapterCard.style.opacity = "0";
     chapterCard.classList.remove("hidden");
     transitionInputLockUntil = performance.now() + 350;
+
+    if (mode === "intro") {
+
+        loadChapterAssets(chapter.id).then(result => {
+
+            if (!chapterCardState.active || chapterCardState.chapterId !== chapter.id) return;
+            chapterCardState.assetsReady = true;
+            chapterCardState.assetFailures = result.failures;
+            chapterCardMessage.textContent = result.failures ? "部分资源加载失败，游戏将继续" : "";
+
+        });
+
+    }
     return true;
 
 }
@@ -606,6 +622,13 @@ function updateChapterCard(deltaTime) {
 
         if (chapterCardState.finalCard) return;
         if (chapterCardState.elapsed >= holdDuration) {
+
+            if (!chapterCardState.assetsReady) {
+
+                chapterCardMessage.textContent = "资源加载中…";
+                return;
+
+            }
 
             chapterCardState.phase = "fadeOut";
             chapterCardState.elapsed = 0;
@@ -1948,41 +1971,24 @@ const SAKURA_AVENUE_BOUNDS = {
 };
 
 const exteriorMap = new Image();
-exteriorMap.src = "assets/tokyo-story-map.png?v=final-test-005";
-
 const sydneyMap = new Image();
-sydneyMap.src = "assets/maps/sydney-harbour-lookout.png?v=0.8.0";
-
 const sydneyExplorationMap = new Image();
-sydneyExplorationMap.src = "assets/sydney/sydney-harbour-night.png?v=0.8.0";
-
 const colesInteriorMap = new Image();
-colesInteriorMap.src = "assets/maps/coles-interior-v0.8.2.png?v=0.8.2";
-
 const longnanLookoutPixelMap = new Image();
-longnanLookoutPixelMap.src = "assets/maps/longnan-lookout-pixel.png?v=0.8.6";
-
 const longnanChildhoodTownPixelMap = new Image();
-longnanChildhoodTownPixelMap.src = "assets/maps/longnan/longnan-town.png?v=0.8.7";
-
 const weddingXiaoyuanMap = new Image();
-weddingXiaoyuanMap.src = "assets/maps/wedding/xiaoyuan-wedding-map.png?v=0.9.0-map2";
 weddingXiaoyuanMap.addEventListener("load", () => {
 
     if (currentChapter === "weddingXiaoyuan") storyFlags.weddingMapEntered = true;
 
 });
 
-const piaoziStoryCG = new Image();
-piaoziStoryCG.src = "assets/cg/coles-piaozi-story.png?v=0.8.3";
-
 // Every future real-photo CG belongs in assets/cg/source/ (the approved photo)
 // and assets/cg/pixel/ (its faithful pixel-art rendering). The source photo is
 // never altered by this runtime; this table only plays approved pixel CG files.
 const storyCGs = {
     colesPiaozi: {
-        src: "assets/cg/coles-piaozi-story.png?v=0.8.3",
-        image: piaoziStoryCG,
+        src: "assets/cg/coles-piaozi-story.webp?v=final-test-006",
         locationTitle: "Piaozi",
         focalX: 0.54,
         focalY: 0.42,
@@ -1994,7 +2000,7 @@ const storyCGs = {
         mobileDisplay: "dialogueSafe"
     },
     sydneyCooking: {
-        src: "assets/cg/sydney/cg-cooking-together.png",
+        src: "assets/cg/sydney/cg-cooking-together.webp?v=final-test-006",
         locationTitle: "Crows Nest",
         focalX: 0.55,
         focalY: 0.42,
@@ -2004,7 +2010,7 @@ const storyCGs = {
         mobileDisplay: "contain"
     },
     sydneyWatchingTheSea: {
-        src: "assets/cg/sydney/cg-seaside-jump.png",
+        src: "assets/cg/sydney/cg-seaside-jump.webp?v=final-test-006",
         locationTitle: "Cronulla",
         focalX: 0.51,
         focalY: 0.45,
@@ -2012,14 +2018,14 @@ const storyCGs = {
         mobileDisplay: "contain"
     },
     tasmaniaAdventure: {
-        src: "assets/cg/sydney/cg-tasmania-trip.png?v=0.9.4-bicheno",
+        src: "assets/cg/sydney/cg-tasmania-trip.webp?v=final-test-006",
         locationTitle: "Moma Tasmania",
         focalX: 0.53,
         focalY: 0.47,
         mobileDisplay: "contain"
     },
     blueWorksMemory: {
-        src: "assets/cg/sydney/cg-blueworks.png?v=0.9.4-blueworks",
+        src: "assets/cg/sydney/cg-blueworks.webp?v=final-test-006",
         locationTitle: "Blue Works Vintage Store",
         focalX: 0.5,
         focalY: 0.48,
@@ -2027,7 +2033,7 @@ const storyCGs = {
     },
     sydneyAirport: {
         // Approved airport departure CG: preserved as supplied.
-        src: "assets/cg/sydney/cg-sydney-airport.png",
+        src: "assets/cg/sydney/cg-sydney-airport.webp?v=final-test-006",
         locationTitle: "Sydney Airport",
         focalX: 0.5,
         focalY: 0.48,
@@ -2035,7 +2041,7 @@ const storyCGs = {
         mobileDisplay: "contain"
     },
     tokyoMemoryAlbum: {
-        src: "assets/cg/memory-album/tokyo-memory-album.png?v=0.9.7.5",
+        src: "assets/cg/memory-album/tokyo-memory-album.webp?v=final-test-006",
         focalX: 0.5,
         focalY: 0.5,
         mobileDisplay: "contain",
@@ -2044,7 +2050,7 @@ const storyCGs = {
         fullScreenMemoryAlbum: true
     },
     tokyoStreetNightMemory: {
-        src: "assets/cg/memory-album/tokyo-street-night.png?v=0.9.7.5-single",
+        src: "assets/cg/memory-album/tokyo-street-night.webp?v=final-test-006",
         focalX: 0.5,
         focalY: 0.5,
         mobileDisplay: "contain",
@@ -2052,7 +2058,7 @@ const storyCGs = {
         memoryAlbum: true
     },
     tokyoFirstSelfieMemory: {
-        src: "assets/cg/memory-album/tokyo-first-selfie.png?v=20260801-memory-album-v2",
+        src: "assets/cg/memory-album/tokyo-first-selfie.webp?v=final-test-006",
         focalX: 0.5,
         focalY: 0.5,
         mobileDisplay: "contain",
@@ -2060,7 +2066,7 @@ const storyCGs = {
         memoryAlbum: true
     },
     tokyoOneDianZhangMemory: {
-        src: "assets/cg/memory-album/tokyo-one-dian-zhang.png?v=0.9.7.5-single",
+        src: "assets/cg/memory-album/tokyo-one-dian-zhang.webp?v=final-test-006",
         focalX: 0.5,
         focalY: 0.5,
         mobileDisplay: "contain",
@@ -2068,7 +2074,7 @@ const storyCGs = {
         memoryAlbum: true
     },
     kyotoShavedIceMemory: {
-        src: "assets/cg/memory-album/kyoto-shaved-ice.png?v=0.9.7.5-single",
+        src: "assets/cg/memory-album/kyoto-shaved-ice.webp?v=final-test-006",
         focalX: 0.5,
         focalY: 0.5,
         mobileDisplay: "contain",
@@ -2076,24 +2082,24 @@ const storyCGs = {
         memoryAlbum: true
     },
     longnanHometownView: {
-        src: "assets/cg/longnan/cg-kangxian-hometown.png?v=0.8.6",
+        src: "assets/cg/longnan/cg-kangxian-hometown.webp?v=final-test-006",
         locationTitle: "陇南 康县",
         focalX: 0.5,
         focalY: 0.48,
         mobileDisplay: "contain"
     },
     longnanChildhoodDrawing: {
-        src: "assets/cg/longnan/cg-lele-childhood-drawing.png?v=0.8.6",
+        src: "assets/cg/longnan/cg-lele-childhood-drawing.webp?v=final-test-006",
         focalX: 0.5,
         focalY: 0.46
     },
     longnanPiaozi: {
-        src: "assets/cg/longnan/cg-piaozi-berries.png?v=0.8.6",
+        src: "assets/cg/longnan/cg-piaozi-berries.webp?v=final-test-006",
         focalX: 0.5,
         focalY: 0.48
     },
     longnanTogether: {
-        src: "assets/cg/longnan/cg-mori-lele-longnan.png?v=0.8.6",
+        src: "assets/cg/longnan/cg-mori-lele-longnan.webp?v=final-test-006",
         focalX: 0.5,
         focalY: 0.46
     },
@@ -2103,7 +2109,7 @@ const storyCGs = {
         focalY: 0.42
     },
     longnanAlbumWildFruit: {
-        src: "assets/cg/memory-album/tokyo-wild-fruit.png?v=0.8.7",
+        src: "assets/cg/memory-album/tokyo-wild-fruit.webp?v=final-test-006",
         locationTitle: "陇南 康县",
         focalX: 0.5,
         focalY: 0.5,
@@ -2112,7 +2118,7 @@ const storyCGs = {
         memoryAlbum: true
     },
     longnanAlbumPiaozi: {
-        src: "assets/cg/memory-album/longnan-piaozi.png?v=0.9.9-piaozi-text",
+        src: "assets/cg/memory-album/longnan-piaozi.webp?v=final-test-006",
         locationTitle: "瓢子",
         focalX: 0.5,
         focalY: 0.5,
@@ -2121,7 +2127,7 @@ const storyCGs = {
         memoryAlbum: true
     },
     longnanAlbumMoment: {
-        src: "assets/cg/memory-album/sydney-moment.png?v=0.8.7",
+        src: "assets/cg/memory-album/sydney-moment.webp?v=final-test-006",
         locationTitle: "陇南 康县",
         focalX: 0.5,
         focalY: 0.5,
@@ -2130,7 +2136,7 @@ const storyCGs = {
         memoryAlbum: true
     },
     longnanAlbumWedding: {
-        src: "assets/cg/memory-album/wedding-portrait.png?v=0.8.7",
+        src: "assets/cg/memory-album/wedding-portrait.webp?v=final-test-006",
         locationTitle: "Wedding Preparation",
         focalX: 0.5,
         focalY: 0.5,
@@ -2139,7 +2145,7 @@ const storyCGs = {
         memoryAlbum: true
     },
     weddingInvitation: {
-        src: "assets/cg/wedding/wedding-invitation.png?v=20260801-new-invitation",
+        src: "assets/cg/wedding/wedding-invitation.webp?v=final-test-006",
         locationTitle: "Wedding Invitation",
         focalX: 0.5,
         focalY: 0.5,
@@ -2173,32 +2179,125 @@ const storyCGOverlay = {
 
 function ensureStoryCGImage(config) {
 
-    if (!config || config.image || !config.src) return;
+    if (!config) return Promise.resolve(false);
+    if (!config.src) return Promise.resolve(Boolean(config.image));
+    if (!config.image) config.image = new Image();
+    if (config.loadPromise) return config.loadPromise;
 
-    config.image = new Image();
-    config.image.addEventListener("error", () => {
+    config.loadPromise = loadImageAsset(config.image, config.src).then(loaded => {
 
-        config.loadFailed = true;
-        if (!config.pendingAsset) console.warn(`Missing Story CG asset: ${config.src}`);
-
-    }, { once: true });
-    config.image.src = config.src;
-
-}
-
-function preloadStoryCGs() {
-
-    if (performanceProfile.isMobile) return;
-
-    Object.values(storyCGs).forEach(config => {
-
-        ensureStoryCGImage(config);
+        config.loadFailed = !loaded;
+        if (!loaded && !config.pendingAsset) console.warn(`Missing Story CG asset: ${config.src}`);
+        return loaded;
 
     });
+    return config.loadPromise;
 
 }
 
-preloadStoryCGs();
+const imageAssetLoads = new WeakMap();
+
+function loadImageAsset(image, src) {
+
+    if (!image || !src) return Promise.resolve(false);
+    if (image.complete && image.naturalWidth > 0) return Promise.resolve(true);
+    const existingLoad = imageAssetLoads.get(image);
+    if (existingLoad) return existingLoad;
+
+    const load = new Promise(resolve => {
+
+        const finish = loaded => {
+
+            image.removeEventListener("load", handleLoad);
+            image.removeEventListener("error", handleError);
+            resolve(loaded);
+
+        };
+        const handleLoad = () => finish(true);
+        const handleError = () => finish(false);
+        image.addEventListener("load", handleLoad, { once: true });
+        image.addEventListener("error", handleError, { once: true });
+        if (!image.src) image.src = src;
+
+    });
+    imageAssetLoads.set(image, load);
+    return load;
+
+}
+
+const chapterMapAssets = Object.freeze({
+    tokyo: [
+        { image: exteriorMap, src: "assets/tokyo-story-map.webp?v=final-test-006" }
+    ],
+    sydney: [
+        { image: sydneyMap, src: "assets/maps/sydney-harbour-lookout.webp?v=final-test-006" },
+        { image: sydneyExplorationMap, src: "assets/sydney/sydney-harbour-night.webp?v=final-test-006" },
+        { image: colesInteriorMap, src: "assets/maps/coles-interior-v0.8.2.webp?v=final-test-006" }
+    ],
+    longnan: [
+        { image: longnanLookoutPixelMap, src: "assets/maps/longnan-lookout-pixel.webp?v=final-test-006" },
+        { image: longnanChildhoodTownPixelMap, src: "assets/maps/longnan/longnan-town.webp?v=final-test-006" }
+    ],
+    wedding: [
+        { image: weddingXiaoyuanMap, src: "assets/maps/wedding/xiaoyuan-wedding-map.webp?v=final-test-006" }
+    ]
+});
+
+const chapterStoryCGIds = Object.freeze({
+    tokyo: [
+        "tokyoStreetNightMemory",
+        "tokyoFirstSelfieMemory",
+        "tokyoOneDianZhangMemory",
+        "kyotoShavedIceMemory"
+    ],
+    sydney: [
+        "colesPiaozi",
+        "sydneyCooking",
+        "sydneyWatchingTheSea",
+        "tasmaniaAdventure",
+        "blueWorksMemory",
+        "sydneyAirport"
+    ],
+    longnan: [
+        "longnanHometownView",
+        "longnanChildhoodDrawing",
+        "longnanPiaozi",
+        "longnanTogether",
+        "longnanAlbumWildFruit",
+        "longnanAlbumPiaozi",
+        "longnanAlbumMoment",
+        "longnanAlbumWedding"
+    ],
+    wedding: ["weddingInvitation"]
+});
+
+const chapterAssetLoads = new Map();
+
+function loadChapterAssets(chapterId) {
+
+    if (chapterAssetLoads.has(chapterId)) return chapterAssetLoads.get(chapterId);
+    const mapLoads = (chapterMapAssets[chapterId] || [])
+        .map(asset => loadImageAsset(asset.image, asset.src));
+    const storyLoads = (chapterStoryCGIds[chapterId] || [])
+        .map(id => ensureStoryCGImage(storyCGs[id]));
+    const load = Promise.all([...mapLoads, ...storyLoads]).then(results => ({
+        chapterId,
+        total: results.length,
+        failures: results.filter(loaded => !loaded).length
+    }));
+
+    chapterAssetLoads.set(chapterId, load);
+    return load;
+
+}
+
+window.AdventureWeddingAssets = Object.freeze({
+    loadChapter: loadChapterAssets,
+    getStatus: () => Object.fromEntries(
+        [...chapterAssetLoads.keys()].map(chapterId => [chapterId, "requested"])
+    )
+});
+
 
 const SYDNEY_WORLD_WIDTH = 1920;
 const SYDNEY_WORLD_HEIGHT = 1080;
@@ -7588,6 +7687,7 @@ startButton.addEventListener("click", async () => {
     gameStarted = true;
     startButton.disabled = true;
     chatPrologueSceneHandled = false;
+    loadChapterAssets("tokyo");
     resetTokyoChapterForNewGame();
     window.AdventureWeddingChatPrologue?.reset?.();
     titleAnimationRunning = false;
@@ -7625,6 +7725,7 @@ winButton.addEventListener("click", async () => {
     gameStarted = true;
     startButton.disabled = true;
     winButton.disabled = true;
+    await loadChapterAssets("wedding");
     chatPrologueSceneHandled = true;
     window.AdventureWeddingChatPrologue?.reset?.();
     titleAnimationRunning = false;

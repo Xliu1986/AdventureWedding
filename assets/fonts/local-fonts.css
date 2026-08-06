@@ -1,0 +1,23 @@
+@font-face {
+    font-family: "Press Start 2P";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 400;
+    src: url("press-start-2p-latin-400-normal.woff2?v=final-test-006") format("woff2");
+}
+
+@font-face {
+    font-family: "Fusion Pixel 12px Monospaced JP";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 400;
+    src: url("fusion-pixel-12px-monospaced-jp-400-normal.woff2?v=final-test-006") format("woff2");
+}
+
+@font-face {
+    font-family: "Fusion Pixel";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 400;
+    src: url("fusion-pixel-12px-monospaced-jp-400-normal.woff2?v=final-test-006") format("woff2");
+}

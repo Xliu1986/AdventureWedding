@@ -12,7 +12,7 @@ const MUSIC = {
         id: "tokyo",
         title: "Crazy for You",
         artist: "Saito Marina",
-        src: `${MUSIC_BASE}tokyo.m4a?v=final-test-005`,
+        src: `${MUSIC_BASE}tokyo.m4a?v=final-test-006`,
         loop: true
     },
 
@@ -20,7 +20,7 @@ const MUSIC = {
         id: "sydney",
         title: "Just Don't Want to Be Lonely",
         artist: "John Scofield",
-        src: `${MUSIC_BASE}sydney.m4a?v=final-test-005`,
+        src: `${MUSIC_BASE}sydney.m4a?v=final-test-006`,
         loop: true
     },
 
@@ -28,7 +28,7 @@ const MUSIC = {
         id: "longnan",
         title: "初夏雨后",
         artist: "谢明祥",
-        src: `${MUSIC_BASE}longnan.m4a?v=final-test-005`,
+        src: `${MUSIC_BASE}longnan.m4a?v=final-test-006`,
         loop: true
     },
 
@@ -36,15 +36,15 @@ const MUSIC = {
         id: "wedding",
         title: "Ending",
         artist: "梁博",
-        src: `${MUSIC_BASE}wedding.m4a?v=final-test-005`,
+        src: `${MUSIC_BASE}wedding.m4a?v=final-test-006`,
         loop: true
     }
 };
 
 const AUDIO_PRELOAD_GROUPS = {
-    tokyo: [["music", "tokyo"], ["music", "sydney"]],
-    sydney: [["music", "sydney"], ["music", "longnan"]],
-    longnan: [["music", "longnan"], ["music", "wedding"]],
+    tokyo: [["music", "tokyo"]],
+    sydney: [["music", "sydney"]],
+    longnan: [["music", "longnan"]],
     wedding: [["music", "wedding"]]
 };
 
